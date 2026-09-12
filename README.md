@@ -21,7 +21,7 @@ FoxGPT est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
 
 ```text
 Flutter / Dart
-├── UI et état de conversation
+├── UI de chat
 ├── LlmBackend
 │   ├── LocalLlmBackend
 │   │   └── worker isolate
@@ -42,6 +42,10 @@ La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHIT
 
 Déjà présent :
 
+- écran d'accueil orienté chat avec identité FoxGPT et renard orange dessiné en Dart ;
+- nouveau chat, menu latéral, composer inspiré des clients conversationnels modernes et accès au gestionnaire GGUF ;
+- envoi vers le modèle local chargé et affichage progressif de la réponse ;
+- bouton Stop pendant la génération ;
 - contrat Dart commun `LlmBackend` ;
 - backend OpenAI-compatible avec streaming SSE et BYOK ;
 - stockage sécurisé des clés API ou conservation en mémoire pour la session ;
@@ -59,7 +63,6 @@ Déjà présent :
 - arrêt coopératif immédiat via flag atomique ;
 - paramètres natifs température, top-p et max tokens ;
 - métriques de génération : tokens, durée et tokens/s ;
-- diagnostic du moteur local routé lui aussi par le worker isolate ;
 - smoke tests du cycle de vie worker, y compris erreur de génération et dispose idempotent ;
 - APK Android arm64 construit en CI avec vérification du moteur llama.cpp et des symboles de streaming embarqués.
 
@@ -67,4 +70,4 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 
 ## Prochain jalon
 
-La prochaine étape est l'écran de chat complet branché sur les streams Local/API, avec sélection du backend, affichage progressif des tokens et bouton Stop. Ensuite viendront la persistance des conversations et les paramètres de génération dans l'interface.
+La prochaine étape est de relier cette interface aux backends BYOK et aux fonctions `Réflexion`, `Rechercher`, pièces jointes et voix, puis d'ajouter la persistance des conversations et les paramètres de génération dans l'interface.
