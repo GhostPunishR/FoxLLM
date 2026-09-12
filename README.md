@@ -1,6 +1,12 @@
 # FoxGPT
 
-[![FoxGPT CI](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ci.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ci.yml)
+[![Dart Format](https://github.com/GhostPunishR/FoxGPT/actions/workflows/format.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/format.yml)
+[![Flutter Analyze](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-analyze.yml)
+[![Flutter Tests](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-tests.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-tests.yml)
+[![Native Dart Analyze](https://github.com/GhostPunishR/FoxGPT/actions/workflows/native-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/native-analyze.yml)
+[![C++ Compile](https://github.com/GhostPunishR/FoxGPT/actions/workflows/cpp.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/cpp.yml)
+[![FFI Smoke](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ffi-smoke.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ffi-smoke.yml)
+[![Android Build](https://github.com/GhostPunishR/FoxGPT/actions/workflows/android-build.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/android-build.yml)
 
 FoxGPT est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
 
@@ -39,7 +45,7 @@ Déjà présent :
 - package FFI `foxgpt_native` ;
 - ABI C stable devant une implémentation C++ ;
 - shell Flutter initial permettant de vérifier le pont natif ;
-- CI GitHub Actions pour Flutter, Dart et C++.
+- CI GitHub Actions séparées pour le formatage, l'analyse Flutter, les tests Flutter, l'analyse Dart native, la compilation C++, le smoke test FFI et le build Android.
 
 Le moteur C++ est volontairement un scaffold : il signale que `llama.cpp` n'est pas encore intégré au lieu de simuler une génération.
 
