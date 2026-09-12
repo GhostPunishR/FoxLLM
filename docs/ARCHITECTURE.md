@@ -45,9 +45,13 @@ Pendant l'inférence, le C++ appelle un callback FFI pour chaque token. Le worke
 
 Le picker système sert uniquement à sélectionner la source. FoxGPT ne conserve pas un chemin temporaire fourni par le picker : le contenu du `.gguf` est copié par flux dans le dossier privé `models` sous le répertoire Application Support de l'application.
 
-L'import écrit d'abord dans un fichier `.part-*`. Le fichier ne prend son nom `.gguf` définitif qu'après fermeture complète du flux et validation de la taille lorsque celle-ci est connue. En cas d'erreur ou d'interruption, le fichier partiel est supprimé. Un nom déjà présent reçoit un suffixe `(2)`, `(3)`, etc. au lieu d'écraser un modèle existant.
+L'import écrit d'abord dans un fichier `.part-*`. Chaque chunk est écrit avec `RandomAccessFile.writeFrom()` et attendu avant de lire le suivant, ce qui applique une backpressure réelle et évite d'accumuler en mémoire plusieurs gigaoctets lorsque le stockage est plus lent que la source.
 
-La bibliothèque est reconstruite en parcourant ce dossier privé : aucun registre séparé n'est nécessaire. La suppression est limitée aux fichiers `.gguf` présents directement dans ce dossier, et l'interface interdit de supprimer le modèle actuellement chargé.
+Le fichier ne prend son nom `.gguf` définitif qu'après fermeture complète du flux et validation de la taille lorsque celle-ci est connue. En cas d'erreur, le fichier partiel est supprimé. Au prochain scan de la bibliothèque, les `.part-*` orphelins laissés par un crash, un kill Android ou un redémarrage sont également supprimés ; les imports encore actifs dans le processus courant sont protégés de ce nettoyage.
+
+Un nom déjà présent reçoit un suffixe `(2)`, `(3)`, etc. au lieu d'écraser un modèle existant. La bibliothèque est reconstruite en parcourant ce dossier privé : aucun registre séparé n'est nécessaire. La suppression est limitée aux fichiers `.gguf` présents directement dans ce dossier, et l'interface interdit de supprimer le modèle actuellement chargé.
+
+Si le chargement d'un nouveau GGUF échoue après que `llama.cpp` a déchargé l'ancien modèle, `LocalLlmBackend` efface aussi son chemin chargé afin que l'état Flutter reste synchronisé avec l'état natif.
 
 ## BYOK
 
