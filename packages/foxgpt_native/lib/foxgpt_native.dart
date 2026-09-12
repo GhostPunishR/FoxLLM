@@ -365,10 +365,7 @@ class FoxGptNativeWorker {
     bytesController = StreamController<List<int>>(
       onListen: () {
         final commands = _commands;
-        if (_disposed ||
-            _disposing ||
-            _failure != null ||
-            commands == null) {
+        if (_disposed || _disposing || _failure != null || commands == null) {
           bytesController.addError(
             StateError('FoxGPT native worker is unavailable.'),
           );
