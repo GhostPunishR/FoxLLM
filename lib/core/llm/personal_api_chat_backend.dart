@@ -48,7 +48,8 @@ class PersonalApiChatBackend implements LocalLlmBackend {
   String get id => personalApiProviderId;
 
   @override
-  String get displayName => 'API personnelle · ${_settings.provider.displayName}';
+  String get displayName =>
+      'API personnelle · ${_settings.provider.displayName}';
 
   @override
   String? get loadedModelPath =>

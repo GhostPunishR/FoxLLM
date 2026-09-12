@@ -96,9 +96,7 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     final current = state.value ?? const PersonalApiSettings();
     var key = apiKey?.trim() ?? '';
 
-    if (key.isEmpty &&
-        current.providerId == provider.id &&
-        current.hasApiKey) {
+    if (key.isEmpty && current.providerId == provider.id && current.hasApiKey) {
       key =
           await ref
               .read(apiKeyStoreProvider)

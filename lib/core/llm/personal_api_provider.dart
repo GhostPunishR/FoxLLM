@@ -157,7 +157,8 @@ Future<List<String>> fetchPersonalApiModels({
       throw const FormatException('Réponse de modèles invalide.');
     }
 
-    final rawModels = provider.id == xAiPersonalApiProvider.id ||
+    final rawModels =
+        provider.id == xAiPersonalApiProvider.id ||
             provider.protocol == PersonalApiProtocol.gemini
         ? decoded['models']
         : decoded['data'];
@@ -257,7 +258,10 @@ String _normalizeBaseUrl(String value) {
 }
 
 class PersonalApiHttpException implements Exception {
-  const PersonalApiHttpException({required this.statusCode, required this.body});
+  const PersonalApiHttpException({
+    required this.statusCode,
+    required this.body,
+  });
 
   final int statusCode;
   final String body;

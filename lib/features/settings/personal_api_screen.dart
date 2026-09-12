@@ -204,7 +204,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       return settings;
     } catch (error) {
       if (mounted) {
-        _showSnack('Enregistrement impossible : ${describePersonalApiError(error)}');
+        _showSnack(
+          'Enregistrement impossible : ${describePersonalApiError(error)}',
+        );
       }
       return null;
     } finally {
@@ -252,7 +254,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       _showSnack('Clé API supprimée.');
     } catch (error) {
       if (mounted) {
-        _showSnack('Suppression impossible : ${describePersonalApiError(error)}');
+        _showSnack(
+          'Suppression impossible : ${describePersonalApiError(error)}',
+        );
       }
     }
   }
@@ -281,7 +285,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(personalApiSettingsProvider);
-    final hasStoredKey = state.value?.providerId == _providerId &&
+    final hasStoredKey =
+        state.value?.providerId == _providerId &&
         (state.value?.hasApiKey ?? false);
 
     return Scaffold(
@@ -360,23 +365,28 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                         enableSuggestions: false,
                         obscureText: _obscureApiKey,
                         style: const TextStyle(color: Colors.white),
-                        decoration: _inputDecoration(
-                          hasStoredKey
-                              ? 'Clé déjà enregistrée · laisse vide pour la conserver'
-                              : 'Clé API ${_provider.displayName}',
-                        ).copyWith(
-                          suffixIcon: IconButton(
-                            tooltip: _obscureApiKey ? 'Afficher' : 'Masquer',
-                            onPressed: () {
-                              setState(() => _obscureApiKey = !_obscureApiKey);
-                            },
-                            icon: Icon(
-                              _obscureApiKey
-                                  ? Icons.visibility_outlined
-                                  : Icons.visibility_off_outlined,
+                        decoration:
+                            _inputDecoration(
+                              hasStoredKey
+                                  ? 'Clé déjà enregistrée · laisse vide pour la conserver'
+                                  : 'Clé API ${_provider.displayName}',
+                            ).copyWith(
+                              suffixIcon: IconButton(
+                                tooltip: _obscureApiKey
+                                    ? 'Afficher'
+                                    : 'Masquer',
+                                onPressed: () {
+                                  setState(
+                                    () => _obscureApiKey = !_obscureApiKey,
+                                  );
+                                },
+                                icon: Icon(
+                                  _obscureApiKey
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 14),
                       if (!_provider.custom)
@@ -392,7 +402,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.cloud_download_outlined),
-                            label: const Text('Récupérer les modèles disponibles'),
+                            label: const Text(
+                              'Récupérer les modèles disponibles',
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.white,
                               minimumSize: const Size.fromHeight(48),
@@ -413,9 +425,10 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       else
                         DropdownButtonFormField<String>(
                           key: ValueKey<String>(
-                            'model-${_providerId}-${_models.length}-$_selectedModel',
+                            'model-$_providerId-${_models.length}-$_selectedModel',
                           ),
-                          initialValue: _models.contains(_selectedModel) &&
+                          initialValue:
+                              _models.contains(_selectedModel) &&
                                   _selectedModel.isNotEmpty
                               ? _selectedModel
                               : null,
