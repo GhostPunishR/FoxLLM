@@ -2,6 +2,50 @@
 
 Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
+## [Non publié]
+
+Passe de qualité sur le code existant : aucune fonctionnalité ajoutée, aucun
+comportement volontairement modifié en dehors des corrections ci-dessous.
+
+### Corrections
+
+- deux imports GGUF du même nom lancés en parallèle ne s'écrasent plus : la
+  destination est réservée avant l'écriture, alors que la vérification
+  d'existence laissait les deux imports viser le même fichier ;
+- quitter l'écran « API personnelle » pendant un test de connexion ne déclenche
+  plus `setState()` après `dispose()` ;
+- l'enregistrement d'une API personnelle ne touche plus les contrôleurs de
+  texte après le démontage de l'écran, ce qui levait une exception aussitôt
+  avalée et masquait un enregistrement pourtant réussi ;
+- une Base URL comportant plusieurs barres obliques finales ne produit plus
+  d'URL à double séparateur.
+
+### Qualité interne
+
+- backends OpenAI-compatible et Gemini construits sur un socle commun
+  `HttpStreamingBackend` : annulation, fermeture du client HTTP, lecture SSE et
+  cycle de vie `stop()`/`dispose()` ne sont plus dupliqués entre fournisseurs ;
+- une seule exception HTTP distante, `PersonalApiHttpException` ; le doublon
+  `HttpException`, qui masquait en plus la classe homonyme de `dart:io`, est
+  supprimé ;
+- normalisation de Base URL factorisée en un seul point ;
+- l'écran de chat ne se reconstruit plus entièrement à chaque frappe : seul le
+  bouton d'envoi observe désormais le brouillon ;
+- le défilement automatique n'empile plus un post-frame callback et une
+  animation par token pendant le streaming.
+
+### Tests
+
+- couverture de l'envoi d'un message : rendu du message, streaming de la
+  réponse, historique transmis au backend, bouton Arrêter, erreur de génération
+  et réponse vide ;
+- tests du socle HTTP partagé : lecture SSE, erreurs HTTP, absence de clé API ;
+- tests de l'écran « API personnelle », dont la régression `setState()` après
+  `dispose()` ;
+- tests d'import GGUF concurrent et de libération d'un nom réservé ;
+- tests de normalisation des Base URL ;
+- le dossier `test/` est désormais vérifié par le workflow Dart Format.
+
 ## [0.1.0] - 2026-09-12
 
 Première version fonctionnelle de FoxGPT pour Android, avec exécution locale de modèles GGUF et prise en charge d'API personnelles BYOK.

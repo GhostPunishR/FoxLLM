@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:foxgpt_native/foxgpt_native.dart';
 
 import '../../core/llm/local_backend_provider.dart';
 import 'local_model_file.dart';
@@ -67,8 +68,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
         return;
       }
       setState(() {
-        _runtimeDetails =
-            '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
+        _runtimeDetails = _formatRuntimeDetails(info);
       });
     } catch (_) {
       // The model list remains usable even if runtime metadata is unavailable.
@@ -148,9 +148,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
         return;
       }
       setState(() {
-        _runtimeDetails = info == null
-            ? null
-            : '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
+        _runtimeDetails = info == null ? null : _formatRuntimeDetails(info);
       });
     } catch (error) {
       if (!mounted) {
@@ -414,6 +412,9 @@ class _ModelCard extends StatelessWidget {
     );
   }
 }
+
+String _formatRuntimeDetails(FoxGptModelInfo info) =>
+    '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
 
 String _formatBytes(int bytes) {
   const units = <String>['o', 'Ko', 'Mo', 'Go', 'To'];

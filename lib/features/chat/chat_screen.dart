@@ -33,28 +33,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final List<_ChatConversation> _conversations = <_ChatConversation>[];
 
   bool _isGenerating = false;
+  bool _scrollScheduled = false;
   int _generationEpoch = 0;
   int _nextConversationId = 1;
   int? _activeConversationId;
 
   @override
-  void initState() {
-    super.initState();
-    _inputController.addListener(_onInputChanged);
-  }
-
-  void _onInputChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
   void dispose() {
     _generationEpoch += 1;
-    _inputController
-      ..removeListener(_onInputChanged)
-      ..dispose();
+    _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -248,7 +235,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _scrollToBottom() {
+    // Le streaming appelle cette méthode à chaque token : sans ce garde, chaque
+    // token empile un post-frame callback et une animation de plus par frame.
+    if (_scrollScheduled) {
+      return;
+    }
+    _scrollScheduled = true;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollScheduled = false;
       if (!_scrollController.hasClients) {
         return;
       }
@@ -323,8 +318,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hasDraft = _inputController.text.trim().isNotEmpty;
-
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: background,
@@ -369,7 +362,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     child: _Composer(
                       controller: _inputController,
                       isGenerating: _isGenerating,
-                      hasDraft: hasDraft,
                       onReflection: _showReflectionInfo,
                       onSearch: _showSearchInfo,
                       onAdd: _showAddMenu,
@@ -517,7 +509,6 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.isGenerating,
-    required this.hasDraft,
     required this.onReflection,
     required this.onSearch,
     required this.onAdd,
@@ -528,7 +519,6 @@ class _Composer extends StatelessWidget {
 
   final TextEditingController controller;
   final bool isGenerating;
-  final bool hasDraft;
   final VoidCallback onReflection;
   final VoidCallback onSearch;
   final VoidCallback onAdd;
@@ -612,18 +602,27 @@ class _Composer extends StatelessWidget {
                         icon: Icons.stop_rounded,
                         onPressed: onStop,
                       )
-                    else if (hasDraft)
-                      _RoundComposerButton(
-                        tooltip: 'Envoyer',
-                        icon: Icons.arrow_upward_rounded,
-                        filled: true,
-                        onPressed: onSend,
-                      )
                     else
-                      _RoundComposerButton(
-                        tooltip: 'Parler',
-                        icon: Icons.graphic_eq_rounded,
-                        onPressed: onVoice,
+                      // Seul ce bouton dépend du brouillon : le reste de
+                      // l'écran, liste de messages comprise, n'est pas
+                      // reconstruit à chaque frappe.
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: controller,
+                        builder: (context, value, child) {
+                          if (value.text.trim().isEmpty) {
+                            return _RoundComposerButton(
+                              tooltip: 'Parler',
+                              icon: Icons.graphic_eq_rounded,
+                              onPressed: onVoice,
+                            );
+                          }
+                          return _RoundComposerButton(
+                            tooltip: 'Envoyer',
+                            icon: Icons.arrow_upward_rounded,
+                            filled: true,
+                            onPressed: onSend,
+                          );
+                        },
                       ),
                   ],
                 ),

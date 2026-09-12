@@ -15,6 +15,7 @@ class LocalModelLibrary {
 
   final LocalModelDirectoryProvider _applicationSupportDirectory;
   final Set<String> _activePartialPaths = <String>{};
+  final Set<String> _reservedDestinations = <String>{};
 
   Future<List<LocalModelFile>> listModels() async {
     final directory = await _modelsDirectory();
@@ -73,7 +74,19 @@ class LocalModelLibrary {
     }
 
     final directory = await _modelsDirectory();
-    final destination = await _uniqueDestination(directory, sanitizedName);
+    final reservations = <String>{};
+    final File destination;
+    try {
+      destination = await _reserveDestination(
+        directory,
+        sanitizedName,
+        reservations,
+      );
+    } catch (_) {
+      _reservedDestinations.removeAll(reservations);
+      rethrow;
+    }
+
     final partial = File(
       '${destination.path}.part-${DateTime.now().microsecondsSinceEpoch}',
     );
@@ -121,6 +134,7 @@ class LocalModelLibrary {
       rethrow;
     } finally {
       _activePartialPaths.remove(partialPath);
+      _reservedDestinations.removeAll(reservations);
     }
   }
 
@@ -155,19 +169,38 @@ class LocalModelLibrary {
     return directory;
   }
 
-  Future<File> _uniqueDestination(Directory directory, String fileName) async {
+  /// Réserve un nom de destination libre et le marque occupé jusqu'à la fin de
+  /// l'import.
+  ///
+  /// La réservation passe par `Set.add`, qui est synchrone : deux imports du
+  /// même nom lancés en parallèle ne peuvent pas obtenir la même destination,
+  /// alors qu'un simple `exists()` les laissait s'entrelacer et le second
+  /// `rename()` écrasait silencieusement le modèle du premier.
+  Future<File> _reserveDestination(
+    Directory directory,
+    String fileName,
+    Set<String> reservations,
+  ) async {
     final extensionIndex = fileName.toLowerCase().lastIndexOf('.gguf');
     final baseName = fileName.substring(0, extensionIndex);
-    var candidate = File('${directory.path}${Platform.pathSeparator}$fileName');
-    var suffix = 2;
+    var suffix = 1;
 
-    while (await candidate.exists()) {
-      candidate = File(
-        '${directory.path}${Platform.pathSeparator}$baseName ($suffix).gguf',
+    while (true) {
+      final candidate = File(
+        suffix == 1
+            ? '${directory.path}${Platform.pathSeparator}$fileName'
+            : '${directory.path}${Platform.pathSeparator}$baseName ($suffix).gguf',
       );
+      final reservedPath = candidate.absolute.path;
+
+      if (_reservedDestinations.add(reservedPath)) {
+        reservations.add(reservedPath);
+        if (!await candidate.exists()) {
+          return candidate;
+        }
+      }
       suffix += 1;
     }
-    return candidate;
   }
 
   Future<LocalModelFile> _describe(File file) async {

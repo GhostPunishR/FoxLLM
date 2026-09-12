@@ -186,10 +186,13 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
             useInChat: _useInChat,
             apiKey: _apiKeyController.text,
           );
-      _apiKeyController.clear();
+      // Les contrôleurs sont libérés avec l'écran : y toucher après l'await
+      // lançait une exception que le `catch` ci-dessous avalait, masquant le
+      // fait que l'enregistrement avait bien abouti.
       if (!mounted) {
         return settings;
       }
+      _apiKeyController.clear();
       setState(() {
         _providerId = settings.providerId;
         _selectedModel = settings.model;
@@ -218,7 +221,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
   Future<void> _testConnection() async {
     final saved = await _save(showSuccess: false);
-    if (saved == null) {
+    // `_save` rend les réglages même si l'écran a été quitté entre-temps :
+    // sans ce garde, le `setState` suivant s'exécute après `dispose()`.
+    if (saved == null || !mounted) {
       return;
     }
 

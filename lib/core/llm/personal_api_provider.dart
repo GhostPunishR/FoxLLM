@@ -2,6 +2,11 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'llm_http.dart';
+import 'provider_config.dart';
+
+export 'llm_http.dart' show PersonalApiHttpException;
+
 enum PersonalApiProtocol { openAiCompatible, gemini }
 
 class PersonalApiProvider {
@@ -121,7 +126,7 @@ Future<List<String>> fetchPersonalApiModels({
     throw StateError('Entre une clé API avant de récupérer les modèles.');
   }
 
-  final baseUrl = _normalizeBaseUrl(provider.resolveBaseUrl(customBaseUrl));
+  final baseUrl = normalizeBaseUrl(provider.resolveBaseUrl(customBaseUrl));
   if (baseUrl.isEmpty) {
     throw StateError('Configure la base URL du fournisseur personnalisé.');
   }
@@ -247,25 +252,4 @@ bool _isClearlyNonChatModel(PersonalApiProvider provider, String modelId) {
     'guard',
   ];
   return excluded.any(id.contains);
-}
-
-String _normalizeBaseUrl(String value) {
-  final trimmed = value.trim();
-  if (trimmed.endsWith('/')) {
-    return trimmed.substring(0, trimmed.length - 1);
-  }
-  return trimmed;
-}
-
-class PersonalApiHttpException implements Exception {
-  const PersonalApiHttpException({
-    required this.statusCode,
-    required this.body,
-  });
-
-  final int statusCode;
-  final String body;
-
-  @override
-  String toString() => 'HTTP $statusCode: $body';
 }

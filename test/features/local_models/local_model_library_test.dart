@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foxgpt/features/local_models/local_model_file.dart';
 import 'package:foxgpt/features/local_models/local_model_library.dart';
 
 void main() {
@@ -53,12 +54,68 @@ void main() {
     await importOnce(<int>[2]);
 
     final models = await library.listModels();
-    expect(
-      models.map((model) => model.fileName),
-      <String>['model (2).gguf', 'model.gguf'],
-    );
+    expect(models.map((model) => model.fileName), <String>[
+      'model (2).gguf',
+      'model.gguf',
+    ]);
     expect(await File(models[0].path).readAsBytes(), <int>[2]);
     expect(await File(models[1].path).readAsBytes(), <int>[1]);
+  });
+
+  test(
+    'keeps both models when the same name is imported concurrently',
+    () async {
+      // Les deux imports résolvent leur destination en parallèle : sans
+      // réservation, ils visaient le même `model.gguf` et le second `rename()`
+      // écrasait silencieusement le modèle du premier.
+      final imported = await Future.wait<LocalModelFile>(
+        <Future<LocalModelFile>>[
+          library.importModel(
+            fileName: 'model.gguf',
+            bytes: Stream<List<int>>.value(<int>[1]),
+            expectedSizeBytes: 1,
+          ),
+          library.importModel(
+            fileName: 'model.gguf',
+            bytes: Stream<List<int>>.value(<int>[2]),
+            expectedSizeBytes: 1,
+          ),
+        ],
+      );
+
+      expect(imported.map((model) => model.path).toSet(), hasLength(2));
+
+      final models = await library.listModels();
+      expect(models.map((model) => model.fileName), <String>[
+        'model (2).gguf',
+        'model.gguf',
+      ]);
+
+      final contents = <int>[];
+      for (final model in models) {
+        contents.addAll(await File(model.path).readAsBytes());
+      }
+      expect(contents..sort(), <int>[1, 2]);
+    },
+  );
+
+  test('frees a reserved name once the import fails', () async {
+    await expectLater(
+      library.importModel(
+        fileName: 'retry.gguf',
+        bytes: Stream<List<int>>.error(StateError('copy interrupted')),
+        expectedSizeBytes: 1,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    // La destination échouée doit redevenir disponible, sans suffixe « (2) ».
+    final retried = await library.importModel(
+      fileName: 'retry.gguf',
+      bytes: Stream<List<int>>.value(<int>[5]),
+      expectedSizeBytes: 1,
+    );
+    expect(retried.fileName, 'retry.gguf');
   });
 
   test('rejects non-GGUF files', () async {
