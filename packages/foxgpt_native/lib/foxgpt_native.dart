@@ -364,6 +364,18 @@ class FoxGptNativeWorker {
     late final StreamController<List<int>> bytesController;
     bytesController = StreamController<List<int>>(
       onListen: () {
+        final commands = _commands;
+        if (_disposed ||
+            _disposing ||
+            _failure != null ||
+            commands == null) {
+          bytesController.addError(
+            StateError('FoxGPT native worker is unavailable.'),
+          );
+          unawaited(bytesController.close());
+          return;
+        }
+
         if (_activeGenerationId != null) {
           bytesController.addError(
             StateError('A local generation is already running.'),
@@ -376,7 +388,7 @@ class FoxGptNativeWorker {
         _activeGenerationDone = Completer<void>();
         _generationStopRequested = false;
         _generationStreams[requestId] = bytesController;
-        _commands!.send(<String, Object?>{
+        commands.send(<String, Object?>{
           'type': 'generate',
           'id': requestId,
           'prompt': prompt,
@@ -542,15 +554,14 @@ class FoxGptNativeWorker {
   }
 
   void _handleError(dynamic message) {
-    final description = switch (message) {
-      List<dynamic> values when values.isNotEmpty => values.first.toString(),
-      _ => message.toString(),
-    };
+    final description = message is List<dynamic> && message.isNotEmpty
+        ? message.first.toString()
+        : message.toString();
     _failAll(StateError('FoxGPT native worker failed: $description'));
   }
 
   void _handleExit(dynamic _) {
-    if (!_disposed && !_disposing) {
+    if (!_disposed) {
       _failAll(StateError('FoxGPT native worker exited unexpectedly.'));
     }
   }
