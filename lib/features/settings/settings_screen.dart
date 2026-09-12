@@ -18,10 +18,7 @@ class SettingsScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         title: const Text(
           'Paramètres',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
       ),
       body: ListView(
@@ -85,11 +82,7 @@ class SettingsScreen extends StatelessWidget {
           const Center(
             child: Text(
               'FoxGPT',
-              style: TextStyle(
-                color: muted,
-                fontSize: 13,
-                letterSpacing: 0.2,
-              ),
+              style: TextStyle(color: muted, fontSize: 13, letterSpacing: 0.2),
             ),
           ),
           const SizedBox(height: 8),
@@ -134,12 +127,13 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF181818),
+    return Material(
+      color: const Color(0xFF181818),
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF242424)),
+        side: const BorderSide(color: Color(0xFF242424)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(children: children),
     );
   }
@@ -180,16 +174,10 @@ class _SettingsTile extends StatelessWidget {
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          color: Color(0xFF909090),
-          fontSize: 13,
-        ),
+        style: const TextStyle(color: Color(0xFF909090), fontSize: 13),
       ),
       trailing: enabled
-          ? const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF8D8D8D),
-            )
+          ? const Icon(Icons.chevron_right_rounded, color: Color(0xFF8D8D8D))
           : null,
     );
   }
