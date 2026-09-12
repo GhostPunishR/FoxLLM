@@ -1,26 +1,45 @@
 # FoxGPT
 
-FoxGPT est un client LLM Android hybride construit avec Flutter/Dart et C++.
+FoxGPT est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
 
-Objectifs du projet :
+## Vision
 
-- exécuter des modèles locaux sur Android via un moteur C++ ;
-- supporter les modèles GGUF via `llama.cpp` ;
-- permettre le mode BYOK (Bring Your Own Key) pour les fournisseurs d'API ;
-- stocker les clés API localement et de manière sécurisée ;
-- fournir une interface de chat unique pour les modèles locaux et distants.
+- exécuter des modèles locaux Android en GGUF via un moteur C++ / `llama.cpp` ;
+- proposer un mode **BYOK (Bring Your Own Key)** pour les fournisseurs distants ;
+- conserver les clés API sur l'appareil, avec un mode session sans persistance ;
+- utiliser une seule interface de chat pour les moteurs locaux et les API.
 
-## Architecture cible
+## Architecture
 
 ```text
 Flutter / Dart
-├── UI et navigation
-├── Chat et historique
-├── Fournisseurs API / BYOK
-├── Stockage sécurisé des clés
-└── LocalLlmBackend
-    └── Dart FFI
-        └── C++ / llama.cpp / GGUF
+├── UI et état de conversation
+├── LlmBackend
+│   ├── LocalLlmBackend
+│   │   └── foxgpt_native
+│   │       └── C ABI
+│   │           └── C++ / llama.cpp / GGUF
+│   └── OpenAiCompatibleBackend
+│       └── HTTPS direct / BYOK
+└── stockage sécurisé des clés
 ```
 
-Le projet est en cours d'initialisation.
+La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## État du bootstrap
+
+Déjà présent :
+
+- contrat Dart commun `LlmBackend` avec streaming ;
+- modèles de messages et paramètres de génération ;
+- backend OpenAI-compatible avec streaming SSE ;
+- stockage sécurisé des clés API ou conservation en mémoire pour la session ;
+- package FFI `foxgpt_native` ;
+- ABI C stable devant une implémentation C++ ;
+- shell Flutter initial permettant de vérifier le pont natif.
+
+Le moteur C++ est volontairement un scaffold : il signale que `llama.cpp` n'est pas encore intégré au lieu de simuler une génération.
+
+## Prochain jalon
+
+Le prochain travail est l'intégration de `llama.cpp`, le chargement GGUF et le worker isolate pour exécuter l'inférence hors du thread UI, puis le streaming token par token.
