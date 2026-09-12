@@ -93,6 +93,54 @@ void main() {
     expect(entries, isEmpty);
   });
 
+  test('cleans stale partial imports discovered on startup', () async {
+    final modelsDirectory = Directory(
+      '${tempDirectory.path}${Platform.pathSeparator}models',
+    );
+    await modelsDirectory.create(recursive: true);
+    final stale = File(
+      '${modelsDirectory.path}${Platform.pathSeparator}orphan.gguf.part-123',
+    );
+    await stale.writeAsBytes(<int>[1, 2, 3]);
+
+    expect(await library.listModels(), isEmpty);
+    expect(await stale.exists(), isFalse);
+  });
+
+  test('does not delete a partial import that is still active', () async {
+    final controller = StreamController<List<int>>();
+    final firstWrite = Completer<void>();
+    final importFuture = library.importModel(
+      fileName: 'active.gguf',
+      bytes: controller.stream,
+      expectedSizeBytes: 1,
+      onProgress: (_, _) {
+        if (!firstWrite.isCompleted) {
+          firstWrite.complete();
+        }
+      },
+    );
+
+    controller.add(<int>[9]);
+    await firstWrite.future;
+
+    expect(await library.listModels(), isEmpty);
+    final modelsDirectory = Directory(
+      '${tempDirectory.path}${Platform.pathSeparator}models',
+    );
+    expect(
+      await modelsDirectory
+          .list()
+          .where((entity) => entity.path.contains('.gguf.part-'))
+          .length,
+      1,
+    );
+
+    await controller.close();
+    final imported = await importFuture;
+    expect(await File(imported.path).readAsBytes(), <int>[9]);
+  });
+
   test('deletes an imported managed model', () async {
     final model = await library.importModel(
       fileName: 'delete-me.gguf',
