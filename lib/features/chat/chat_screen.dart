@@ -107,17 +107,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
         _scrollToBottom();
       }
+
+      if (mounted &&
+          generationEpoch == _generationEpoch &&
+          response.isEmpty) {
+        _removeEmptyAssistantPlaceholder();
+      }
     } catch (error) {
       if (!mounted || generationEpoch != _generationEpoch) {
         return;
       }
-      if (_messages.isNotEmpty &&
-          _messages.last.role == ChatRole.assistant &&
-          _messages.last.content.isEmpty) {
-        setState(() {
-          _messages.removeLast();
-        });
-      }
+      _removeEmptyAssistantPlaceholder();
       _showSnack('Génération impossible : $error');
     } finally {
       if (mounted && generationEpoch == _generationEpoch) {
@@ -126,6 +126,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         });
       }
     }
+  }
+
+  void _removeEmptyAssistantPlaceholder() {
+    if (_messages.isEmpty ||
+        _messages.last.role != ChatRole.assistant ||
+        _messages.last.content.isNotEmpty) {
+      return;
+    }
+    setState(() {
+      _messages.removeLast();
+    });
   }
 
   Future<void> _stopGeneration() async {
