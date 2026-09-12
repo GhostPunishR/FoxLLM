@@ -6,15 +6,18 @@ import 'llm_backend.dart';
 
 class LocalLlmBackend implements LlmBackend {
   LocalLlmBackend({Future<FoxGptNativeWorker>? worker})
-    : _worker = worker ?? FoxGptNativeWorker.start();
+      : _worker = worker ?? FoxGptNativeWorker.start();
 
   final Future<FoxGptNativeWorker> _worker;
+  String? _loadedModelPath;
 
   @override
   String get id => 'local';
 
   @override
   String get displayName => 'Modèle local';
+
+  String? get loadedModelPath => _loadedModelPath;
 
   Future<String> get nativeVersion async => (await _worker).version;
 
@@ -27,10 +30,12 @@ class LocalLlmBackend implements LlmBackend {
 
   Future<void> loadModel(String path) async {
     await (await _worker).loadModel(path);
+    _loadedModelPath = path;
   }
 
   Future<void> unloadModel() async {
     await (await _worker).unloadModel();
+    _loadedModelPath = null;
   }
 
   @override
@@ -64,6 +69,7 @@ class LocalLlmBackend implements LlmBackend {
       return;
     }
 
+    _loadedModelPath = null;
     await worker.dispose();
   }
 
