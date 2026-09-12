@@ -14,13 +14,26 @@ class LocalModelLibrary {
           applicationSupportDirectory ?? getApplicationSupportDirectory;
 
   final LocalModelDirectoryProvider _applicationSupportDirectory;
+  final Set<String> _activePartialPaths = <String>{};
 
   Future<List<LocalModelFile>> listModels() async {
     final directory = await _modelsDirectory();
     final models = <LocalModelFile>[];
 
     await for (final entity in directory.list(followLinks: false)) {
-      if (entity is! File || !_isGguf(entity.path)) {
+      if (entity is! File) {
+        continue;
+      }
+
+      if (_isPartialImport(entity.path)) {
+        final partialPath = entity.absolute.path;
+        if (!_activePartialPaths.contains(partialPath)) {
+          await entity.delete();
+        }
+        continue;
+      }
+
+      if (!_isGguf(entity.path)) {
         continue;
       }
 
@@ -64,23 +77,25 @@ class LocalModelLibrary {
     final partial = File(
       '${destination.path}.part-${DateTime.now().microsecondsSinceEpoch}',
     );
-    final sink = partial.openWrite();
+    final partialPath = partial.absolute.path;
+    RandomAccessFile? output;
     var copiedBytes = 0;
-    var sinkClosed = false;
 
+    _activePartialPaths.add(partialPath);
     try {
+      output = await partial.open(mode: FileMode.write);
       await for (final chunk in bytes) {
         if (chunk.isEmpty) {
           continue;
         }
-        sink.add(chunk);
+        await output.writeFrom(chunk);
         copiedBytes += chunk.length;
         onProgress?.call(copiedBytes, expectedSizeBytes);
       }
 
-      await sink.flush();
-      await sink.close();
-      sinkClosed = true;
+      await output.flush();
+      await output.close();
+      output = null;
 
       if (copiedBytes == 0) {
         throw const FormatException('Le modèle GGUF sélectionné est vide.');
@@ -97,13 +112,15 @@ class LocalModelLibrary {
       final imported = await partial.rename(destination.path);
       return await _describe(imported);
     } catch (_) {
-      if (!sinkClosed) {
-        await sink.close();
+      if (output != null) {
+        await output.close();
       }
       if (await partial.exists()) {
         await partial.delete();
       }
       rethrow;
+    } finally {
+      _activePartialPaths.remove(partialPath);
     }
   }
 
@@ -173,6 +190,9 @@ class LocalModelLibrary {
   }
 
   bool _isGguf(String value) => value.toLowerCase().endsWith('.gguf');
+
+  bool _isPartialImport(String value) =>
+      value.toLowerCase().contains('.gguf.part-');
 
   String _fileName(String path) => path.split(Platform.pathSeparator).last;
 }
