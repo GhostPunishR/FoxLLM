@@ -1,0 +1,38 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Native build artifacts
+*.so
+*.dll
+*.dylib
+*.a
+*.o
+
+# Secrets
+.env
+*.keystore
+*.jks
+key.properties
+
+# OS
+.DS_Store
+Thumbs.db
