@@ -32,6 +32,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('keeps chat content above the composer when input grows', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: ChatScreen()),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(
+      find.byType(TextField),
+      'Ligne 1\nLigne 2\nLigne 3\nLigne 4\nLigne 5',
+    );
+    await tester.pumpAndSettle();
+
+    final contentRect = tester.getRect(
+      find.byKey(const ValueKey<String>('chat-content')),
+    );
+    final composerRect = tester.getRect(
+      find.byKey(const ValueKey<String>('chat-composer')),
+    );
+
+    expect(contentRect.bottom, lessThanOrEqualTo(composerRect.top));
+    expect(contentRect.overlaps(composerRect), isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('opens the conversation drawer from the top-left menu', (
     tester,
   ) async {
