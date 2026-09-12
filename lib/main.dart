@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'features/chat/chat_screen.dart';
+import 'features/splash/splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +27,7 @@ class FoxGptApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const background = Color(0xFF0B0B0B);
-    const orange = Color(0xFFFF7A1A);
+    const orange = Color(0xFFFC6117);
 
     return MaterialApp(
       title: 'FoxGPT',
@@ -46,7 +46,7 @@ class FoxGptApp extends StatelessWidget {
           behavior: SnackBarBehavior.floating,
         ),
       ),
-      home: const ChatScreen(),
+      home: const FoxGptSplashScreen(),
     );
   }
 }
