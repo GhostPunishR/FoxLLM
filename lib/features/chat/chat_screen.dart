@@ -30,6 +30,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final List<ChatMessage> _messages = <ChatMessage>[];
 
   bool _isGenerating = false;
+  int _generationEpoch = 0;
 
   @override
   void initState() {
@@ -45,6 +46,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    _generationEpoch += 1;
     _inputController
       ..removeListener(_onInputChanged)
       ..dispose();
@@ -53,6 +55,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _newChat() async {
+    _generationEpoch += 1;
     if (_isGenerating) {
       await ref.read(localLlmBackendProvider).stop();
     }
@@ -79,10 +82,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    final requestMessages = <ChatMessage>[
-      ..._messages,
-      ChatMessage.user(text),
-    ];
+    final generationEpoch = ++_generationEpoch;
+    final requestMessages = <ChatMessage>[..._messages, ChatMessage.user(text)];
 
     setState(() {
       _messages
@@ -98,7 +99,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     try {
       await for (final chunk in backend.generate(messages: requestMessages)) {
         response += chunk;
-        if (!mounted) {
+        if (!mounted || generationEpoch != _generationEpoch) {
           return;
         }
         setState(() {
@@ -107,7 +108,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _scrollToBottom();
       }
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || generationEpoch != _generationEpoch) {
         return;
       }
       if (_messages.isNotEmpty &&
@@ -119,7 +120,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       }
       _showSnack('Génération impossible : $error');
     } finally {
-      if (mounted) {
+      if (mounted && generationEpoch == _generationEpoch) {
         setState(() {
           _isGenerating = false;
         });
@@ -137,10 +138,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ..showSnackBar(
         SnackBar(
           content: const Text('Charge un modèle GGUF avant de discuter.'),
-          action: SnackBarAction(
-            label: 'Modèles',
-            onPressed: _openLocalModels,
-          ),
+          action: SnackBarAction(label: 'Modèles', onPressed: _openLocalModels),
         ),
       );
   }
@@ -173,7 +171,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _showReflectionInfo() {
-    _showSnack('Le mode Réflexion sera relié aux paramètres du modèle ensuite.');
+    _showSnack(
+      'Le mode Réflexion sera relié aux paramètres du modèle ensuite.',
+    );
   }
 
   void _showSearchInfo() {
@@ -418,6 +418,7 @@ class _Composer extends StatelessWidget {
                   controller: controller,
                   minLines: 1,
                   maxLines: 5,
+                  keyboardAppearance: Brightness.dark,
                   style: const TextStyle(color: Colors.white, fontSize: 18),
                   decoration: const InputDecoration(
                     isDense: true,
@@ -433,18 +434,32 @@ class _Composer extends StatelessWidget {
                 const SizedBox(height: 18),
                 Row(
                   children: <Widget>[
-                    _ToolChip(
-                      icon: Icons.psychology_alt_outlined,
-                      label: 'Réflexion',
-                      onPressed: onReflection,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              _ToolChip(
+                                icon: Icons.psychology_alt_outlined,
+                                label: 'Réflexion',
+                                onPressed: onReflection,
+                              ),
+                              const SizedBox(width: 8),
+                              _ToolChip(
+                                icon: Icons.language,
+                                label: 'Rechercher',
+                                onPressed: onSearch,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 8),
-                    _ToolChip(
-                      icon: Icons.language,
-                      label: 'Rechercher',
-                      onPressed: onSearch,
-                    ),
-                    const Spacer(),
                     _RoundComposerButton(
                       tooltip: 'Ajouter',
                       icon: Icons.add,
@@ -544,11 +559,8 @@ class _RoundComposerButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: filled ? Colors.white : Colors.transparent,
-        shape: CircleBorder(
-          side: BorderSide(
-            color: filled ? Colors.white : Colors.white,
-            width: 2,
-          ),
+        shape: const CircleBorder(
+          side: BorderSide(color: Colors.white, width: 2),
         ),
         child: InkWell(
           customBorder: const CircleBorder(),
