@@ -55,7 +55,16 @@ class LocalLlmBackend implements LlmBackend {
 
   @override
   Future<void> dispose() async {
-    await (await _worker).dispose();
+    final FoxGptNativeWorker worker;
+    try {
+      worker = await _worker;
+    } catch (_) {
+      // Startup errors are surfaced by the operation that awaited the worker.
+      // Cleanup must remain safe when the app is already being disposed.
+      return;
+    }
+
+    await worker.dispose();
   }
 
   String _buildPrompt(List<ChatMessage> messages) {
