@@ -12,7 +12,7 @@ FoxGPT est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
 
 ## Vision
 
-- exécuter des modèles locaux Android en GGUF via un moteur C++ / `llama.cpp` ;
+- exécuter des modèles locaux Android en GGUF via `llama.cpp` ;
 - proposer un mode **BYOK (Bring Your Own Key)** pour les fournisseurs distants ;
 - conserver les clés API sur l'appareil, avec un mode session sans persistance ;
 - utiliser une seule interface de chat pour les moteurs locaux et les API.
@@ -34,21 +34,22 @@ Flutter / Dart
 
 La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## État du bootstrap
+## État actuel
 
 Déjà présent :
 
-- contrat Dart commun `LlmBackend` avec streaming ;
-- modèles de messages et paramètres de génération ;
-- backend OpenAI-compatible avec streaming SSE ;
+- contrat Dart commun `LlmBackend` ;
+- backend OpenAI-compatible avec streaming SSE et BYOK ;
 - stockage sécurisé des clés API ou conservation en mémoire pour la session ;
-- package FFI `foxgpt_native` ;
-- ABI C stable devant une implémentation C++ ;
-- shell Flutter initial permettant de vérifier le pont natif ;
-- CI GitHub Actions séparées pour le formatage, l'analyse Flutter, les tests Flutter, l'analyse Dart native, la compilation C++, le smoke test FFI et le build Android.
+- package FFI `foxgpt_native` avec ABI C stable ;
+- `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;
+- chargement/déchargement réel de modèles GGUF ;
+- métadonnées du modèle : description, taille et contexte entraîné ;
+- première génération locale bloquante avec arrêt coopératif ;
+- APK Android arm64 construit en CI avec vérification du moteur llama.cpp embarqué.
 
-Le moteur C++ est volontairement un scaffold : il signale que `llama.cpp` n'est pas encore intégré au lieu de simuler une génération.
+Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. Les autres architectures utilisent un stub natif afin que le mode API et les tests FFI restent disponibles.
 
 ## Prochain jalon
 
-Le prochain travail est l'intégration de `llama.cpp`, le chargement GGUF et le worker isolate pour exécuter l'inférence hors du thread UI, puis le streaming token par token.
+La prochaine étape est de déplacer l'inférence dans un worker isolate dédié, puis de remplacer la génération monobloc par un streaming token par token vers Flutter. Ensuite viendront le gestionnaire de fichiers GGUF et l'interface de chat complète.

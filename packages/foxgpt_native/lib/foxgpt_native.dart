@@ -16,6 +16,23 @@ external void _engineDestroy(Pointer<Void> engine);
 )
 external int _engineLoadModel(Pointer<Void> engine, Pointer<Utf8> modelPath);
 
+@Native<Void Function(Pointer<Void>)>(symbol: 'foxgpt_engine_unload_model')
+external void _engineUnloadModel(Pointer<Void> engine);
+
+@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxgpt_engine_is_model_loaded')
+external int _engineIsModelLoaded(Pointer<Void> engine);
+
+@Native<Pointer<Utf8> Function(Pointer<Void>)>(
+  symbol: 'foxgpt_engine_model_description',
+)
+external Pointer<Utf8> _engineModelDescription(Pointer<Void> engine);
+
+@Native<Uint64 Function(Pointer<Void>)>(symbol: 'foxgpt_engine_model_size_bytes')
+external int _engineModelSizeBytes(Pointer<Void> engine);
+
+@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxgpt_engine_model_context_size')
+external int _engineModelContextSize(Pointer<Void> engine);
+
 @Native<Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>)>(
   symbol: 'foxgpt_engine_generate',
 )
@@ -38,6 +55,18 @@ external Pointer<Utf8> _nativeVersion();
 @Native<Void Function(Pointer<Utf8>)>(symbol: 'foxgpt_string_free')
 external void _stringFree(Pointer<Utf8> value);
 
+class FoxGptModelInfo {
+  const FoxGptModelInfo({
+    required this.description,
+    required this.sizeBytes,
+    required this.contextSize,
+  });
+
+  final String description;
+  final int sizeBytes;
+  final int contextSize;
+}
+
 class FoxGptNativeEngine {
   FoxGptNativeEngine() : _handle = _engineCreate() {
     if (_handle == nullptr) {
@@ -50,6 +79,24 @@ class FoxGptNativeEngine {
   bool get isDisposed => _handle == nullptr;
 
   String get version => _nativeVersion().toDartString();
+
+  bool get isModelLoaded {
+    _ensureAlive();
+    return _engineIsModelLoaded(_handle) == 1;
+  }
+
+  FoxGptModelInfo? get modelInfo {
+    _ensureAlive();
+    if (!isModelLoaded) {
+      return null;
+    }
+
+    return FoxGptModelInfo(
+      description: _engineModelDescription(_handle).toDartString(),
+      sizeBytes: _engineModelSizeBytes(_handle),
+      contextSize: _engineModelContextSize(_handle),
+    );
+  }
 
   String get lastError {
     _ensureAlive();
@@ -64,6 +111,11 @@ class FoxGptNativeEngine {
     } finally {
       calloc.free(nativePath);
     }
+  }
+
+  void unloadModel() {
+    _ensureAlive();
+    _engineUnloadModel(_handle);
   }
 
   String generate(String prompt) {

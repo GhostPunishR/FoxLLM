@@ -18,7 +18,7 @@ jobs:
   build:
     name: Android Debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -39,17 +39,20 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build arm64 debug APK
+        run: flutter build apk --debug --target-platform android-arm64
 
       - name: Verify APK
         run: test -f build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Verify native FFI library is packaged
+      - name: Verify llama.cpp native engine is packaged
         shell: bash
         run: |
           unzip -l build/app/outputs/flutter-apk/app-debug.apk | tee /tmp/apk-files.txt
-          grep -E 'lib/[^/]+/libfoxgpt_native\.so$' /tmp/apk-files.txt
+          grep -F 'lib/arm64-v8a/libfoxgpt_native.so' /tmp/apk-files.txt
+          unzip -p build/app/outputs/flutter-apk/app-debug.apk \
+            lib/arm64-v8a/libfoxgpt_native.so > /tmp/libfoxgpt_native.so
+          strings /tmp/libfoxgpt_native.so | grep -F 'foxgpt-native/0.2.0+llama-b10903'
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
