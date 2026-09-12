@@ -115,7 +115,8 @@ class FoxGptGenerationStats {
     if (elapsed.inMicroseconds == 0) {
       return 0;
     }
-    return generatedTokens * Duration.microsecondsPerSecond /
+    return generatedTokens *
+        Duration.microsecondsPerSecond /
         elapsed.inMicroseconds;
   }
 }
@@ -202,15 +203,17 @@ class FoxGptNativeEngine {
   }) {
     _ensureAlive();
     final nativePrompt = prompt.toNativeUtf8();
-    final callback = NativeCallable<_TokenCallbackNative>.isolateLocal(
-      (Pointer<Uint8> bytes, int length, Pointer<Void> userData) {
-        if (length <= 0) {
-          onToken(Uint8List(0));
-          return;
-        }
-        onToken(Uint8List.fromList(bytes.asTypedList(length)));
-      },
-    );
+    final callback = NativeCallable<_TokenCallbackNative>.isolateLocal((
+      Pointer<Uint8> bytes,
+      int length,
+      Pointer<Void> userData,
+    ) {
+      if (length <= 0) {
+        onToken(Uint8List(0));
+        return;
+      }
+      onToken(Uint8List.fromList(bytes.asTypedList(length)));
+    });
 
     try {
       final succeeded = _engineGenerateStream(
@@ -262,8 +265,7 @@ class FoxGptNativeWorker {
   FoxGptNativeWorker._();
 
   final Completer<void> _ready = Completer<void>();
-  final Map<int, Completer<Object?>> _pending =
-      <int, Completer<Object?>>{};
+  final Map<int, Completer<Object?>> _pending = <int, Completer<Object?>>{};
   final Map<int, StreamController<List<int>>> _generationStreams =
       <int, StreamController<List<int>>>{};
 
@@ -279,9 +281,11 @@ class FoxGptNativeWorker {
   int _nextRequestId = 1;
   int _handleAddress = 0;
   int? _activeGenerationId;
+  Completer<void>? _activeGenerationDone;
   bool _generationStopRequested = false;
   bool _disposing = false;
   bool _disposed = false;
+  Object? _failure;
   String _version = '';
   FoxGptModelInfo? _modelInfo;
   FoxGptGenerationStats? _lastGenerationStats;
@@ -369,6 +373,7 @@ class FoxGptNativeWorker {
         }
 
         _activeGenerationId = requestId;
+        _activeGenerationDone = Completer<void>();
         _generationStopRequested = false;
         _generationStreams[requestId] = bytesController;
         _commands!.send(<String, Object?>{
@@ -387,11 +392,16 @@ class FoxGptNativeWorker {
       },
     );
 
-    return bytesController.stream.transform(utf8.decoder);
+    return bytesController.stream.transform(
+      const Utf8Decoder(allowMalformed: true),
+    );
   }
 
   void stop() {
-    if (_disposed || _activeGenerationId == null || _handleAddress == 0) {
+    if (_disposed ||
+        _disposing ||
+        _activeGenerationId == null ||
+        _handleAddress == 0) {
       return;
     }
 
@@ -404,10 +414,19 @@ class FoxGptNativeWorker {
       return;
     }
 
-    _disposing = true;
     stop();
+    _disposing = true;
+    final activeGenerationDone = _activeGenerationDone;
 
     try {
+      if (activeGenerationDone != null) {
+        try {
+          await activeGenerationDone.future;
+        } catch (_) {
+          // A worker failure is handled below by skipping the dispose request.
+        }
+      }
+
       if (_commands != null) {
         await _requestInternal('dispose');
       }
@@ -415,6 +434,7 @@ class FoxGptNativeWorker {
       _disposed = true;
       _disposing = false;
       _handleAddress = 0;
+      _commands = null;
       _isolate?.kill(priority: Isolate.immediate);
       _isolate = null;
       await _closePorts();
@@ -441,11 +461,7 @@ class FoxGptNativeWorker {
     final requestId = _nextRequestId++;
     final completer = Completer<Object?>();
     _pending[requestId] = completer;
-    commands.send(<String, Object?>{
-      'type': type,
-      'id': requestId,
-      ...data,
-    });
+    commands.send(<String, Object?>{'type': type, 'id': requestId, ...data});
     return completer.future;
   }
 
@@ -503,9 +519,7 @@ class FoxGptNativeWorker {
       case 'generationError':
         final controller = _generationStreams[requestId];
         if (controller != null && !controller.isClosed) {
-          controller.addError(
-            StateError(message['error']! as String),
-          );
+          controller.addError(StateError(message['error']! as String));
         }
         _finishGeneration(requestId);
     }
@@ -519,6 +533,11 @@ class FoxGptNativeWorker {
     if (_activeGenerationId == requestId) {
       _activeGenerationId = null;
       _generationStopRequested = false;
+      final generationDone = _activeGenerationDone;
+      _activeGenerationDone = null;
+      if (generationDone != null && !generationDone.isCompleted) {
+        generationDone.complete();
+      }
     }
   }
 
@@ -537,6 +556,10 @@ class FoxGptNativeWorker {
   }
 
   void _failAll(Object error) {
+    _failure ??= error;
+    _commands = null;
+    _handleAddress = 0;
+
     if (!_ready.isCompleted) {
       _ready.completeError(error);
     }
@@ -557,7 +580,14 @@ class FoxGptNativeWorker {
         unawaited(controller.close());
       }
     }
+
+    final generationDone = _activeGenerationDone;
+    _activeGenerationDone = null;
+    if (generationDone != null && !generationDone.isCompleted) {
+      generationDone.completeError(error);
+    }
     _activeGenerationId = null;
+    _generationStopRequested = false;
   }
 
   Future<void> _closePorts() async {
@@ -572,6 +602,10 @@ class FoxGptNativeWorker {
   void _ensureUsable() {
     if (_disposed || _disposing) {
       throw StateError('FoxGPT native worker is disposed.');
+    }
+    final failure = _failure;
+    if (failure != null) {
+      throw StateError('FoxGPT native worker is unavailable: $failure');
     }
   }
 
@@ -618,10 +652,7 @@ void _foxGptNativeWorkerMain(SendPort events) {
           });
         case 'unload':
           engine.unloadModel();
-          events.send(<String, Object?>{
-            'type': 'response',
-            'id': requestId,
-          });
+          events.send(<String, Object?>{'type': 'response', 'id': requestId});
         case 'generate':
           engine.resetStop();
           events.send(<String, Object?>{
@@ -630,14 +661,14 @@ void _foxGptNativeWorkerMain(SendPort events) {
           });
 
           final stopwatch = Stopwatch()..start();
-          var generatedTokens = 0;
+          final generatedTokens = <int>[0];
           engine.generateStream(
             prompt: message['prompt']! as String,
             temperature: message['temperature']! as double,
             topP: message['topP']! as double,
             maxTokens: message['maxTokens']! as int,
             onToken: (Uint8List bytes) {
-              generatedTokens++;
+              generatedTokens[0]++;
               if (bytes.isNotEmpty) {
                 events.send(<String, Object?>{
                   'type': 'generationChunk',
@@ -651,15 +682,12 @@ void _foxGptNativeWorkerMain(SendPort events) {
           events.send(<String, Object?>{
             'type': 'generationDone',
             'id': requestId,
-            'tokens': generatedTokens,
+            'tokens': generatedTokens[0],
             'elapsedMicros': stopwatch.elapsedMicroseconds,
           });
         case 'dispose':
           engine.dispose();
-          events.send(<String, Object?>{
-            'type': 'response',
-            'id': requestId,
-          });
+          events.send(<String, Object?>{'type': 'response', 'id': requestId});
       }
     } catch (error) {
       if (type == 'generate') {
