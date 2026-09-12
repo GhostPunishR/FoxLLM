@@ -5,9 +5,9 @@ import 'package:foxgpt_native/foxgpt_native.dart';
 
 import 'chat_message.dart';
 import 'generation_settings.dart';
+import 'llm_backend.dart';
 import 'local_backend_provider.dart';
 import 'local_llm_backend.dart';
-import 'openai_compatible_backend.dart';
 import 'personal_api_settings.dart';
 import 'personal_api_settings_provider.dart';
 
@@ -19,8 +19,8 @@ final personalApiChatBackendProvider = Provider<LocalLlmBackend?>((ref) {
 
   final backend = PersonalApiChatBackend(
     settings: settings,
-    remoteBackend: OpenAiCompatibleBackend(
-      provider: settings.toProviderConfig(),
+    remoteBackend: createPersonalApiRemoteBackend(
+      settings: settings,
       keyStore: ref.read(apiKeyStoreProvider),
     ),
     localBackend: ref.read(localLlmBackendProvider),
@@ -34,24 +34,25 @@ final personalApiChatBackendProvider = Provider<LocalLlmBackend?>((ref) {
 class PersonalApiChatBackend implements LocalLlmBackend {
   PersonalApiChatBackend({
     required PersonalApiSettings settings,
-    required OpenAiCompatibleBackend remoteBackend,
+    required LlmBackend remoteBackend,
     required LocalLlmBackend localBackend,
   }) : _settings = settings,
        _remoteBackend = remoteBackend,
        _localBackend = localBackend;
 
   final PersonalApiSettings _settings;
-  final OpenAiCompatibleBackend _remoteBackend;
+  final LlmBackend _remoteBackend;
   final LocalLlmBackend _localBackend;
 
   @override
   String get id => personalApiProviderId;
 
   @override
-  String get displayName => 'API personnelle';
+  String get displayName => 'API personnelle · ${_settings.provider.displayName}';
 
   @override
-  String? get loadedModelPath => 'api://${_settings.model}';
+  String? get loadedModelPath =>
+      'api://${_settings.provider.id}/${_settings.model}';
 
   @override
   Future<String> get nativeVersion => Future<String>.value('API distante');
