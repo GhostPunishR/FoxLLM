@@ -328,6 +328,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: background,
+      resizeToAvoidBottomInset: true,
       drawerScrimColor: Colors.black54,
       drawer: _FoxDrawer(
         conversations: _conversations,
@@ -348,12 +349,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Stack(
         children: <Widget>[
           Positioned.fill(
-            child: _messages.isEmpty
-                ? const _WelcomeState()
-                : _MessageList(
-                    messages: _messages,
-                    controller: _scrollController,
+            child: Column(
+              children: <Widget>[
+                Expanded(
+                  child: KeyedSubtree(
+                    key: const ValueKey<String>('chat-content'),
+                    child: _messages.isEmpty
+                        ? const _WelcomeState()
+                        : _MessageList(
+                            messages: _messages,
+                            controller: _scrollController,
+                          ),
                   ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: KeyedSubtree(
+                    key: const ValueKey<String>('chat-composer'),
+                    child: _Composer(
+                      controller: _inputController,
+                      isGenerating: _isGenerating,
+                      hasDraft: hasDraft,
+                      onReflection: _showReflectionInfo,
+                      onSearch: _showSearchInfo,
+                      onAdd: _showAddMenu,
+                      onVoice: _showVoiceInfo,
+                      onSend: () => unawaited(_sendMessage()),
+                      onStop: () => unawaited(_stopGeneration()),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           Positioned(
             top: 18,
@@ -371,20 +398,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               tooltip: 'Nouveau chat',
               onPressed: () => unawaited(_newChat()),
               child: const _NewChatGlyph(),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _Composer(
-              controller: _inputController,
-              isGenerating: _isGenerating,
-              hasDraft: hasDraft,
-              onReflection: _showReflectionInfo,
-              onSearch: _showSearchInfo,
-              onAdd: _showAddMenu,
-              onVoice: _showVoiceInfo,
-              onSend: () => unawaited(_sendMessage()),
-              onStop: () => unawaited(_stopGeneration()),
             ),
           ),
         ],
@@ -456,7 +469,7 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.fromLTRB(18, 72, 18, 160),
+      padding: const EdgeInsets.fromLTRB(18, 72, 18, 24),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
