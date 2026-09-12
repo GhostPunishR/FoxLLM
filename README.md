@@ -33,6 +33,8 @@ Flutter / Dart
 └── stockage sécurisé des clés
 ```
 
+Le code applicatif Flutter ne crée jamais `FoxGptNativeEngine` directement : l'accès local passe par `LocalLlmBackend` puis `FoxGptNativeWorker`, afin de garder les appels bloquants hors de l'isolate UI.
+
 La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## État actuel
@@ -52,6 +54,8 @@ Déjà présent :
 - arrêt coopératif immédiat via flag atomique ;
 - paramètres natifs température, top-p et max tokens ;
 - métriques de génération : tokens, durée et tokens/s ;
+- diagnostic du moteur local routé lui aussi par le worker isolate ;
+- smoke tests du cycle de vie worker, y compris erreur de génération et dispose idempotent ;
 - APK Android arm64 construit en CI avec vérification du moteur llama.cpp et des symboles de streaming embarqués.
 
 Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. Les autres architectures utilisent un stub natif afin que le mode API et les tests FFI restent disponibles.

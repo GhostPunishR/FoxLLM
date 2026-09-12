@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:foxgpt_native/foxgpt_native.dart';
+
+import 'core/llm/local_llm_backend.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,22 +36,53 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  LocalLlmBackend? _localBackend;
   String _nativeStatus = 'Non vérifié';
+  bool _checkingNative = false;
 
-  void _checkNativeBridge() {
-    FoxGptNativeEngine? engine;
+  Future<void> _checkNativeBridge() async {
+    if (_checkingNative) {
+      return;
+    }
+
+    setState(() {
+      _checkingNative = true;
+      _nativeStatus = 'Vérification du worker…';
+    });
+
+    final backend = _localBackend ??= LocalLlmBackend();
+
     try {
-      engine = FoxGptNativeEngine();
+      final version = await backend.nativeVersion;
+      if (!mounted) {
+        return;
+      }
       setState(() {
-        _nativeStatus = 'OK · ${engine!.version}';
+        _nativeStatus = 'OK · $version';
       });
     } catch (error) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _nativeStatus = 'Erreur · $error';
       });
     } finally {
-      engine?.dispose();
+      if (mounted) {
+        setState(() {
+          _checkingNative = false;
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    final backend = _localBackend;
+    if (backend != null) {
+      unawaited(backend.dispose());
+    }
+    super.dispose();
   }
 
   @override
@@ -88,16 +122,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Pont natif C++',
+                    'Worker natif C++',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(_nativeStatus),
                   const SizedBox(height: 12),
                   FilledButton.tonalIcon(
-                    onPressed: _checkNativeBridge,
-                    icon: const Icon(Icons.memory),
-                    label: const Text('Vérifier le moteur natif'),
+                    onPressed: _checkingNative ? null : _checkNativeBridge,
+                    icon: _checkingNative
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.memory),
+                    label: Text(
+                      _checkingNative
+                          ? 'Vérification…'
+                          : 'Vérifier le moteur natif',
+                    ),
                   ),
                 ],
               ),
