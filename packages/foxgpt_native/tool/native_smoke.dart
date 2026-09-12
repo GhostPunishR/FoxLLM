@@ -39,6 +39,8 @@ Future<void> main() async {
       throw StateError('A new native worker must not have a model loaded.');
     }
 
+    worker.stop();
+
     var loadFailed = false;
     try {
       await worker.loadModel('/definitely/missing/foxgpt-worker-smoke.gguf');
@@ -58,10 +60,36 @@ Future<void> main() async {
     if (!generationFailed) {
       throw StateError('Worker unexpectedly generated without a model.');
     }
+    if (worker.lastGenerationStats != null) {
+      throw StateError('A failed generation must not publish success stats.');
+    }
 
     await worker.unloadModel();
   } finally {
     await worker.dispose();
+  }
+
+  await worker.dispose();
+  worker.stop();
+
+  var disposedAccessRejected = false;
+  try {
+    worker.version;
+  } on StateError {
+    disposedAccessRejected = true;
+  }
+  if (!disposedAccessRejected) {
+    throw StateError('Disposed worker unexpectedly exposed its version.');
+  }
+
+  var disposedGenerationRejected = false;
+  try {
+    worker.generate(prompt: 'disposed worker smoke');
+  } on StateError {
+    disposedGenerationRejected = true;
+  }
+  if (!disposedGenerationRejected) {
+    throw StateError('Disposed worker unexpectedly accepted a generation.');
   }
 
   stdout.writeln('FoxGPT native worker smoke test passed.');
