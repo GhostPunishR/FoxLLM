@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/llm/chat_message.dart';
 import '../../core/llm/local_backend_provider.dart';
 import '../local_models/local_models_screen.dart';
+import '../settings/settings_screen.dart';
 import 'fox_mark.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -28,9 +30,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final List<ChatMessage> _messages = <ChatMessage>[];
+  final List<_ChatConversation> _conversations = <_ChatConversation>[];
 
   bool _isGenerating = false;
   int _generationEpoch = 0;
+  int _nextConversationId = 1;
+  int? _activeConversationId;
 
   @override
   void initState() {
@@ -62,12 +67,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (!mounted) {
       return;
     }
+    _syncActiveConversation();
     setState(() {
+      _activeConversationId = null;
       _messages.clear();
       _isGenerating = false;
     });
     _inputController.clear();
     FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  Future<void> _selectConversation(int id) async {
+    _generationEpoch += 1;
+    if (_isGenerating) {
+      await ref.read(localLlmBackendProvider).stop();
+    }
+    if (!mounted) {
+      return;
+    }
+
+    _syncActiveConversation();
+    final conversation = _conversationById(id);
+    if (conversation == null) {
+      return;
+    }
+
+    setState(() {
+      _activeConversationId = id;
+      _messages
+        ..clear()
+        ..addAll(conversation.messages);
+      _isGenerating = false;
+    });
+    _inputController.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    _scrollToBottom();
   }
 
   Future<void> _sendMessage() async {
@@ -83,14 +117,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final generationEpoch = ++_generationEpoch;
-    final requestMessages = <ChatMessage>[..._messages, ChatMessage.user(text)];
+    final requestMessages = <ChatMessage>[
+      ..._messages,
+      ChatMessage.user(text),
+    ];
 
     setState(() {
+      _ensureActiveConversation(text);
       _messages
         ..clear()
         ..addAll(requestMessages)
         ..add(const ChatMessage.assistant(''));
       _isGenerating = true;
+      _syncActiveConversation();
     });
     _inputController.clear();
     _scrollToBottom();
@@ -104,6 +143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         }
         setState(() {
           _messages[_messages.length - 1] = ChatMessage.assistant(response);
+          _syncActiveConversation();
         });
         _scrollToBottom();
       }
@@ -121,9 +161,60 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted && generationEpoch == _generationEpoch) {
         setState(() {
           _isGenerating = false;
+          _syncActiveConversation();
         });
       }
     }
+  }
+
+  void _ensureActiveConversation(String firstMessage) {
+    if (_activeConversationId != null) {
+      return;
+    }
+
+    final conversation = _ChatConversation(
+      id: _nextConversationId++,
+      title: _conversationTitle(firstMessage),
+      updatedAt: DateTime.now(),
+      messages: <ChatMessage>[],
+    );
+    _conversations.insert(0, conversation);
+    _activeConversationId = conversation.id;
+  }
+
+  String _conversationTitle(String value) {
+    final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.length <= 42) {
+      return normalized;
+    }
+    return '${normalized.substring(0, 39)}…';
+  }
+
+  _ChatConversation? _conversationById(int id) {
+    for (final conversation in _conversations) {
+      if (conversation.id == id) {
+        return conversation;
+      }
+    }
+    return null;
+  }
+
+  void _syncActiveConversation() {
+    final id = _activeConversationId;
+    if (id == null) {
+      return;
+    }
+    final conversation = _conversationById(id);
+    if (conversation == null) {
+      return;
+    }
+    conversation
+      ..messages = <ChatMessage>[..._messages]
+      ..updatedAt = DateTime.now();
+
+    _conversations
+      ..remove(conversation)
+      ..insert(0, conversation);
   }
 
   void _removeEmptyAssistantPlaceholder() {
@@ -134,6 +225,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     setState(() {
       _messages.removeLast();
+      _syncActiveConversation();
     });
   }
 
@@ -176,6 +268,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _openLocalModels() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (context) => const LocalModelsScreen()),
+    );
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const SettingsScreen()),
     );
   }
 
@@ -233,14 +331,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: background,
+      drawerScrimColor: Colors.black54,
       drawer: _FoxDrawer(
+        conversations: _conversations,
+        activeConversationId: _activeConversationId,
         onNewChat: () {
           Navigator.of(context).pop();
           unawaited(_newChat());
         },
-        onModels: () {
+        onConversationSelected: (id) {
           Navigator.of(context).pop();
-          _openLocalModels();
+          unawaited(_selectConversation(id));
+        },
+        onSettings: () {
+          Navigator.of(context).pop();
+          _openSettings();
         },
       ),
       body: Stack(
@@ -291,6 +396,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
+class _ChatConversation {
+  _ChatConversation({
+    required this.id,
+    required this.title,
+    required this.updatedAt,
+    required this.messages,
+  });
+
+  final int id;
+  final String title;
+  DateTime updatedAt;
+  List<ChatMessage> messages;
+}
+
 class _WelcomeState extends StatelessWidget {
   const _WelcomeState();
 
@@ -331,7 +450,10 @@ class _WelcomeState extends StatelessWidget {
 }
 
 class _MessageList extends StatelessWidget {
-  const _MessageList({required this.messages, required this.controller});
+  const _MessageList({
+    required this.messages,
+    required this.controller,
+  });
 
   final List<ChatMessage> messages;
   final ScrollController controller;
@@ -429,7 +551,10 @@ class _Composer extends StatelessWidget {
                   minLines: 1,
                   maxLines: 5,
                   keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(color: Colors.white, fontSize: 17),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                  ),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'Message ou maintenir pour parler',
@@ -690,68 +815,282 @@ class _NewChatPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _FoxDrawer extends StatelessWidget {
-  const _FoxDrawer({required this.onNewChat, required this.onModels});
+class _FoxDrawer extends StatefulWidget {
+  const _FoxDrawer({
+    required this.conversations,
+    required this.activeConversationId,
+    required this.onNewChat,
+    required this.onConversationSelected,
+    required this.onSettings,
+  });
 
+  final List<_ChatConversation> conversations;
+  final int? activeConversationId;
   final VoidCallback onNewChat;
-  final VoidCallback onModels;
+  final ValueChanged<int> onConversationSelected;
+  final VoidCallback onSettings;
+
+  @override
+  State<_FoxDrawer> createState() => _FoxDrawerState();
+}
+
+class _FoxDrawerState extends State<_FoxDrawer> {
+  static const _drawerColor = Color(0xFF0D0D0D);
+  static const _searchColor = Color(0xFF242424);
+  static const _muted = Color(0xFF969696);
+
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController
+      ..removeListener(_onSearchChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  List<_ChatConversation> get _filteredConversations {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return widget.conversations;
+    }
+    return widget.conversations
+        .where(
+          (conversation) => conversation.title.toLowerCase().contains(query),
+        )
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
+    final conversations = _filteredConversations;
+    final today = <_ChatConversation>[];
+    final lastWeek = <_ChatConversation>[];
+    final older = <_ChatConversation>[];
+
+    for (final conversation in conversations) {
+      final age = _dayDifference(conversation.updatedAt, DateTime.now());
+      if (age <= 0) {
+        today.add(conversation);
+      } else if (age <= 7) {
+        lastWeek.add(conversation);
+      } else {
+        older.add(conversation);
+      }
+    }
+
     return Drawer(
-      backgroundColor: const Color(0xFF151515),
+      width: width,
+      shape: const RoundedRectangleBorder(),
+      backgroundColor: _drawerColor,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  children: <Widget>[
-                    FoxMark(size: 30),
-                    SizedBox(width: 12),
-                    Text(
-                      'FoxGPT',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+        child: Column(
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: _searchColor,
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  autofocus: false,
+                  keyboardAppearance: Brightness.dark,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: 'Rechercher dans les chats',
+                    hintStyle: TextStyle(
+                      color: _muted,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: _muted,
+                      size: 27,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 15),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
+                children: <Widget>[
+                  _DrawerSectionHeader(
+                    label: 'Aujourd’hui',
+                    trailing: IconButton(
+                      tooltip: 'Nouveau chat',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: widget.onNewChat,
+                      icon: const Icon(
+                        Icons.add_comment_outlined,
+                        color: _muted,
+                        size: 21,
                       ),
                     ),
+                  ),
+                  if (today.isEmpty && lastWeek.isEmpty && older.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(2, 18, 2, 10),
+                      child: Text(
+                        'Aucune conversation',
+                        style: TextStyle(
+                          color: _muted,
+                          fontSize: 16,
+                        ),
+                      ),
+                    )
+                  else
+                    ...today.map(_conversationTile),
+                  if (lastWeek.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    const _DrawerSectionHeader(label: '7 jours'),
+                    ...lastWeek.map(_conversationTile),
                   ],
+                  if (older.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 14),
+                    const _DrawerSectionHeader(label: 'Plus tôt'),
+                    ...older.map(_conversationTile),
+                  ],
+                ],
+              ),
+            ),
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: Color(0xFF1B1B1B),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: widget.onSettings,
+                  borderRadius: BorderRadius.circular(14),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 13,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.settings_outlined,
+                          color: Colors.white,
+                          size: 25,
+                        ),
+                        SizedBox(width: 13),
+                        Expanded(
+                          child: Text(
+                            'Paramètres',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.more_horiz,
+                          color: _muted,
+                          size: 24,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 14),
-              ListTile(
-                leading: const Icon(Icons.add_comment_outlined),
-                title: const Text('Nouveau chat'),
-                onTap: onNewChat,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _conversationTile(_ChatConversation conversation) {
+    final selected = conversation.id == widget.activeConversationId;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Material(
+        color: selected ? const Color(0xFF1B1B1B) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => widget.onConversationSelected(conversation.id),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
+            child: Text(
+              conversation.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFFE9E9E9),
+                fontSize: 17,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
-              ListTile(
-                leading: const Icon(Icons.memory_outlined),
-                title: const Text('Modèles locaux'),
-                subtitle: const Text('GGUF · llama.cpp'),
-                onTap: onModels,
-              ),
-              const ListTile(
-                enabled: false,
-                leading: Icon(Icons.cloud_outlined),
-                title: Text('API personnelle'),
-                subtitle: Text('Configuration BYOK à venir'),
-              ),
-              const Spacer(),
-              const Padding(
-                padding: EdgeInsets.all(14),
-                child: Text(
-                  'FoxGPT · local + BYOK',
-                  style: TextStyle(color: Color(0xFF8C8C8C)),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  int _dayDifference(DateTime from, DateTime to) {
+    final fromDay = DateTime(from.year, from.month, from.day);
+    final toDay = DateTime(to.year, to.month, to.day);
+    return toDay.difference(fromDay).inDays;
+  }
+}
+
+class _DrawerSectionHeader extends StatelessWidget {
+  const _DrawerSectionHeader({
+    required this.label,
+    this.trailing,
+  });
+
+  final String label;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF949494),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
       ),
     );
   }
