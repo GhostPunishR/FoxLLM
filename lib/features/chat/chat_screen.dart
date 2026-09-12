@@ -108,9 +108,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _scrollToBottom();
       }
 
-      if (mounted &&
-          generationEpoch == _generationEpoch &&
-          response.isEmpty) {
+      if (mounted && generationEpoch == _generationEpoch && response.isEmpty) {
         _removeEmptyAssistantPlaceholder();
       }
     } catch (error) {
