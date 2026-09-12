@@ -117,10 +117,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final generationEpoch = ++_generationEpoch;
-    final requestMessages = <ChatMessage>[
-      ..._messages,
-      ChatMessage.user(text),
-    ];
+    final requestMessages = <ChatMessage>[..._messages, ChatMessage.user(text)];
 
     setState(() {
       _ensureActiveConversation(text);
@@ -450,10 +447,7 @@ class _WelcomeState extends StatelessWidget {
 }
 
 class _MessageList extends StatelessWidget {
-  const _MessageList({
-    required this.messages,
-    required this.controller,
-  });
+  const _MessageList({required this.messages, required this.controller});
 
   final List<ChatMessage> messages;
   final ScrollController controller;
@@ -551,10 +545,7 @@ class _Composer extends StatelessWidget {
                   minLines: 1,
                   maxLines: 5,
                   keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 17),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'Message ou maintenir pour parler',
@@ -911,10 +902,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                   controller: _searchController,
                   autofocus: false,
                   keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
                   decoration: const InputDecoration(
                     hintText: 'Rechercher dans les chats',
                     hintStyle: TextStyle(
@@ -955,10 +943,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                       padding: EdgeInsets.fromLTRB(2, 18, 2, 10),
                       child: Text(
                         'Aucune conversation',
-                        style: TextStyle(
-                          color: _muted,
-                          fontSize: 16,
-                        ),
+                        style: TextStyle(color: _muted, fontSize: 16),
                       ),
                     )
                   else
@@ -976,11 +961,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                 ],
               ),
             ),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: Color(0xFF1B1B1B),
-            ),
+            const Divider(height: 1, thickness: 1, color: Color(0xFF1B1B1B)),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Material(
@@ -990,10 +971,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                   onTap: widget.onSettings,
                   borderRadius: BorderRadius.circular(14),
                   child: const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 13,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 13),
                     child: Row(
                       children: <Widget>[
                         Icon(
@@ -1012,11 +990,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                             ),
                           ),
                         ),
-                        Icon(
-                          Icons.more_horiz,
-                          color: _muted,
-                          size: 24,
-                        ),
+                        Icon(Icons.more_horiz, color: _muted, size: 24),
                       ],
                     ),
                   ),
@@ -1065,10 +1039,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 }
 
 class _DrawerSectionHeader extends StatelessWidget {
-  const _DrawerSectionHeader({
-    required this.label,
-    this.trailing,
-  });
+  const _DrawerSectionHeader({required this.label, this.trailing});
 
   final String label;
   final Widget? trailing;
@@ -1089,7 +1060,7 @@ class _DrawerSectionHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
