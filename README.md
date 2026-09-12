@@ -42,10 +42,10 @@ La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHIT
 
 Déjà présent :
 
-- écran de chat FoxGPT affiché directement après le splash de marque ;
-- identité renard orange tracée depuis la référence visuelle officielle FoxGPT et partagée entre chat, splash et icône Android ;
+- écran de chat FoxGPT affiché dès le lancement, sans écran intermédiaire ;
+- identité renard orange tracée depuis la référence visuelle officielle FoxGPT et partagée entre chat, splash natif et icône Android ;
 - icône APK/adaptive icon sur fond blanc ;
-- splash Android natif blanc avec renard, suivi d'un splash Flutter avec barre de chargement orange ;
+- splash Android natif blanc avec renard, affiché le temps que le moteur Flutter démarre ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations disponible pendant la session avec retour vers un chat précédent ;
 - écran Paramètres avec accès aux modèles locaux et aux sections FoxGPT ;

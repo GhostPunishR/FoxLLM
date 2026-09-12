@@ -4,8 +4,16 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ## [Non publié]
 
-Passe de qualité sur le code existant : aucune fonctionnalité ajoutée, aucun
-comportement volontairement modifié en dehors des corrections ci-dessous.
+Passe de qualité sur le code existant, plus la suppression du splash Flutter
+demandée séparément. En dehors des points listés ci-dessous, aucun comportement
+n'est volontairement modifié.
+
+### Modifications
+
+- suppression du splash Flutter : l'application ouvre directement l'écran de
+  chat. Cet écran n'effectuait aucun préchargement et ajoutait 700 ms d'attente
+  purement décorative. Le splash natif Android, lui, est conservé : il occupe
+  l'écran pendant le démarrage du moteur Flutter et n'ajoute aucun délai.
 
 ### Corrections
 
