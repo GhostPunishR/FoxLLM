@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:foxgpt_native/foxgpt_native.dart';
 
 void main() {
@@ -9,7 +11,7 @@ void main() {
       throw StateError('Unexpected native engine version: $version');
     }
 
-    print('FoxGPT native smoke test passed: $version');
+    stdout.writeln('FoxGPT native smoke test passed: $version');
   } finally {
     engine.dispose();
   }

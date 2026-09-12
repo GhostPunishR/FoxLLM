@@ -4,12 +4,13 @@ import '../llm/provider_config.dart';
 
 class ApiKeyStore {
   ApiKeyStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? FlutterSecureStorage();
+    : _storage = storage ?? FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
   final Map<String, String> _sessionKeys = <String, String>{};
 
-  String _storageKey(String providerId) => 'foxgpt.provider.$providerId.api_key';
+  String _storageKey(String providerId) =>
+      'foxgpt.provider.$providerId.api_key';
 
   Future<void> save({
     required String providerId,
@@ -23,10 +24,7 @@ class ApiKeyStore {
     }
 
     _sessionKeys.remove(providerId);
-    await _storage.write(
-      key: _storageKey(providerId),
-      value: apiKey,
-    );
+    await _storage.write(key: _storageKey(providerId), value: apiKey);
   }
 
   Future<String?> read({

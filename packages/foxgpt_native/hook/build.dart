@@ -8,12 +8,8 @@ void main(List<String> args) async {
       assetName: 'foxgpt_native.dart',
       language: Language.cpp,
       std: 'c++17',
-      sources: const <String>[
-        'src/foxgpt_native.cpp',
-      ],
-      includes: const <String>[
-        'src',
-      ],
+      sources: const <String>['src/foxgpt_native.cpp'],
+      includes: const <String>['src'],
     );
 
     await builder.run(input: input, output: output);

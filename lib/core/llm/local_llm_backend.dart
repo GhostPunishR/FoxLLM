@@ -6,7 +6,7 @@ import 'llm_backend.dart';
 
 class LocalLlmBackend implements LlmBackend {
   LocalLlmBackend({FoxGptNativeEngine? engine})
-      : _engine = engine ?? FoxGptNativeEngine();
+    : _engine = engine ?? FoxGptNativeEngine();
 
   final FoxGptNativeEngine _engine;
 

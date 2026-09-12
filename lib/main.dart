@@ -54,9 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('FoxGPT'),
-      ),
+      appBar: AppBar(title: const Text('FoxGPT')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: <Widget>[
@@ -79,7 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
           const _ModeCard(
             icon: Icons.cloud_outlined,
             title: 'API personnelle',
-            subtitle: 'BYOK · clé stockée localement · connexion directe au fournisseur',
+            subtitle:
+                'BYOK · clé stockée localement · connexion directe au fournisseur',
           ),
           const SizedBox(height: 24),
           Card(
@@ -125,7 +124,10 @@ class _ModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 12,
+        ),
         leading: Icon(icon, size: 32),
         title: Text(title),
         subtitle: Text(subtitle),

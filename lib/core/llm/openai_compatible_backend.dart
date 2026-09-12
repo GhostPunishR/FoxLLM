@@ -9,10 +9,7 @@ import 'llm_backend.dart';
 import 'provider_config.dart';
 
 class OpenAiCompatibleBackend implements LlmBackend {
-  OpenAiCompatibleBackend({
-    required this.provider,
-    required this.keyStore,
-  });
+  OpenAiCompatibleBackend({required this.provider, required this.keyStore});
 
   final ProviderConfig provider;
   final ApiKeyStore keyStore;
@@ -36,7 +33,9 @@ class OpenAiCompatibleBackend implements LlmBackend {
     );
 
     if (apiKey == null || apiKey.trim().isEmpty) {
-      throw StateError('Aucune clé API configurée pour ${provider.displayName}.');
+      throw StateError(
+        'Aucune clé API configurée pour ${provider.displayName}.',
+      );
     }
 
     final client = http.Client();
@@ -62,10 +61,7 @@ class OpenAiCompatibleBackend implements LlmBackend {
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final errorBody = await response.stream.bytesToString();
-        throw HttpException(
-          statusCode: response.statusCode,
-          body: errorBody,
-        );
+        throw HttpException(statusCode: response.statusCode, body: errorBody);
       }
 
       final lines = response.stream
@@ -129,10 +125,7 @@ class OpenAiCompatibleBackend implements LlmBackend {
 }
 
 class HttpException implements Exception {
-  const HttpException({
-    required this.statusCode,
-    required this.body,
-  });
+  const HttpException({required this.statusCode, required this.body});
 
   final int statusCode;
   final String body;
