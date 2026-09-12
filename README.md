@@ -42,9 +42,10 @@ La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHIT
 
 Déjà présent :
 
-- écran de chat FoxGPT affiché directement au lancement en plein écran sombre ;
-- pictogramme renard orange dessiné en Dart/Canvas ;
-- splash Android natif noir pour éviter le flash blanc avant la première frame Flutter ;
+- écran de chat FoxGPT affiché directement après le splash de marque ;
+- identité renard orange tracée depuis la référence visuelle officielle FoxGPT et partagée entre chat, splash et icône Android ;
+- icône APK/adaptive icon sur fond blanc ;
+- splash Android natif blanc avec renard, suivi d'un splash Flutter avec barre de chargement orange ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;
