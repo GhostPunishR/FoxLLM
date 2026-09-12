@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class FoxMark extends StatelessWidget {
-  const FoxMark({super.key, this.size = 72});
+  const FoxMark({super.key, this.size = 48});
 
   final double size;
 
@@ -25,50 +25,82 @@ class _FoxMarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.save();
+    final bounds = Offset.zero & size;
+    canvas.saveLayer(bounds, Paint());
     canvas.scale(size.width / 100, size.height / 100);
 
-    final fox = Path()
-      ..moveTo(13, 29)
-      ..lineTo(38, 17)
-      ..lineTo(48, 29)
-      ..quadraticBezierTo(50, 27, 52, 29)
-      ..lineTo(62, 17)
-      ..lineTo(87, 29)
-      ..quadraticBezierTo(84, 57, 72, 72)
-      ..quadraticBezierTo(61, 84, 50, 88)
-      ..quadraticBezierTo(39, 84, 28, 72)
-      ..quadraticBezierTo(16, 57, 13, 29)
+    final orangePaint = Paint()
+      ..color = _orange
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    // Profil d'un renard assis : museau pointu, oreille haute et poitrine.
+    final headAndChest = Path()
+      ..moveTo(7, 43)
+      ..quadraticBezierTo(15, 37, 27, 33)
+      ..lineTo(35, 16)
+      ..lineTo(44, 29)
+      ..quadraticBezierTo(50, 29, 56, 34)
+      ..quadraticBezierTo(61, 38, 60, 42)
+      ..quadraticBezierTo(56, 49, 45, 52)
+      ..quadraticBezierTo(36, 55, 31, 64)
+      ..quadraticBezierTo(27, 58, 23, 52)
+      ..quadraticBezierTo(18, 47, 7, 43)
       ..close();
 
-    final leftMask = Path()
-      ..moveTo(24, 45)
-      ..quadraticBezierTo(35, 43, 46, 54)
-      ..quadraticBezierTo(38, 66, 30, 68)
-      ..quadraticBezierTo(25, 58, 24, 45)
+    // Corps compact du renard.
+    final body = Path()
+      ..moveTo(39, 49)
+      ..quadraticBezierTo(56, 44, 70, 50)
+      ..quadraticBezierTo(81, 55, 83, 67)
+      ..quadraticBezierTo(85, 79, 76, 88)
+      ..quadraticBezierTo(66, 97, 51, 92)
+      ..quadraticBezierTo(37, 88, 31, 76)
+      ..quadraticBezierTo(27, 65, 32, 56)
+      ..quadraticBezierTo(35, 52, 39, 49)
       ..close();
-    final rightMask = Path()
-      ..moveTo(76, 45)
-      ..quadraticBezierTo(65, 43, 54, 54)
-      ..quadraticBezierTo(62, 66, 70, 68)
-      ..quadraticBezierTo(75, 58, 76, 45)
-      ..close();
-    final muzzle = Path()
-      ..moveTo(40, 70)
-      ..quadraticBezierTo(50, 76, 60, 70)
-      ..quadraticBezierTo(56, 82, 50, 86)
-      ..quadraticBezierTo(44, 82, 40, 70)
-      ..close();
-    final eyes = Path()
-      ..addOval(Rect.fromCircle(center: const Offset(38, 48), radius: 2.2))
-      ..addOval(Rect.fromCircle(center: const Offset(62, 48), radius: 2.2));
 
-    var silhouette = Path.combine(PathOperation.difference, fox, leftMask);
-    silhouette = Path.combine(PathOperation.difference, silhouette, rightMask);
-    silhouette = Path.combine(PathOperation.difference, silhouette, muzzle);
-    silhouette = Path.combine(PathOperation.difference, silhouette, eyes);
+    // Grande queue touffue enroulée autour du corps.
+    final tail = Path()
+      ..moveTo(69, 56)
+      ..quadraticBezierTo(88, 54, 96, 65)
+      ..quadraticBezierTo(102, 75, 94, 85)
+      ..quadraticBezierTo(84, 98, 64, 98)
+      ..quadraticBezierTo(46, 98, 34, 87)
+      ..quadraticBezierTo(49, 91, 62, 85)
+      ..quadraticBezierTo(73, 80, 77, 70)
+      ..quadraticBezierTo(80, 61, 69, 56)
+      ..close();
 
-    canvas.drawPath(silhouette, Paint()..color = _orange);
+    canvas
+      ..drawPath(body, orangePaint)
+      ..drawPath(tail, orangePaint)
+      ..drawPath(headAndChest, orangePaint);
+
+    final clearPaint = Paint()
+      ..blendMode = BlendMode.clear
+      ..isAntiAlias = true;
+
+    // Œil discret comme sur un pictogramme monocolore.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: const Offset(36.5, 35.5),
+        width: 4.2,
+        height: 3.2,
+      ),
+      clearPaint,
+    );
+
+    // Pointe claire de la queue : détail immédiatement associé au renard.
+    final tailTip = Path()
+      ..moveTo(88, 61)
+      ..quadraticBezierTo(98, 67, 96, 76)
+      ..quadraticBezierTo(94, 81, 89, 84)
+      ..quadraticBezierTo(86, 76, 80, 70)
+      ..quadraticBezierTo(84, 65, 88, 61)
+      ..close();
+    canvas.drawPath(tailTip, clearPaint);
+
     canvas.restore();
   }
 
