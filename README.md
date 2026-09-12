@@ -46,6 +46,9 @@ Déjà présent :
 - identité renard orange tracée depuis la référence visuelle officielle FoxGPT et partagée entre chat, splash et icône Android ;
 - icône APK/adaptive icon sur fond blanc ;
 - splash Android natif blanc avec renard, suivi d'un splash Flutter avec barre de chargement orange ;
+- menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
+- historique de conversations disponible pendant la session avec retour vers un chat précédent ;
+- écran Paramètres avec accès aux modèles locaux et aux sections FoxGPT ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;
@@ -73,4 +76,4 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 
 ## Prochain jalon
 
-La prochaine étape est de brancher la sélection Local/API directement dans le chat, puis d'ajouter la persistance des conversations et les paramètres de génération dans l'interface.
+La prochaine étape est de rendre l'historique des conversations persistant entre les redémarrages, de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
