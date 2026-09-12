@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <cstdlib>
-#include <cstring>
 #include <string>
 
 namespace {
@@ -12,16 +11,6 @@ struct Engine {
     std::string model_path;
     std::atomic<bool> stop_requested{false};
 };
-
-char* duplicate_string(const std::string& value) {
-    auto* result = static_cast<char*>(std::malloc(value.size() + 1));
-    if (result == nullptr) {
-        return nullptr;
-    }
-
-    std::memcpy(result, value.c_str(), value.size() + 1);
-    return result;
-}
 
 Engine* as_engine(void* engine) {
     return static_cast<Engine*>(engine);
