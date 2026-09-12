@@ -271,6 +271,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       _models = const <String>[];
       _selectedModel = '';
       _modelController.clear();
+      _apiKeyController.clear();
       _manualModel = provider.custom;
       _useInChat = false;
     });
