@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../chat/chat_screen.dart';
+import '../chat/chat_backend_host.dart';
 import '../chat/fox_mark.dart';
 
 class FoxGptSplashScreen extends StatefulWidget {
@@ -44,7 +44,7 @@ class _FoxGptSplashScreenState extends State<FoxGptSplashScreen>
         PageRouteBuilder<void>(
           transitionDuration: const Duration(milliseconds: 140),
           pageBuilder: (context, animation, secondaryAnimation) =>
-              const ChatScreen(),
+              const ChatBackendHost(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
