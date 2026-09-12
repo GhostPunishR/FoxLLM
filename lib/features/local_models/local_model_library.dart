@@ -5,12 +5,13 @@ import 'package:path_provider/path_provider.dart';
 import 'local_model_file.dart';
 
 typedef LocalModelDirectoryProvider = Future<Directory> Function();
-typedef LocalModelImportProgress = void Function(int copiedBytes, int? totalBytes);
+typedef LocalModelImportProgress =
+    void Function(int copiedBytes, int? totalBytes);
 
 class LocalModelLibrary {
   LocalModelLibrary({LocalModelDirectoryProvider? applicationSupportDirectory})
-      : _applicationSupportDirectory =
-            applicationSupportDirectory ?? getApplicationSupportDirectory;
+    : _applicationSupportDirectory =
+          applicationSupportDirectory ?? getApplicationSupportDirectory;
 
   final LocalModelDirectoryProvider _applicationSupportDirectory;
 
@@ -53,7 +54,9 @@ class LocalModelLibrary {
   }) async {
     final sanitizedName = _sanitizeFileName(fileName);
     if (!_isGguf(sanitizedName)) {
-      throw FormatException('Le fichier sélectionné doit être un modèle .gguf.');
+      throw FormatException(
+        'Le fichier sélectionné doit être un modèle .gguf.',
+      );
     }
 
     final directory = await _modelsDirectory();
@@ -92,7 +95,7 @@ class LocalModelLibrary {
       }
 
       final imported = await partial.rename(destination.path);
-      return _describe(imported);
+      return await _describe(imported);
     } catch (_) {
       if (!sinkClosed) {
         await sink.close();
@@ -109,9 +112,14 @@ class LocalModelLibrary {
     final candidate = File(model.path).absolute;
 
     if (candidate.parent.path != directory.absolute.path ||
-        candidate.path != File('${directory.path}${Platform.pathSeparator}${model.fileName}').absolute.path ||
+        candidate.path !=
+            File(
+              '${directory.path}${Platform.pathSeparator}${model.fileName}',
+            ).absolute.path ||
         !_isGguf(candidate.path)) {
-      throw StateError('Refus de supprimer un fichier hors de la bibliothèque FoxGPT.');
+      throw StateError(
+        'Refus de supprimer un fichier hors de la bibliothèque FoxGPT.',
+      );
     }
 
     if (await candidate.exists()) {
@@ -133,9 +141,7 @@ class LocalModelLibrary {
   Future<File> _uniqueDestination(Directory directory, String fileName) async {
     final extensionIndex = fileName.toLowerCase().lastIndexOf('.gguf');
     final baseName = fileName.substring(0, extensionIndex);
-    var candidate = File(
-      '${directory.path}${Platform.pathSeparator}$fileName',
-    );
+    var candidate = File('${directory.path}${Platform.pathSeparator}$fileName');
     var suffix = 2;
 
     while (await candidate.exists()) {
@@ -159,10 +165,7 @@ class LocalModelLibrary {
 
   String _sanitizeFileName(String value) {
     final leaf = value.split(RegExp(r'[/\\]')).last.trim();
-    final sanitized = leaf.replaceAll(
-      RegExp(r'[<>:"/\\|?*\x00-\x1F]'),
-      '_',
-    );
+    final sanitized = leaf.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_');
     if (sanitized.isEmpty || sanitized == '.' || sanitized == '..') {
       throw const FormatException('Nom de fichier GGUF invalide.');
     }
