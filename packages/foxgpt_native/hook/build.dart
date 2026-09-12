@@ -31,6 +31,7 @@ void main(List<String> args) async {
       return;
     }
 
+    hierarchicalLoggingEnabled = true;
     final logger = Logger('foxgpt_native.cmake')
       ..level = Level.ALL
       ..onRecord.listen((record) => stderr.writeln(record.message));
