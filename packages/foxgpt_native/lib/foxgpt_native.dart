@@ -27,10 +27,14 @@ external int _engineIsModelLoaded(Pointer<Void> engine);
 )
 external Pointer<Utf8> _engineModelDescription(Pointer<Void> engine);
 
-@Native<Uint64 Function(Pointer<Void>)>(symbol: 'foxgpt_engine_model_size_bytes')
+@Native<Uint64 Function(Pointer<Void>)>(
+  symbol: 'foxgpt_engine_model_size_bytes',
+)
 external int _engineModelSizeBytes(Pointer<Void> engine);
 
-@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxgpt_engine_model_context_size')
+@Native<Int32 Function(Pointer<Void>)>(
+  symbol: 'foxgpt_engine_model_context_size',
+)
 external int _engineModelContextSize(Pointer<Void> engine);
 
 @Native<Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>)>(
