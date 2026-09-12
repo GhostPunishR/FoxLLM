@@ -15,7 +15,7 @@ class OpenAiCompatibleBackend implements LlmBackend {
     required this.provider,
     required this.keyStore,
     HttpClientFactory? clientFactory,
-  }) : _clientFactory = clientFactory ?? http.Client;
+  }) : _clientFactory = clientFactory ?? http.Client.new;
 
   final ProviderConfig provider;
   final ApiKeyStore keyStore;
