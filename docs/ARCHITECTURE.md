@@ -31,6 +31,8 @@ Tous les moteurs implémentent `LlmBackend` et exposent une génération sous fo
 
 Le backend local démarre un isolate worker longue durée qui possède le moteur natif. Le chargement GGUF et l'inférence bloquante de `llama.cpp` se déroulent exclusivement dans ce worker : l'isolate Flutter reste disponible pour les animations, les entrées utilisateur et le rendu.
 
+**Invariant d'architecture :** le code de l'application Flutter ne doit pas instancier `FoxGptNativeEngine` directement. L'UI et les contrôleurs applicatifs passent par `LocalLlmBackend`, qui délègue à `FoxGptNativeWorker`. Les appels directs au moteur restent réservés à l'implémentation du package natif et à ses smoke tests bas niveau.
+
 Pendant l'inférence, le C++ appelle un callback FFI pour chaque token. Le worker copie immédiatement les octets du token et les transmet à l'isolate principal par `SendPort`. Le décodage UTF-8 est incrémental afin de gérer correctement les séquences multi-octets pouvant traverser plusieurs tokens.
 
 `stop()` est particulier : comme le worker peut être bloqué dans l'appel FFI, l'isolate principal appelle uniquement l'export natif thread-safe qui positionne un flag atomique. La boucle `llama.cpp` observe ce flag entre deux décodages et s'interrompt sans attendre que la file de messages du worker soit disponible.
