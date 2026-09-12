@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'core/llm/local_llm_backend.dart';
+import 'core/llm/local_backend_provider.dart';
+import 'features/local_models/local_models_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,15 +27,14 @@ class FoxGptApp extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  LocalLlmBackend? _localBackend;
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _nativeStatus = 'Non vérifié';
   bool _checkingNative = false;
 
@@ -50,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _nativeStatus = 'Vérification du worker…';
     });
 
-    final backend = _localBackend ??= LocalLlmBackend();
+    final backend = ref.read(localLlmBackendProvider);
 
     try {
       final version = await backend.nativeVersion;
@@ -64,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) {
         return;
       }
+      ref.invalidate(localLlmBackendProvider);
       setState(() {
         _nativeStatus = 'Erreur · $error';
       });
@@ -76,13 +75,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    final backend = _localBackend;
-    if (backend != null) {
-      unawaited(backend.dispose());
-    }
-    super.dispose();
+  void _openLocalModels() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (context) => const LocalModelsScreen()),
+    );
   }
 
   @override
@@ -102,10 +98,11 @@ class _HomeScreenState extends State<HomeScreen> {
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 24),
-          const _ModeCard(
+          _ModeCard(
             icon: Icons.smartphone,
             title: 'Local',
             subtitle: 'GGUF · C++ · llama.cpp · hors connexion',
+            onTap: _openLocalModels,
           ),
           const SizedBox(height: 12),
           const _ModeCard(
@@ -157,16 +154,19 @@ class _ModeCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
+        onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 12,
