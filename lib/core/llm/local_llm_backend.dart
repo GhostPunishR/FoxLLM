@@ -18,11 +18,19 @@ class LocalLlmBackend implements LlmBackend {
 
   String get nativeVersion => _engine.version;
 
+  bool get isModelLoaded => _engine.isModelLoaded;
+
+  FoxGptModelInfo? get modelInfo => _engine.modelInfo;
+
   Future<void> loadModel(String path) async {
     final loaded = _engine.loadModel(path);
     if (!loaded) {
       throw StateError(_engine.lastError);
     }
+  }
+
+  Future<void> unloadModel() async {
+    _engine.unloadModel();
   }
 
   @override
