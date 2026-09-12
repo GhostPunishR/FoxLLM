@@ -27,12 +27,12 @@ class PersonalApiSettings {
       baseUrl.trim().isNotEmpty && model.trim().isNotEmpty && hasApiKey;
 
   ProviderConfig toProviderConfig() => ProviderConfig(
-        id: personalApiProviderId,
-        displayName: 'API personnelle',
-        baseUrl: baseUrl.trim(),
-        model: model.trim(),
-        apiKeyPersistence: apiKeyPersistence,
-      );
+    id: personalApiProviderId,
+    displayName: 'API personnelle',
+    baseUrl: baseUrl.trim(),
+    model: model.trim(),
+    apiKeyPersistence: apiKeyPersistence,
+  );
 
   PersonalApiSettings copyWith({
     String? baseUrl,
@@ -53,7 +53,7 @@ class PersonalApiSettings {
 
 class PersonalApiSettingsStore {
   PersonalApiSettingsStore({FlutterSecureStorage? storage})
-      : _storage = storage ?? FlutterSecureStorage();
+    : _storage = storage ?? FlutterSecureStorage();
 
   static const _baseUrlKey = 'foxgpt.personal_api.base_url';
   static const _modelKey = 'foxgpt.personal_api.model';
@@ -96,10 +96,7 @@ class PersonalApiSettingsStore {
         key: _persistenceKey,
         value: settings.apiKeyPersistence.name,
       ),
-      _storage.write(
-        key: _useInChatKey,
-        value: settings.useInChat.toString(),
-      ),
+      _storage.write(key: _useInChatKey, value: settings.useInChat.toString()),
     ]);
   }
 }
@@ -117,7 +114,9 @@ bool isAllowedPersonalApiBaseUrl(String value) {
 
 bool _isPrivateOrLoopbackHost(String host) {
   final normalized = host.toLowerCase();
-  if (normalized == 'localhost' || normalized == '127.0.0.1' || normalized == '::1') {
+  if (normalized == 'localhost' ||
+      normalized == '127.0.0.1' ||
+      normalized == '::1') {
     return true;
   }
 
@@ -156,11 +155,7 @@ Future<void> testPersonalApiConnection({
       messages: const <ChatMessage>[
         ChatMessage.user('Réponds uniquement par OK.'),
       ],
-      settings: const GenerationSettings(
-        temperature: 0,
-        topP: 1,
-        maxTokens: 8,
-      ),
+      settings: const GenerationSettings(temperature: 0, topP: 1, maxTokens: 8),
     )) {
       if (chunk.trim().isNotEmpty) {
         receivedContent = true;

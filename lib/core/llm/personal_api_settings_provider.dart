@@ -12,15 +12,15 @@ final personalApiSettingsStoreProvider = Provider<PersonalApiSettingsStore>(
 
 final personalApiSettingsProvider =
     AsyncNotifierProvider<PersonalApiSettingsController, PersonalApiSettings>(
-  PersonalApiSettingsController.new,
-);
+      PersonalApiSettingsController.new,
+    );
 
 class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
   @override
   Future<PersonalApiSettings> build() async {
-    return ref.read(personalApiSettingsStoreProvider).load(
-          keyStore: ref.read(apiKeyStoreProvider),
-        );
+    return ref
+        .read(personalApiSettingsStoreProvider)
+        .load(keyStore: ref.read(apiKeyStoreProvider));
   }
 
   Future<PersonalApiSettings> save({
@@ -74,9 +74,7 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
 
   Future<PersonalApiSettings> setUseInChat(bool value) async {
     final current = state.requireValue;
-    final next = current.copyWith(
-      useInChat: value && current.isConfigured,
-    );
+    final next = current.copyWith(useInChat: value && current.isConfigured);
     await ref.read(personalApiSettingsStoreProvider).save(next);
     state = AsyncData<PersonalApiSettings>(next);
     return next;

@@ -36,9 +36,9 @@ class PersonalApiChatBackend implements LocalLlmBackend {
     required PersonalApiSettings settings,
     required OpenAiCompatibleBackend remoteBackend,
     required LocalLlmBackend localBackend,
-  })  : _settings = settings,
-        _remoteBackend = remoteBackend,
-        _localBackend = localBackend;
+  }) : _settings = settings,
+       _remoteBackend = remoteBackend,
+       _localBackend = localBackend;
 
   final PersonalApiSettings _settings;
   final OpenAiCompatibleBackend _remoteBackend;

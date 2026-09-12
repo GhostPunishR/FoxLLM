@@ -15,7 +15,7 @@ class ChatBackendHost extends ConsumerWidget {
     final activeBackend = personalBackend ?? localBackend;
 
     return ProviderScope(
-      overrides: <Override>[
+      overrides: [
         localLlmBackendProvider.overrideWithValue(activeBackend),
       ],
       child: const ChatScreen(),

@@ -73,7 +73,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
     setState(() => _saving = true);
     try {
-      final settings = await ref.read(personalApiSettingsProvider.notifier).save(
+      final settings = await ref
+          .read(personalApiSettingsProvider.notifier)
+          .save(
             baseUrl: _baseUrlController.text,
             model: _modelController.text,
             persistence: _persistence,
@@ -128,8 +130,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
   Future<void> _deleteApiKey() async {
     try {
-      final settings =
-          await ref.read(personalApiSettingsProvider.notifier).deleteApiKey();
+      final settings = await ref
+          .read(personalApiSettingsProvider.notifier)
+          .deleteApiKey();
       if (!mounted) {
         return;
       }
@@ -242,25 +245,28 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                           enableSuggestions: false,
                           obscureText: _obscureApiKey,
                           style: const TextStyle(color: Colors.white),
-                          decoration: _inputDecoration(
-                            hasStoredKey
-                                ? 'Clé déjà enregistrée · laisse vide pour la conserver'
-                                : 'Clé API',
-                          ).copyWith(
-                            suffixIcon: IconButton(
-                              tooltip: _obscureApiKey ? 'Afficher' : 'Masquer',
-                              onPressed: () {
-                                setState(() {
-                                  _obscureApiKey = !_obscureApiKey;
-                                });
-                              },
-                              icon: Icon(
-                                _obscureApiKey
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
+                          decoration:
+                              _inputDecoration(
+                                hasStoredKey
+                                    ? 'Clé déjà enregistrée · laisse vide pour la conserver'
+                                    : 'Clé API',
+                              ).copyWith(
+                                suffixIcon: IconButton(
+                                  tooltip: _obscureApiKey
+                                      ? 'Afficher'
+                                      : 'Masquer',
+                                  onPressed: () {
+                                    setState(() {
+                                      _obscureApiKey = !_obscureApiKey;
+                                    });
+                                  },
+                                  icon: Icon(
+                                    _obscureApiKey
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
                         ),
                       ],
                     ),
@@ -406,10 +412,7 @@ class _FieldCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         side: const BorderSide(color: _PersonalApiScreenState.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: child,
-      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
     );
   }
 }
