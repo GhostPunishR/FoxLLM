@@ -16,13 +16,13 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  static const _background = Color(0xFF0B0B0B);
-  static const _composer = Color(0xFF242424);
-  static const _composerBorder = Color(0xFF3A3A3A);
-  static const _muted = Color(0xFF949494);
-  static const _blue = Color(0xFF5B8CFF);
-  static const _blueSurface = Color(0xFF202B43);
-  static const _blueBorder = Color(0xFF35558C);
+  static const background = Color(0xFF0B0B0B);
+  static const composer = Color(0xFF242424);
+  static const composerBorder = Color(0xFF3A3A3A);
+  static const muted = Color(0xFF949494);
+  static const blue = Color(0xFF5B8CFF);
+  static const blueSurface = Color(0xFF202B43);
+  static const blueBorder = Color(0xFF35558C);
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _inputController = TextEditingController();
@@ -232,7 +232,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: _background,
+      backgroundColor: background,
       drawer: _FoxDrawer(
         onNewChat: () {
           Navigator.of(context).pop();
@@ -243,51 +243,49 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _openLocalModels();
         },
       ),
-      body: SafeArea(
-        child: Stack(
-          children: <Widget>[
-            Positioned.fill(
-              child: _messages.isEmpty
-                  ? const _WelcomeState()
-                  : _MessageList(
-                      messages: _messages,
-                      controller: _scrollController,
-                    ),
+      body: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: _messages.isEmpty
+                ? const _WelcomeState()
+                : _MessageList(
+                    messages: _messages,
+                    controller: _scrollController,
+                  ),
+          ),
+          Positioned(
+            top: 18,
+            left: 12,
+            child: _TopButton(
+              tooltip: 'Menu',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              child: const _MenuGlyph(),
             ),
-            Positioned(
-              top: 6,
-              left: 18,
-              child: _TopIconButton(
-                tooltip: 'Menu',
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                child: const _MenuGlyph(),
-              ),
+          ),
+          Positioned(
+            top: 18,
+            right: 12,
+            child: _TopButton(
+              tooltip: 'Nouveau chat',
+              onPressed: () => unawaited(_newChat()),
+              child: const _NewChatGlyph(),
             ),
-            Positioned(
-              top: 6,
-              right: 18,
-              child: _TopIconButton(
-                tooltip: 'Nouveau chat',
-                onPressed: () => unawaited(_newChat()),
-                child: const Icon(Icons.add_comment_outlined, size: 31),
-              ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _Composer(
+              controller: _inputController,
+              isGenerating: _isGenerating,
+              hasDraft: hasDraft,
+              onReflection: _showReflectionInfo,
+              onSearch: _showSearchInfo,
+              onAdd: _showAddMenu,
+              onVoice: _showVoiceInfo,
+              onSend: () => unawaited(_sendMessage()),
+              onStop: () => unawaited(_stopGeneration()),
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _Composer(
-                controller: _inputController,
-                isGenerating: _isGenerating,
-                hasDraft: hasDraft,
-                onReflection: _showReflectionInfo,
-                onSearch: _showSearchInfo,
-                onAdd: _showAddMenu,
-                onVoice: _showVoiceInfo,
-                onSend: () => unawaited(_sendMessage()),
-                onStop: () => unawaited(_stopGeneration()),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -298,33 +296,36 @@ class _WelcomeState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Align(
-        alignment: const Alignment(0, -0.08),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 0, 28, 150),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const FoxMark(size: 70),
-              const SizedBox(height: 28),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 560),
-                child: Text(
-                  "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                    letterSpacing: -0.4,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Padding(
+          padding: EdgeInsets.only(top: constraints.maxHeight * 0.39),
+          child: const Align(
+            alignment: Alignment.topCenter,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                FoxMark(size: 46),
+                SizedBox(height: 22),
+                SizedBox(
+                  width: 300,
+                  child: Text(
+                    "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      height: 1.28,
+                      letterSpacing: -0.25,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -339,7 +340,7 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.fromLTRB(20, 82, 20, 190),
+      padding: const EdgeInsets.fromLTRB(18, 72, 18, 160),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
@@ -364,8 +365,8 @@ class _MessageList extends StatelessWidget {
                 : null,
             child: message.content.isEmpty
                 ? const SizedBox(
-                    width: 22,
-                    height: 22,
+                    width: 20,
+                    height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Text(
@@ -409,17 +410,17 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 820),
+        constraints: const BoxConstraints(maxWidth: 900),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: _ChatScreenState._composer,
-            borderRadius: BorderRadius.circular(40),
-            border: Border.all(color: _ChatScreenState._composerBorder),
+            color: _ChatScreenState.composer,
+            borderRadius: BorderRadius.circular(36),
+            border: Border.all(color: _ChatScreenState.composerBorder),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 14, 14),
+            padding: const EdgeInsets.fromLTRB(18, 13, 12, 11),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
@@ -428,19 +429,20 @@ class _Composer extends StatelessWidget {
                   minLines: 1,
                   maxLines: 5,
                   keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                  style: const TextStyle(color: Colors.white, fontSize: 17),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'Message ou maintenir pour parler',
                     hintStyle: TextStyle(
-                      color: _ChatScreenState._muted,
-                      fontSize: 18,
+                      color: _ChatScreenState.muted,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(horizontal: 2),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -468,13 +470,13 @@ class _Composer extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 5),
                     _RoundComposerButton(
                       tooltip: 'Ajouter',
                       icon: Icons.add,
                       onPressed: onAdd,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 3),
                     if (isGenerating)
                       _RoundComposerButton(
                         tooltip: 'Arrêter',
@@ -519,26 +521,26 @@ class _ToolChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: _ChatScreenState._blueSurface,
+      color: _ChatScreenState.blueSurface,
       shape: StadiumBorder(
-        side: BorderSide(color: _ChatScreenState._blueBorder),
+        side: BorderSide(color: _ChatScreenState.blueBorder),
       ),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onPressed,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(icon, size: 20, color: _ChatScreenState._blue),
-              const SizedBox(width: 6),
+              Icon(icon, size: 18, color: _ChatScreenState.blue),
+              const SizedBox(width: 5),
               Text(
                 label,
                 style: const TextStyle(
-                  color: _ChatScreenState._blue,
+                  color: _ChatScreenState.blue,
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             ],
@@ -566,20 +568,25 @@ class _RoundComposerButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: filled ? Colors.white : Colors.transparent,
-        shape: const CircleBorder(
-          side: BorderSide(color: Colors.white, width: 2),
-        ),
-        child: InkWell(
-          customBorder: const CircleBorder(),
+      child: SizedBox.square(
+        dimension: 42,
+        child: InkResponse(
+          radius: 21,
           onTap: onPressed,
-          child: SizedBox.square(
-            dimension: 46,
-            child: Icon(
-              icon,
-              color: filled ? Colors.black : Colors.white,
-              size: 27,
+          child: Center(
+            child: Container(
+              width: 31,
+              height: 31,
+              decoration: BoxDecoration(
+                color: filled ? Colors.white : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.7),
+              ),
+              child: Icon(
+                icon,
+                color: filled ? Colors.black : Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -588,8 +595,8 @@ class _RoundComposerButton extends StatelessWidget {
   }
 }
 
-class _TopIconButton extends StatelessWidget {
-  const _TopIconButton({
+class _TopButton extends StatelessWidget {
+  const _TopButton({
     required this.tooltip,
     required this.onPressed,
     required this.child,
@@ -601,13 +608,16 @@ class _TopIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      color: Colors.white,
-      iconSize: 30,
-      padding: const EdgeInsets.all(12),
-      icon: child,
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox.square(
+        dimension: 42,
+        child: InkResponse(
+          radius: 22,
+          onTap: onPressed,
+          child: Center(child: child),
+        ),
+      ),
     );
   }
 }
@@ -618,19 +628,66 @@ class _MenuGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 28,
-      height: 24,
+      width: 24,
+      height: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Container(width: 27, height: 2.5, color: Colors.white),
-          const SizedBox(height: 8),
-          Container(width: 17, height: 2.5, color: Colors.white),
+          Container(width: 24, height: 2, color: Colors.white),
+          const SizedBox(height: 7),
+          Container(width: 16, height: 2, color: Colors.white),
         ],
       ),
     );
   }
+}
+
+class _NewChatGlyph extends StatelessWidget {
+  const _NewChatGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      dimension: 29,
+      child: CustomPaint(painter: _NewChatPainter()),
+    );
+  }
+}
+
+class _NewChatPainter extends CustomPainter {
+  const _NewChatPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final bubble = Path()
+      ..moveTo(5, 4)
+      ..quadraticBezierTo(3, 4, 3, 7)
+      ..lineTo(3, 21)
+      ..quadraticBezierTo(3, 24, 6, 24)
+      ..lineTo(18, 24)
+      ..lineTo(24, 28)
+      ..lineTo(23, 23)
+      ..quadraticBezierTo(26, 22, 26, 19)
+      ..lineTo(26, 7)
+      ..quadraticBezierTo(26, 4, 23, 4)
+      ..close();
+    canvas.drawPath(bubble, paint);
+
+    canvas
+      ..drawLine(const Offset(14.5, 8), const Offset(14.5, 20), paint)
+      ..drawLine(const Offset(8.5, 14), const Offset(20.5, 14), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _FoxDrawer extends StatelessWidget {
@@ -653,7 +710,7 @@ class _FoxDrawer extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Row(
                   children: <Widget>[
-                    FoxMark(size: 34),
+                    FoxMark(size: 30),
                     SizedBox(width: 12),
                     Text(
                       'FoxGPT',
