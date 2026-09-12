@@ -30,6 +30,7 @@ Flutter / Dart
 │   │               └── C++ / llama.cpp / GGUF
 │   └── OpenAiCompatibleBackend
 │       └── HTTPS direct / BYOK
+├── bibliothèque GGUF privée de l'application
 └── stockage sécurisé des clés
 ```
 
@@ -47,6 +48,10 @@ Déjà présent :
 - package FFI `foxgpt_native` avec ABI C stable ;
 - `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;
 - chargement/déchargement réel de modèles GGUF ;
+- sélection d'un fichier `.gguf` via le picker système ;
+- import par flux dans le stockage privé de FoxGPT avec progression et fichier temporaire `.part` ;
+- bibliothèque persistante des modèles importés, gestion des doublons et suppression ;
+- écran de gestion des modèles avec état chargé/déchargé et métadonnées ;
 - métadonnées du modèle : description, taille et contexte entraîné ;
 - inference locale exécutée dans un isolate worker dédié ;
 - streaming token par token C++ → Dart → Flutter ;
@@ -62,4 +67,4 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 
 ## Prochain jalon
 
-La prochaine étape est le gestionnaire de modèles GGUF : sélection/import d'un fichier, liste des modèles disponibles et chargement depuis l'interface. Ensuite viendra l'écran de chat complet branché sur les streams Local/API.
+La prochaine étape est l'écran de chat complet branché sur les streams Local/API, avec sélection du backend, affichage progressif des tokens et bouton Stop. Ensuite viendront la persistance des conversations et les paramètres de génération dans l'interface.
