@@ -74,7 +74,10 @@ Future<void> main() async {
 
   var disposedAccessRejected = false;
   try {
-    worker.version;
+    final version = worker.version;
+    if (version.isNotEmpty) {
+      disposedAccessRejected = false;
+    }
   } on StateError {
     disposedAccessRejected = true;
   }
@@ -84,7 +87,7 @@ Future<void> main() async {
 
   var disposedGenerationRejected = false;
   try {
-    worker.generate(prompt: 'disposed worker smoke');
+    await worker.generate(prompt: 'disposed worker smoke').drain<void>();
   } on StateError {
     disposedGenerationRejected = true;
   }
