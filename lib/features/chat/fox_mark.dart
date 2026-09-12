@@ -69,11 +69,7 @@ class _FoxMarkPainter extends CustomPainter {
       ..blendMode = BlendMode.clear
       ..isAntiAlias = true;
     canvas.drawOval(
-      Rect.fromCenter(
-        center: const Offset(36, 36),
-        width: 4,
-        height: 2.4,
-      ),
+      Rect.fromCenter(center: const Offset(36, 36), width: 4, height: 2.4),
       clearPaint,
     );
 
