@@ -10,25 +10,30 @@ FoxGPT est un client LLM Android hybride :
 ## Couches
 
 ```text
-Flutter / Dart
+Flutter / Dart (isolate UI)
 ├── UI
 ├── état de conversation
 ├── sélection du backend
 ├── stockage sécurisé des clés BYOK
 ├── OpenAiCompatibleBackend
 └── LocalLlmBackend
-    └── foxgpt_native
-        └── C ABI stable
-            └── C++
-                └── llama.cpp b10903
-                    └── GGUF / CPU Android arm64
+    └── FoxGptNativeWorker (isolate dédié)
+        └── foxgpt_native
+            └── C ABI stable + callback de tokens
+                └── C++
+                    └── llama.cpp b10903
+                        └── GGUF / CPU Android arm64
 ```
 
 ## Contrat Dart
 
 Tous les moteurs implémentent `LlmBackend` et exposent une génération sous forme de `Stream<String>`.
 
-Cela permet à l'interface de chat de ne pas dépendre du fournisseur ou du moteur local. Le backend local produit encore un seul bloc de texte dans cette étape ; le worker isolate et le streaming natif arrivent au jalon suivant.
+Le backend local démarre un isolate worker longue durée qui possède le moteur natif. Le chargement GGUF et l'inférence bloquante de `llama.cpp` se déroulent exclusivement dans ce worker : l'isolate Flutter reste disponible pour les animations, les entrées utilisateur et le rendu.
+
+Pendant l'inférence, le C++ appelle un callback FFI pour chaque token. Le worker copie immédiatement les octets du token et les transmet à l'isolate principal par `SendPort`. Le décodage UTF-8 est incrémental afin de gérer correctement les séquences multi-octets pouvant traverser plusieurs tokens.
+
+`stop()` est particulier : comme le worker peut être bloqué dans l'appel FFI, l'isolate principal appelle uniquement l'export natif thread-safe qui positionne un flag atomique. La boucle `llama.cpp` observe ce flag entre deux décodages et s'interrompt sans attendre que la file de messages du worker soit disponible.
 
 ## BYOK
 
@@ -55,19 +60,21 @@ Fonctions natives disponibles :
 - chargement et déchargement d'un modèle GGUF ;
 - état du modèle chargé ;
 - description, taille et contexte entraîné du modèle ;
-- génération locale bloquante ;
-- arrêt coopératif ;
+- génération locale historique monobloc pour compatibilité ;
+- génération streaming par callback natif ;
+- température, top-p et limite de tokens ;
+- reset/arrêt coopératif via flag atomique ;
 - remontée d'erreurs ;
 - libération des chaînes allouées côté natif.
 
-La génération locale actuelle utilise un sampler greedy et limite une réponse à 128 tokens. Ce chemin est volontairement minimal : il sert à valider le chargement, le contexte et l'inférence avant d'introduire le streaming asynchrone.
+Lorsque `temperature <= 0`, le moteur utilise un sampler greedy. Sinon la chaîne applique top-p, température puis distribution aléatoire. `GenerationSettings.maxTokens` borne la génération, elle-même limitée par la fenêtre de contexte entraînée du modèle.
+
+Le worker mesure également le nombre de tokens générés et la durée totale d'inférence pour exposer une estimation des tokens/s.
 
 ## Prochains jalons
 
-1. Déplacer l'inférence dans un worker isolate dédié pour ne jamais bloquer l'UI Flutter.
-2. Remplacer la génération monobloc par un callback/port natif pour streamer les tokens.
-3. Ajouter les paramètres de sampling (température, top-p, max tokens) au contrat natif.
-4. Ajouter la sélection de fichiers GGUF et le gestionnaire de modèles.
-5. Construire l'écran de chat et le sélecteur Local/API.
-6. Ajouter les adaptateurs spécifiques aux fournisseurs non OpenAI-compatible.
-7. Évaluer Vulkan/KleidiAI une fois le chemin CPU de base stabilisé.
+1. Ajouter la sélection de fichiers GGUF et le gestionnaire de modèles.
+2. Construire l'écran de chat et le sélecteur Local/API autour des streams existants.
+3. Ajouter les adaptateurs spécifiques aux fournisseurs non OpenAI-compatible.
+4. Ajouter la persistance des conversations et les paramètres de génération dans l'UI.
+5. Évaluer Vulkan/KleidiAI une fois le chemin CPU de base stabilisé.
