@@ -32,7 +32,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('opens navigation from the top-left menu', (tester) async {
+  testWidgets('opens the conversation drawer from the top-left menu', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -45,10 +47,32 @@ void main() {
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
 
-    expect(find.text('FoxGPT'), findsOneWidget);
-    expect(find.text('Nouveau chat'), findsOneWidget);
+    expect(find.text('Rechercher dans les chats'), findsOneWidget);
+    expect(find.text('Aujourd’hui'), findsOneWidget);
+    expect(find.text('Aucune conversation'), findsOneWidget);
+    expect(find.text('Paramètres'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens settings from the drawer bottom action', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(home: ChatScreen()),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Paramètres'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paramètres'), findsOneWidget);
     expect(find.text('Modèles locaux'), findsOneWidget);
     expect(find.text('API personnelle'), findsOneWidget);
+    expect(find.text('Apparence'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
