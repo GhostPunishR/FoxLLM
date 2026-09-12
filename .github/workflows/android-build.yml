@@ -1,0 +1,46 @@
+name: Android Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Android Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Android scaffold
+        id: android
+        shell: bash
+        run: |
+          if [ -d android ]; then
+            echo 'present=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'present=false' >> "$GITHUB_OUTPUT"
+            echo 'android/ is not present yet; APK build is skipped.'
+          fi
+      - name: Setup Flutter
+        if: steps.android.outputs.present == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        if: steps.android.outputs.present == 'true'
+        run: flutter pub get
+      - name: Build debug APK
+        if: steps.android.outputs.present == 'true'
+        run: flutter build apk --debug
