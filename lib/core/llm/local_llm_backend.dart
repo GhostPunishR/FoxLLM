@@ -6,7 +6,7 @@ import 'llm_backend.dart';
 
 class LocalLlmBackend implements LlmBackend {
   LocalLlmBackend({Future<FoxGptNativeWorker>? worker})
-      : _worker = worker ?? FoxGptNativeWorker.start();
+    : _worker = worker ?? FoxGptNativeWorker.start();
 
   final Future<FoxGptNativeWorker> _worker;
   String? _loadedModelPath;
