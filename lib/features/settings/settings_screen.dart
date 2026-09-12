@@ -1,15 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/llm/personal_api_settings_provider.dart';
 import '../local_models/local_models_screen.dart';
+import 'personal_api_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     const background = Color(0xFF0B0B0B);
     const muted = Color(0xFF969696);
     const orange = Color(0xFFFC6117);
+
+    final personalApiState = ref.watch(personalApiSettingsProvider);
+    final personalApiSubtitle = personalApiState.when(
+      data: (settings) {
+        if (!settings.isConfigured) {
+          return 'BYOK · non configurée';
+        }
+        return settings.useInChat
+            ? 'Active · ${settings.model}'
+            : 'Configurée · ${settings.model}';
+      },
+      loading: () => 'BYOK · chargement…',
+      error: (_, _) => 'BYOK · configuration indisponible',
+    );
 
     return Scaffold(
       backgroundColor: background,
@@ -41,10 +58,17 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
               const Divider(height: 1, color: Color(0xFF292929)),
-              const _SettingsTile(
+              _SettingsTile(
                 icon: Icons.cloud_outlined,
                 title: 'API personnelle',
-                subtitle: 'BYOK · bientôt disponible dans le chat',
+                subtitle: personalApiSubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const PersonalApiScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
