@@ -106,7 +106,9 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
             return;
           }
           setState(() {
-            _importProgress = (copiedBytes / expectedBytes).clamp(0, 1);
+            _importProgress = (copiedBytes / expectedBytes)
+                .clamp(0.0, 1.0)
+                .toDouble();
           });
         },
       );
@@ -386,7 +388,11 @@ class _ModelCard extends StatelessWidget {
               runSpacing: 8,
               children: <Widget>[
                 FilledButton.tonalIcon(
-                  onPressed: isBusy ? null : isLoaded ? onUnload : onLoad,
+                  onPressed: isBusy
+                      ? null
+                      : isLoaded
+                      ? onUnload
+                      : onLoad,
                   icon: isBusy
                       ? const SizedBox.square(
                           dimension: 16,
