@@ -2,8 +2,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/white" />
     <item
-        android:width="180dp"
-        android:height="180dp"
-        android:drawable="@drawable/fox_logo"
+        android:width="76dp"
+        android:height="76dp"
+        android:drawable="@drawable/fox_logo_launcher"
         android:gravity="center" />
 </layer-list>
