@@ -1,5 +1,7 @@
 # FoxGPT
 
+[![FoxGPT CI](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ci.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ci.yml)
+
 FoxGPT est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
 
 ## Vision
@@ -36,7 +38,8 @@ Déjà présent :
 - stockage sécurisé des clés API ou conservation en mémoire pour la session ;
 - package FFI `foxgpt_native` ;
 - ABI C stable devant une implémentation C++ ;
-- shell Flutter initial permettant de vérifier le pont natif.
+- shell Flutter initial permettant de vérifier le pont natif ;
+- CI GitHub Actions pour Flutter, Dart et C++.
 
 Le moteur C++ est volontairement un scaffold : il signale que `llama.cpp` n'est pas encore intégré au lieu de simuler une génération.
 
