@@ -29,8 +29,13 @@ class LocalLlmBackend implements LlmBackend {
       (await _worker).lastGenerationStats;
 
   Future<void> loadModel(String path) async {
-    await (await _worker).loadModel(path);
-    _loadedModelPath = path;
+    try {
+      await (await _worker).loadModel(path);
+      _loadedModelPath = path;
+    } catch (_) {
+      _loadedModelPath = null;
+      rethrow;
+    }
   }
 
   Future<void> unloadModel() async {
