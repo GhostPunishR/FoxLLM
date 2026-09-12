@@ -39,10 +39,7 @@ class _FoxMarkPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: <Color>[
-          Color(0xFFFF6F1C),
-          Color(0xFFFC6117),
-        ],
+        colors: <Color>[Color(0xFFFF6F1C), Color(0xFFFC6117)],
       ).createShader(const Rect.fromLTWH(0, 0, 100, 100));
 
     canvas.drawPath(path, paint);
@@ -55,10 +52,7 @@ class _FoxMarkPainter extends CustomPainter {
 
 Path _parseFoxPath() {
   final path = Path()..fillType = PathFillType.evenOdd;
-  final tokens = _foxPathData
-      .replaceAll(',', ' ')
-      .trim()
-      .split(RegExp(r'\s+'));
+  final tokens = _foxPathData.replaceAll(',', ' ').trim().split(RegExp(r'\s+'));
 
   var index = 0;
   while (index < tokens.length) {

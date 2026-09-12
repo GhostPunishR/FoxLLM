@@ -80,8 +80,7 @@ class _FoxGptSplashScreenState extends State<FoxGptSplashScreen>
                       value: _progressController.value,
                       minHeight: 5,
                       backgroundColor: const Color(0xFFE7E7E7),
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(_orange),
+                      valueColor: const AlwaysStoppedAnimation<Color>(_orange),
                     ),
                   );
                 },
