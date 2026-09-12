@@ -1,0 +1,37 @@
+name: C++ Compile
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: C++ Compile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compiler version
+        run: g++ --version
+      - name: Compile native bridge
+        working-directory: packages/foxgpt_native
+        run: |
+          g++ \
+            -std=c++17 \
+            -Wall \
+            -Wextra \
+            -Werror \
+            -fPIC \
+            -shared \
+            src/foxgpt_native.cpp \
+            -o /tmp/libfoxgpt_native_smoke.so
