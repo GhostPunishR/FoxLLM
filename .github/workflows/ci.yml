@@ -1,0 +1,98 @@
+name: FoxGPT CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Flutter, Dart and C++
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Toolchain versions
+        run: |
+          flutter --version
+          dart --version
+          g++ --version
+
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+
+      - name: Check Dart formatting
+        run: >-
+          dart format
+          --output=none
+          --set-exit-if-changed
+          lib
+          packages/foxgpt_native/lib
+          packages/foxgpt_native/hook
+          packages/foxgpt_native/tool
+
+      - name: Analyze Flutter application
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        shell: bash
+        run: |
+          if find test -type f -name '*_test.dart' -print -quit 2>/dev/null | grep -q .; then
+            flutter test
+          else
+            echo 'No Flutter tests yet; skipping flutter test.'
+          fi
+
+      - name: Resolve native package dependencies
+        working-directory: packages/foxgpt_native
+        run: dart pub get
+
+      - name: Analyze native Dart package
+        working-directory: packages/foxgpt_native
+        run: dart analyze
+
+      - name: Compile C++ bridge directly
+        working-directory: packages/foxgpt_native
+        run: |
+          g++ \
+            -std=c++17 \
+            -Wall \
+            -Wextra \
+            -fPIC \
+            -shared \
+            src/foxgpt_native.cpp \
+            -o /tmp/libfoxgpt_native_smoke.so
+
+      - name: Run Dart FFI native smoke test
+        working-directory: packages/foxgpt_native
+        run: dart run tool/native_smoke.dart
+
+      - name: Build Android debug APK when Android scaffold exists
+        shell: bash
+        run: |
+          if [ -d android ]; then
+            flutter build apk --debug
+          else
+            echo 'android/ is not present yet; Android APK build will activate automatically once the scaffold is added.'
+          fi
