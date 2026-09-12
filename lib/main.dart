@@ -77,9 +77,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _openLocalModels() {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => const LocalModelsScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (context) => const LocalModelsScreen()),
     );
   }
 
