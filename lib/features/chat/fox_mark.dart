@@ -12,9 +12,7 @@ class FoxMark extends StatelessWidget {
       image: true,
       child: SizedBox.square(
         dimension: size,
-        child: CustomPaint(
-          painter: const _FoxMarkPainter(),
-        ),
+        child: CustomPaint(painter: const _FoxMarkPainter()),
       ),
     );
   }
@@ -24,14 +22,11 @@ class _FoxMarkPainter extends CustomPainter {
   const _FoxMarkPainter();
 
   static const _orange = Color(0xFFFF7A1A);
-  static const _cutout = Color(0xFF0B0B0B);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scaleX = size.width / 100;
-    final scaleY = size.height / 100;
     canvas.save();
-    canvas.scale(scaleX, scaleY);
+    canvas.scale(size.width / 100, size.height / 100);
 
     final fox = Path()
       ..moveTo(13, 29)
@@ -46,8 +41,6 @@ class _FoxMarkPainter extends CustomPainter {
       ..quadraticBezierTo(16, 57, 13, 29)
       ..close();
 
-    canvas.drawPath(fox, Paint()..color = _orange);
-
     final leftMask = Path()
       ..moveTo(24, 45)
       ..quadraticBezierTo(35, 43, 46, 54)
@@ -60,22 +53,22 @@ class _FoxMarkPainter extends CustomPainter {
       ..quadraticBezierTo(62, 66, 70, 68)
       ..quadraticBezierTo(75, 58, 76, 45)
       ..close();
-
-    final cutoutPaint = Paint()..color = _cutout;
-    canvas.drawPath(leftMask, cutoutPaint);
-    canvas.drawPath(rightMask, cutoutPaint);
-
     final muzzle = Path()
       ..moveTo(40, 70)
       ..quadraticBezierTo(50, 76, 60, 70)
       ..quadraticBezierTo(56, 82, 50, 86)
       ..quadraticBezierTo(44, 82, 40, 70)
       ..close();
-    canvas.drawPath(muzzle, cutoutPaint);
+    final eyes = Path()
+      ..addOval(Rect.fromCircle(center: const Offset(38, 48), radius: 2.2))
+      ..addOval(Rect.fromCircle(center: const Offset(62, 48), radius: 2.2));
 
-    canvas.drawCircle(const Offset(38, 48), 2.2, cutoutPaint);
-    canvas.drawCircle(const Offset(62, 48), 2.2, cutoutPaint);
+    var silhouette = Path.combine(PathOperation.difference, fox, leftMask);
+    silhouette = Path.combine(PathOperation.difference, silhouette, rightMask);
+    silhouette = Path.combine(PathOperation.difference, silhouette, muzzle);
+    silhouette = Path.combine(PathOperation.difference, silhouette, eyes);
 
+    canvas.drawPath(silhouette, Paint()..color = _orange);
     canvas.restore();
   }
 
