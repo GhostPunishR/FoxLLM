@@ -5,10 +5,10 @@ import 'generation_settings.dart';
 import 'llm_backend.dart';
 
 class LocalLlmBackend implements LlmBackend {
-  LocalLlmBackend({FoxGptNativeEngine? engine})
-    : _engine = engine ?? FoxGptNativeEngine();
+  LocalLlmBackend({Future<FoxGptNativeWorker>? worker})
+    : _worker = worker ?? FoxGptNativeWorker.start();
 
-  final FoxGptNativeEngine _engine;
+  final Future<FoxGptNativeWorker> _worker;
 
   @override
   String get id => 'local';
@@ -16,21 +16,21 @@ class LocalLlmBackend implements LlmBackend {
   @override
   String get displayName => 'Modèle local';
 
-  String get nativeVersion => _engine.version;
+  Future<String> get nativeVersion async => (await _worker).version;
 
-  bool get isModelLoaded => _engine.isModelLoaded;
+  Future<bool> get isModelLoaded async => (await _worker).isModelLoaded;
 
-  FoxGptModelInfo? get modelInfo => _engine.modelInfo;
+  Future<FoxGptModelInfo?> get modelInfo async => (await _worker).modelInfo;
+
+  Future<FoxGptGenerationStats?> get lastGenerationStats async =>
+      (await _worker).lastGenerationStats;
 
   Future<void> loadModel(String path) async {
-    final loaded = _engine.loadModel(path);
-    if (!loaded) {
-      throw StateError(_engine.lastError);
-    }
+    await (await _worker).loadModel(path);
   }
 
   Future<void> unloadModel() async {
-    _engine.unloadModel();
+    await (await _worker).unloadModel();
   }
 
   @override
@@ -38,18 +38,24 @@ class LocalLlmBackend implements LlmBackend {
     required List<ChatMessage> messages,
     GenerationSettings settings = const GenerationSettings(),
   }) async* {
+    final worker = await _worker;
     final prompt = _buildPrompt(messages);
-    yield _engine.generate(prompt);
+    yield* worker.generate(
+      prompt: prompt,
+      temperature: settings.temperature,
+      topP: settings.topP,
+      maxTokens: settings.maxTokens,
+    );
   }
 
   @override
   Future<void> stop() async {
-    _engine.stop();
+    (await _worker).stop();
   }
 
   @override
   Future<void> dispose() async {
-    _engine.dispose();
+    await (await _worker).dispose();
   }
 
   String _buildPrompt(List<ChatMessage> messages) {

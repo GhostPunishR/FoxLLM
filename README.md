@@ -24,9 +24,10 @@ Flutter / Dart
 ├── UI et état de conversation
 ├── LlmBackend
 │   ├── LocalLlmBackend
-│   │   └── foxgpt_native
-│   │       └── C ABI
-│   │           └── C++ / llama.cpp / GGUF
+│   │   └── worker isolate
+│   │       └── foxgpt_native
+│   │           └── C ABI / callbacks
+│   │               └── C++ / llama.cpp / GGUF
 │   └── OpenAiCompatibleBackend
 │       └── HTTPS direct / BYOK
 └── stockage sécurisé des clés
@@ -45,11 +46,16 @@ Déjà présent :
 - `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;
 - chargement/déchargement réel de modèles GGUF ;
 - métadonnées du modèle : description, taille et contexte entraîné ;
-- première génération locale bloquante avec arrêt coopératif ;
-- APK Android arm64 construit en CI avec vérification du moteur llama.cpp embarqué.
+- inference locale exécutée dans un isolate worker dédié ;
+- streaming token par token C++ → Dart → Flutter ;
+- décodage UTF-8 incrémental des morceaux natifs ;
+- arrêt coopératif immédiat via flag atomique ;
+- paramètres natifs température, top-p et max tokens ;
+- métriques de génération : tokens, durée et tokens/s ;
+- APK Android arm64 construit en CI avec vérification du moteur llama.cpp et des symboles de streaming embarqués.
 
 Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. Les autres architectures utilisent un stub natif afin que le mode API et les tests FFI restent disponibles.
 
 ## Prochain jalon
 
-La prochaine étape est de déplacer l'inférence dans un worker isolate dédié, puis de remplacer la génération monobloc par un streaming token par token vers Flutter. Ensuite viendront le gestionnaire de fichiers GGUF et l'interface de chat complète.
+La prochaine étape est le gestionnaire de modèles GGUF : sélection/import d'un fichier, liste des modèles disponibles et chargement depuis l'interface. Ensuite viendra l'écran de chat complet branché sur les streams Local/API.
