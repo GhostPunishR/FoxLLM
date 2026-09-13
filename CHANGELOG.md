@@ -6,6 +6,13 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- les puces « Réflexion » et « Rechercher » du composer deviennent des
+  interrupteurs : leur aplat dit lequel est actif, et le choix est conservé
+  entre deux lancements. Réflexion ajoute une consigne de raisonnement aux
+  instructions du modèle et élargit la marge de génération, sans quoi la
+  conclusion serait coupée. Recherche active l'outil de recherche intégré de
+  Gemini ; les autres moteurs n'en ont pas dans ce format de requête et
+  l'application le dit au lieu d'envoyer une requête sans effet ;
 - le menu « + » du chat joint de vraies pièces jointes : un fichier, une photo
   de la galerie ou une prise de vue. Elles apparaissent dans le fil comme
   pièces jointes — aperçu pour une image, carte nommée pour un fichier — au

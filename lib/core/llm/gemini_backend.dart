@@ -76,6 +76,12 @@ class GeminiBackend extends HttpStreamingBackend {
 
     final body = <String, Object>{
       'contents': contents,
+      // Outil de recherche intégré de Gemini : le modèle interroge le web de
+      // lui-même quand la question le demande.
+      if (settings.webSearch)
+        'tools': <Map<String, Object>>[
+          <String, Object>{'google_search': <String, Object>{}},
+        ],
       'generationConfig': <String, Object>{
         'temperature': settings.temperature,
         'topP': settings.topP,

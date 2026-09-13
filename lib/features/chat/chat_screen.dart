@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/chat_attachment.dart';
 import '../../core/llm/chat_message.dart';
+import '../../core/llm/generation_settings.dart';
 import '../../core/llm/personal_api_chat_backend.dart';
 import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_llm_backend.dart';
@@ -17,6 +18,7 @@ import '../../core/llm/personalization.dart';
 import '../../core/theme/fox_palette.dart';
 import 'chat_backend_host.dart';
 import 'chat_conversation.dart';
+import 'chat_modes.dart';
 import 'conversation_store.dart';
 import 'message_markdown.dart';
 import 'attachment_picker.dart';
@@ -259,13 +261,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // lues telles que connues, sans attendre le stockage : sa lecture démarre
     // au lancement, bien avant qu'un message ait pu être écrit.
     final instructions = ref.read(personalizationProvider);
+    final modes = ref.read(chatModesProvider);
+    if (modes.webSearch &&
+        !(backend is PersonalApiChatBackend && backend.supportsWebSearch)) {
+      _showSnack(
+        'La recherche web demande une API personnelle Google Gemini. '
+        'Désactive-la ou change de fournisseur.',
+      );
+      return;
+    }
+
+    // Réflexion et personnalisation parlent au modèle de la même façon : une
+    // seule consigne système, pour ne pas lui en empiler deux.
+    final systemLines = <String>[
+      if (instructions.isNotEmpty) instructions,
+      if (modes.reasoning) reasoningInstruction,
+    ];
 
     // Le fil garde des références aux pièces jointes ; la requête, elle, a
     // besoin de leur contenu.
     final List<ChatMessage> requestMessages;
     try {
       requestMessages = <ChatMessage>[
-        if (instructions.isNotEmpty) ChatMessage.system(instructions),
+        if (systemLines.isNotEmpty)
+          ChatMessage.system(systemLines.join('\n\n')),
         ...await resolveAttachments(
           history,
           store: ref.read(attachmentStoreProvider),
@@ -295,7 +314,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     var response = '';
     try {
-      await for (final chunk in backend.generate(messages: requestMessages)) {
+      final settings = GenerationSettings(
+        maxTokens: modes.reasoning
+            ? reasoningMaxTokens
+            : const GenerationSettings().maxTokens,
+        webSearch: modes.webSearch,
+      );
+      await for (final chunk in backend.generate(
+        messages: requestMessages,
+        settings: settings,
+      )) {
         response += chunk;
         if (!mounted || generationEpoch != _generationEpoch) {
           return;
@@ -469,14 +497,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _showReflectionInfo() {
+  Future<void> _toggleReasoning() async {
+    await ref.read(chatModesProvider.notifier).toggleReasoning();
+    if (!mounted) {
+      return;
+    }
     _showSnack(
-      'Le mode Réflexion sera relié aux paramètres du modèle ensuite.',
+      ref.read(chatModesProvider).reasoning
+          ? 'Réflexion activée : le modèle exposera son raisonnement.'
+          : 'Réflexion désactivée.',
     );
   }
 
-  void _showSearchInfo() {
-    _showSnack('La recherche web sera ajoutée au backend outils de FoxGPT.');
+  Future<void> _toggleWebSearch() async {
+    await ref.read(chatModesProvider.notifier).toggleWebSearch();
+    if (!mounted) {
+      return;
+    }
+    if (!ref.read(chatModesProvider).webSearch) {
+      _showSnack('Recherche web désactivée.');
+      return;
+    }
+    final backend = ref.read(chatBackendProvider);
+    final supported =
+        backend is PersonalApiChatBackend && backend.supportsWebSearch;
+    _showSnack(
+      supported
+          ? 'Recherche web activée : le modèle pourra consulter le web.'
+          : 'Recherche web activée, mais le moteur en place ne sait pas '
+                'consulter le web. Configure une API personnelle Google Gemini.',
+    );
   }
 
   void _showVoiceInfo() {
@@ -623,10 +673,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: _Composer(
                 controller: _inputController,
                 isGenerating: _isGenerating,
+                modes: ref.watch(chatModesProvider),
                 attachments: _pendingAttachments,
                 onRemoveAttachment: _removePendingAttachment,
-                onReflection: _showReflectionInfo,
-                onSearch: _showSearchInfo,
+                onReflection: () => unawaited(_toggleReasoning()),
+                onSearch: () => unawaited(_toggleWebSearch()),
                 onAdd: _showAddMenu,
                 onVoice: _showVoiceInfo,
                 onSend: () => unawaited(_sendMessage()),
@@ -906,6 +957,7 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.isGenerating,
+    required this.modes,
     required this.attachments,
     required this.onRemoveAttachment,
     required this.onReflection,
@@ -918,6 +970,9 @@ class _Composer extends StatelessWidget {
 
   final TextEditingController controller;
   final bool isGenerating;
+
+  /// Réflexion et recherche web, pour montrer lesquels sont actifs.
+  final ChatModes modes;
 
   /// Pièces jointes du brouillon, affichées au-dessus du champ.
   final List<ChatAttachment> attachments;
@@ -996,12 +1051,14 @@ class _Composer extends StatelessWidget {
                               _ToolChip(
                                 icon: Icons.psychology_alt_outlined,
                                 label: 'Réflexion',
+                                isActive: modes.reasoning,
                                 onPressed: onReflection,
                               ),
                               const SizedBox(width: 8),
                               _ToolChip(
                                 icon: Icons.language,
                                 label: 'Rechercher',
+                                isActive: modes.webSearch,
                                 onPressed: onSearch,
                               ),
                             ],
@@ -1171,42 +1228,60 @@ class _AttachmentIcon extends StatelessWidget {
   }
 }
 
+/// Mode du composer, dont l'aspect dit s'il est actif.
 class _ToolChip extends StatelessWidget {
   const _ToolChip({
     required this.icon,
     required this.label,
+    required this.isActive,
     required this.onPressed,
   });
 
   final IconData icon;
   final String label;
+  final bool isActive;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final fox = context.fox;
-    return Material(
-      color: fox.accentSurface,
-      shape: StadiumBorder(side: BorderSide(color: fox.accentBorder)),
-      child: InkWell(
-        customBorder: const StadiumBorder(),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(icon, size: 18, color: fox.accentText),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  color: fox.accentText,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
+    // Actif : aplat orange plein. Inactif : simple contour, pour qu'un coup
+    // d'œil suffise à savoir ce qui s'appliquera au prochain message.
+    final background = isActive ? fox.accent : fox.accentSurface;
+    final foreground = isActive ? fox.onAccent : fox.accentText;
+
+    return Semantics(
+      toggled: isActive,
+      button: true,
+      label: label,
+      child: Tooltip(
+        message: isActive ? '$label : activé' : '$label : désactivé',
+        child: Material(
+          color: background,
+          shape: StadiumBorder(
+            side: BorderSide(color: isActive ? fox.accent : fox.accentBorder),
+          ),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(icon, size: 18, color: foreground),
+                  const SizedBox(width: 5),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: foreground,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
