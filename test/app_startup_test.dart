@@ -32,6 +32,41 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('ne construit pas le moteur local avant le premier frame', (
+    tester,
+  ) async {
+    // Construire `LocalLlmBackend` démarre l'isolate worker et charge
+    // `libfoxgpt_native.so`, donc `llama.cpp`. Fait pendant le premier build,
+    // ce travail retarde l'affichage du chat d'autant. Le moteur ne doit être
+    // créé qu'à la première utilisation réelle.
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    var backendsCreated = 0;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          localLlmBackendProvider.overrideWith((ref) {
+            backendsCreated += 1;
+            return _IdleBackend();
+          }),
+        ],
+        child: const FoxGptApp(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(ChatScreen), findsOneWidget);
+    expect(backendsCreated, 0);
+
+    // La première utilisation réelle le construit bien, une seule fois.
+    final element = tester.element(find.byType(ChatScreen));
+    final container = ProviderScope.containerOf(element);
+    container.read(localLlmBackendProvider);
+    container.read(localLlmBackendProvider);
+    expect(backendsCreated, 1);
+  });
 }
 
 class _IdleBackend implements LocalLlmBackend {

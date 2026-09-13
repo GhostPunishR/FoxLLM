@@ -19,6 +19,12 @@ n'est volontairement modifié.
   de la désactiver : elle est neutralisée avec ce même fond et une icône
   transparente, ce qui ne laisse plus aucun écran visible avant le chat.
 
+- le moteur local n'est plus chargé au lancement : l'isolate worker et
+  `libfoxgpt_native.so`, qui embarque `llama.cpp`, n'étaient créés qu'à
+  l'affichage du chat mais avant le premier frame, retardant d'autant
+  l'apparition de l'interface. Ils sont désormais construits à la première
+  utilisation réelle (envoi d'un message, ouverture des modèles locaux).
+
 ### Corrections
 
 - deux imports GGUF du même nom lancés en parallèle ne s'écrasent plus : la
