@@ -12,8 +12,8 @@ import '../../core/llm/chat_attachment.dart';
 
 /// Range les pièces jointes dans l'espace privé de l'application.
 ///
-/// Le fichier choisi vit ailleurs — dans le cache du sélecteur, une galerie,
-/// un dossier partagé — et peut disparaître d'un instant à l'autre. En garder
+/// Le fichier choisi vit ailleurs (cache du sélecteur, galerie, dossier
+/// partagé) et peut disparaître d'un instant à l'autre. En garder
 /// une copie est ce qui permet de rouvrir une conversation des semaines plus
 /// tard et d'y retrouver ses pièces jointes.
 class AttachmentStore {

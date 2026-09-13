@@ -4,11 +4,43 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [Non publié]
 
+### Ajouts
+
+- site public dans `docs/`, prêt à être publié par GitHub Pages : page
+  d'accueil, conditions d'utilisation et politique de confidentialité. Le site
+  reprend la palette de l'application et suit lui aussi le thème du visiteur,
+  clair ou sombre, avec une bascule manuelle ;
+- la page d'accueil montre les deux trajets de données (modèle local, où rien
+  ne quitte l'appareil, et API personnelle, où la requête va directement au
+  fournisseur), un registre de ce que l'application manipule et de l'endroit
+  où cela atterrit, les fournisseurs pris en charge, les étapes d'installation
+  et la licence ;
+- la politique de confidentialité obtient ainsi une adresse publique, telle que
+  la demandent les magasins d'applications ;
+- un test vérifie que `conditions.html` et `confidentialite.html` reprennent mot
+  pour mot les textes de `legal_documents.dart`, que les liens internes du site
+  pointent vers des fichiers existants, et que la version annoncée est celle de
+  l'application. La suite passe de 216 à 222 cas.
+
 ### Modifications
 
+- README repris en page de présentation : logo, badges Dart, Flutter, C++,
+  Android et licence, les deux moteurs, les fonctions, l'installation, la
+  structure du code, et les vérifications d'intégration continue rassemblées
+  dans un tableau. La longue liste d'état, qui recopiait le journal des
+  versions, disparaît ;
+- le tiret cadratin est proscrit dans le dépôt, ponctuation française
+  ordinaire à la place. Un test le vérifie sur les fichiers que FoxLLM écrit
+  lui-même, `LICENSE` excepté puisque son texte ne se retouche pas ;
+- `docs/ARCHITECTURE.md` est supprimé : le site le remplace pour le lecteur, et
+  le README garde le schéma des couches et l'invariant d'accès au moteur natif.
+  Les points d'implémentation qui expliquent le comportement visible (isolate
+  worker, arrêt par drapeau atomique, décodage UTF-8 incrémental, import GGUF
+  par flux, socle HTTP partagé) sont repris dans la section « Sous le capot »
+  du site ;
 - l'application s'appelle désormais **FoxLLM**. « GPT » n'est pas une marque
-  enregistrée — l'office américain a refusé le dépôt, jugeant le sigle
-  descriptif — mais les règles de marque d'OpenAI demandent de ne pas
+  enregistrée, l'office américain ayant refusé le dépôt en jugeant le sigle
+  descriptif, mais les règles de marque d'OpenAI demandent de ne pas
   l'employer dans le nom d'un produit tiers, et les magasins d'applications
   ont déjà fait retirer des applications pour ce motif. Le renommage a lieu
   avant toute publication : l'`applicationId` Android est figé dès la première
@@ -17,20 +49,20 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 - le renommage couvre le nom visible, l'identifiant Android
   (`com.ghostpunishr.foxllm`), les deux paquets Dart, la bibliothèque native
   (`libfoxllm_native.so`) et ses symboles C, les classes, les clés de stockage
-  et la documentation. Les noms bâtis sur le renard seul — palette, thèmes,
-  logo — sont inchangés : seul le sigle devait partir.
+  et la documentation. Les noms bâtis sur le renard seul (palette, thèmes,
+  logo) sont inchangés : seul le sigle devait partir.
 
 ## [0.1.2] - 2026-09-13
 
-Les quatre actions du composer deviennent réelles — pièces jointes, réflexion,
-recherche web et dictée —, les réponses s'affichent en Markdown complet, et
+Les quatre actions du composer deviennent réelles (pièces jointes, réflexion,
+recherche web et dictée), les réponses s'affichent en Markdown complet, et
 FoxLLM déclare sa licence. La suite de tests passe de 120 à 216 cas.
 
 ### Composer
 
 - le menu « + » joint de vraies pièces jointes : un fichier, une photo de la
   galerie ou une prise de vue. Elles apparaissent dans le fil comme pièces
-  jointes — aperçu pour une image, carte nommée pour un fichier — au lieu de
+  jointes (aperçu pour une image, carte nommée pour un fichier) au lieu de
   déverser le texte du fichier dans le message. Une copie est rangée dans
   l'espace privé de l'application, ce qui permet de les retrouver en rouvrant
   la conversation, et elle est effacée avec elle ;
@@ -64,7 +96,7 @@ FoxLLM déclare sa licence. La suite de tests passe de 120 à 216 cas.
 - les blocs de code sont colorés : commentaires, chaînes, nombres, mots-clés et
   appels se distinguent. Une vingtaine de langages sont reconnus d'après celui
   annoncé après les triples accents graves, avec repli sur un jeu commun quand
-  il est absent ou inconnu — colorer large ferait passer des identifiants
+  il est absent ou inconnu : colorer large ferait passer des identifiants
   ordinaires pour des mots-clés. Les cinq couleurs viennent de la palette et
   gardent un contraste d'au moins 4,5:1 sur le fond des blocs.
 
@@ -80,7 +112,7 @@ FoxLLM déclare sa licence. La suite de tests passe de 120 à 216 cas.
 ### Paramètres et licence
 
 - Paramètres → Modèles locaux affiche le modèle en place plutôt que
-  « llama.cpp », qui nommait le moteur — information que l'écran des modèles
+  « llama.cpp », qui nommait le moteur, information que l'écran des modèles
   donne déjà. Le nom est lu depuis le chemin mémorisé : interroger le moteur
   l'aurait construit, isolate et bibliothèque native compris, pour un
   sous-titre ;
@@ -179,7 +211,7 @@ tests passe de 29 à 120 cas.
   les puces d'outils du chat passent du bleu Material à l'orange FoxLLM ;
 - nouvelle entrée Personnalisation, à la place de « Confidentialité » qui
   n'était qu'un libellé inerte : l'utilisateur y décrit comment FoxLLM doit
-  répondre — ton, longueur, langue, rôle à tenir — avec des modèles prêts à
+  répondre (ton, longueur, langue, rôle à tenir) avec des modèles prêts à
   l'emploi. Ces consignes ouvrent chaque requête en message système, aussi bien
   vers le moteur local que vers une API personnelle, et ne sont pas figées dans
   les conversations enregistrées ;

@@ -1,115 +1,118 @@
-# FoxLLM
+<p align="center">
+  <img src="docs/fox_logo.png" alt="" width="108" />
+</p>
 
-[![Dart Format](https://github.com/GhostPunishR/FoxLLM/actions/workflows/format.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/format.yml)
-[![Flutter Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-analyze.yml)
-[![Flutter Tests](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-tests.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-tests.yml)
-[![Native Dart Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml)
-[![C++ Compile](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml)
-[![FFI Smoke](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml)
-[![Android Build](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml)
+<h1 align="center">FoxLLM</h1>
 
-FoxLLM est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
+<p align="center">
+  Un chat IA pour Android, sans serveur et sans compte.<br />
+  Les modèles tournent sur le téléphone, ou ta propre clé API
+  parle au fournisseur de ton choix.
+</p>
 
-## Vision
+<p align="center">
+  <img alt="Dart 3.10+" src="https://img.shields.io/badge/Dart-3.10%2B-0175C2?logo=dart&logoColor=white" />
+  <img alt="Flutter 3.47" src="https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white" />
+  <img alt="C++ 17" src="https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white" />
+  <img alt="Android 9+ arm64" src="https://img.shields.io/badge/Android-9%2B%20arm64-3DDC84?logo=android&logoColor=white" />
+  <a href="LICENSE"><img alt="Licence AGPL v3" src="https://img.shields.io/badge/Licence-AGPL%20v3-A42E2B?logo=gnu&logoColor=white" /></a>
+</p>
 
-- exécuter des modèles locaux Android en GGUF via `llama.cpp` ;
-- proposer un mode **BYOK (Bring Your Own Key)** pour les fournisseurs distants ;
-- conserver les clés API sur l'appareil, avec un mode session sans persistance ;
-- utiliser une seule interface de chat pour les moteurs locaux et les API.
+---
 
-## Architecture
+## Ce que c'est
 
-```text
-Flutter / Dart
-├── UI et état de conversation
-├── LlmBackend
-│   ├── LocalLlmBackend
-│   │   └── worker isolate
-│   │       └── foxllm_native
-│   │           └── C ABI / callbacks
-│   │               └── C++ / llama.cpp / GGUF
-│   └── OpenAiCompatibleBackend
-│       └── HTTPS direct / BYOK
-├── bibliothèque GGUF privée de l'application
-└── stockage sécurisé des clés
+Une application de discussion avec un modèle de langage, écrite en Flutter avec
+un moteur d'inférence C++. Elle n'a pas de serveur : il n'y a donc ni compte à
+créer, ni file d'attente, ni données à nous confier.
+
+Présentation complète, schémas et textes légaux sur le site du projet, dans
+[`docs/`](docs/).
+
+## Deux façons de répondre
+
+**Modèle local.** Un fichier GGUF importé dans l'espace privé de l'application
+et exécuté par `llama.cpp` sur le processeur du téléphone. Aucune connexion
+réseau n'est utilisée : rien ne quitte l'appareil.
+
+**API personnelle (BYOK).** Ta clé, ton fournisseur, ta facture. La requête part
+du téléphone directement chez le fournisseur, sans relais. La clé est chiffrée
+par le stockage sécurisé du système, ou gardée en mémoire pour la seule session.
+
+Fournisseurs intégrés : OpenAI (API Responses), Google Gemini, Groq, Mistral AI,
+OpenRouter, xAI, et toute API OpenAI-compatible saisie à la main.
+
+## Fonctions
+
+- historique de conversations conservé, avec recherche, renommage et suppression
+- réponses en Markdown : titres, listes, gras, liens, blocs de code colorés et
+  copiables
+- pièces jointes depuis le composer : fichier, galerie, appareil photo
+- images envoyées aux modèles multimodaux, au format attendu par le fournisseur
+- dictée vocale maintenue au doigt, corrigeable avant envoi
+- modes Réflexion et Recherche activables, avec l'outil web intégré d'OpenAI ou
+  de Gemini
+- consigne de personnalisation appliquée au moteur local comme à l'API
+- deux déclinaisons, claire et sombre, jusqu'à la fenêtre de lancement Android
+
+## Installer
+
+L'APK se récupère sur la page [Releases](../../releases). Il vise **Android 9
+(API 28) ou plus récent, en arm64**. Les autres architectures utilisent un stub
+natif : le mode API personnelle reste disponible, pas le moteur local.
+
+## Développer
+
+```bash
+flutter pub get
+flutter test          # 221 cas
+flutter analyze
+flutter build apk --release
 ```
 
-Le code applicatif Flutter ne crée jamais `FoxLlmNativeEngine` directement : l'accès local passe par `LocalLlmBackend` puis `FoxLlmNativeWorker`, afin de garder les appels bloquants hors de l'isolate UI.
+`llama.cpp` (b10903) est compilé et lié statiquement par le build hook du
+package natif : rien à installer de plus que le SDK Flutter et le NDK Android.
 
-La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+```text
+lib/
+├── core/llm/        contrat LlmBackend, moteurs distants, réglages
+├── core/theme/      palette et déclinaisons du renard
+├── features/chat/   écran de chat, Markdown, pièces jointes, dictée
+└── features/        modèles locaux, paramètres, pages légales
+packages/foxllm_native/
+├── lib/             liaison FFI et isolate worker
+├── src/             ABI C stable devant le C++
+└── hook/            compilation de llama.cpp à la construction
+docs/                site public du projet
+```
 
-## État actuel
+Le code Flutter ne crée jamais `FoxLlmNativeEngine` directement : il passe par
+`LocalLlmBackend`, qui délègue à `FoxLlmNativeWorker`. C'est ce qui garde les
+appels bloquants de `llama.cpp` hors de l'isolate d'interface.
 
-Déjà présent :
+## Intégration continue
 
-- écran de chat FoxLLM affiché dès le lancement, sans écran intermédiaire ;
-- logo renard orange unique, partagé par l'écran de lancement, le chat et l'icône Android ;
-- icône APK/adaptive icon sur fond blanc ;
-- fenêtre de lancement Android avec le renard FoxLLM sur le fond de la déclinaison choisie, sans rupture visuelle ;
-- menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
-- historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
-- renommage et suppression d'une conversation depuis le menu latéral ;
-- écran Paramètres avec accès aux modèles locaux — le modèle en place y est nommé —, à l'API personnelle, à l'apparence et à « À propos » ;
-- deux thèmes FoxLLM, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
-- conditions d'utilisation, politique de confidentialité, licence AGPL v3 et licences tierces consultables dans l'application ;
-- réponses affichées en Markdown : titres, listes, gras, italique, liens
-  cliquables, et blocs de code annotés, colorés et copiables ;
-- pièces jointes depuis le composer : fichier, photo de la galerie ou prise de vue,
-  affichées comme pièces jointes dans le fil ;
-- images envoyées aux API personnelles multimodales (format OpenAI ou Gemini) ;
-- personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
-- composer responsive avec Réflexion et Rechercher activables, pièces jointes,
-  dictée vocale et Stop ;
-- dictée vocale maintenue au doigt, écrite dans le champ et modifiable avant envoi ;
-- mode Réflexion : consigne de raisonnement et marge de génération élargie, sur tous les moteurs ;
-- mode Recherche : outil de recherche web intégré d'OpenAI (API Responses) et de Google Gemini ;
-- chat local branché sur le streaming du `LocalLlmBackend` ;
-- contrat Dart commun `LlmBackend` ;
-- backend OpenAI-compatible avec streaming SSE et BYOK ;
-- backend OpenAI sur l'API Responses, pour ses outils intégrés ;
-- stockage sécurisé des clés API ou conservation en mémoire pour la session ;
-- package FFI `foxllm_native` avec ABI C stable ;
-- `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;
-- chargement/déchargement réel de modèles GGUF ;
-- sélection d'un fichier `.gguf` via le picker système ;
-- import par flux dans le stockage privé de FoxLLM avec progression et fichier temporaire `.part` ;
-- bibliothèque persistante des modèles importés, gestion des doublons et suppression ;
-- écran de gestion des modèles avec état chargé/déchargé et métadonnées ;
-- métadonnées du modèle : description, taille et contexte entraîné ;
-- inference locale exécutée dans un isolate worker dédié ;
-- streaming token par token C++ → Dart → Flutter ;
-- décodage UTF-8 incrémental des morceaux natifs ;
-- arrêt coopératif immédiat via flag atomique ;
-- paramètres natifs température, top-p et max tokens ;
-- métriques de génération : tokens, durée et tokens/s ;
-- diagnostic du moteur local routé lui aussi par le worker isolate ;
-- smoke tests du cycle de vie worker, y compris erreur de génération et dispose idempotent ;
-- APK Android arm64 construit en CI avec vérification du moteur llama.cpp et des symboles de streaming embarqués.
-
-Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. Les autres architectures utilisent un stub natif afin que le mode API et les tests FFI restent disponibles.
-
-## Prochain jalon
-
-La prochaine étape est de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
+| Vérification | Ce qu'elle contrôle | État |
+| --- | --- | --- |
+| Dart Format | mise en forme de `lib/` et `test/` | [![Dart Format](https://github.com/GhostPunishR/FoxLLM/actions/workflows/format.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/format.yml) |
+| Flutter Analyze | analyse statique de l'application | [![Flutter Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-analyze.yml) |
+| Flutter Tests | la suite de tests complète | [![Flutter Tests](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-tests.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-tests.yml) |
+| Native Dart Analyze | analyse du package FFI | [![Native Dart Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml) |
+| C++ Compile | compilation du moteur en `-Wall -Wextra -Werror` | [![C++ Compile](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml) |
+| FFI Smoke | cycle de vie du moteur natif de bout en bout | [![FFI Smoke](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml) |
+| Android Build | APK arm64, moteur et symboles embarqués | [![Android Build](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml) |
 
 ## Licence
 
 Copyright © 2026 GhostPunishR
 
-FoxLLM est un logiciel libre : vous pouvez le redistribuer et le modifier selon
-les termes de la [GNU Affero General Public License, version 3](LICENSE), à
-l'exclusion de toute version ultérieure.
+FoxLLM est un logiciel libre, distribué sous
+[GNU Affero General Public License version 3](LICENSE), à l'exclusion de toute
+version ultérieure. Il est fourni sans aucune garantie.
 
-Ce programme est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE
-GARANTIE, ni explicite ni implicite, y compris les garanties de
-commercialisation ou d'adaptation à un usage particulier. Voir la licence pour
-plus de détails.
-
-Chaque fichier source porte la notice correspondante sous forme d'identifiant
-SPDX (`AGPL-3.0-only`). Le texte intégral de la licence est aussi consultable
-dans l'application, dans Paramètres → À propos → Licence, avec l'adresse du
-dépôt : l'AGPL demande que celui qui reçoit le programme puisse en obtenir le
-code source.
-
-Les bibliothèques tierces gardent leurs licences respectives ; l'application les
-rassemble dans Paramètres → À propos → Licences tierces.
+Chaque fichier source porte sa notice sous forme d'identifiant SPDX
+(`AGPL-3.0-only`). Le texte intégral de la licence est aussi consultable dans
+l'application, avec l'adresse du dépôt : l'AGPL demande que celui qui reçoit le
+programme puisse en obtenir le code source. Les bibliothèques tierces gardent
+leurs licences respectives, rassemblées dans Paramètres, À propos, Licences
+tierces.

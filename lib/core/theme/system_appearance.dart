@@ -10,13 +10,12 @@ import 'fox_theme.dart';
 
 /// Déclare au système Android la déclinaison choisie dans l'application.
 ///
-/// La fenêtre de lancement — celle qui porte le renard — est dessinée par
+/// La fenêtre de lancement, celle qui porte le renard, est dessinée par
 /// Android avant même que le processus démarre : elle ne peut donc pas lire une
 /// préférence de l'application, et restait noire quel que soit le thème.
 /// Depuis Android 12, `UiModeManager.setApplicationNightMode` annonce au
 /// système le mode de l'application ; il résout alors les ressources
-/// `values-night` — dont la couleur du splash — en conséquence, dès le
-/// lancement suivant.
+/// `values-night`, dont la couleur du splash, dès le lancement suivant.
 class SystemAppearance {
   const SystemAppearance();
 
