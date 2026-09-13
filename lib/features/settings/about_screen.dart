@@ -1,0 +1,142 @@
+import 'package:flutter/material.dart';
+
+import '../../core/theme/fox_palette.dart';
+import '../chat/fox_mark.dart';
+import 'legal_documents.dart';
+
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'À propos',
+          style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(18, 12, 18, 36),
+        children: <Widget>[
+          const SizedBox(height: 12),
+          const Center(child: FoxMark(size: 84)),
+          const SizedBox(height: 18),
+          Center(
+            child: Text(
+              'FoxGPT',
+              style: TextStyle(
+                color: fox.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Center(
+            child: Text(
+              'Version $foxGptVersion',
+              style: TextStyle(color: fox.textSecondary, fontSize: 14),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Client de discussion qui exécute des modèles GGUF directement sur '
+            'ton téléphone, ou contacte le fournisseur d’API de ton choix avec '
+            'ta propre clé.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: fox.textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _AboutCard(
+            children: <Widget>[
+              _AboutTile(
+                icon: Icons.description_outlined,
+                title: termsOfUseDocument.title,
+                subtitle: 'Ce que tu acceptes en utilisant FoxGPT',
+                document: termsOfUseDocument,
+              ),
+              Divider(height: 1, color: fox.border),
+              _AboutTile(
+                icon: Icons.privacy_tip_outlined,
+                title: privacyPolicyDocument.title,
+                subtitle: 'Ce que deviennent tes données',
+                document: privacyPolicyDocument,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AboutCard extends StatelessWidget {
+  const _AboutCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Material(
+      color: fox.surfaceRaised,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: fox.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: children),
+    );
+  }
+}
+
+class _AboutTile extends StatelessWidget {
+  const _AboutTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.document,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final LegalDocument document;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return ListTile(
+      minLeadingWidth: 28,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      leading: Icon(icon, color: fox.textPrimary),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: fox.textPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(color: fox.textSecondary, fontSize: 13),
+      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: fox.textTertiary),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (context) => LegalDocumentScreen(document: document),
+          ),
+        );
+      },
+    );
+  }
+}

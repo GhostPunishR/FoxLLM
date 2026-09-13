@@ -217,9 +217,6 @@ Future<void> testPersonalApiConnection({
 }
 
 String describePersonalApiError(Object error) {
-  if (error is HttpException) {
-    return _describeHttpError(error.statusCode, error.body);
-  }
   if (error is PersonalApiHttpException) {
     return _describeHttpError(error.statusCode, error.body);
   }

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:foxgpt_native/foxgpt_native.dart';
 
+import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_backend_provider.dart';
 import 'local_model_file.dart';
 import 'local_model_library.dart';
@@ -67,8 +69,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
         return;
       }
       setState(() {
-        _runtimeDetails =
-            '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
+        _runtimeDetails = _formatRuntimeDetails(info);
       });
     } catch (_) {
       // The model list remains usable even if runtime metadata is unavailable.
@@ -143,14 +144,13 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
     try {
       final backend = ref.read(localLlmBackendProvider);
       await backend.loadModel(model.path);
+      await ref.read(lastModelStoreProvider).save(model.path);
       final info = await backend.modelInfo;
       if (!mounted) {
         return;
       }
       setState(() {
-        _runtimeDetails = info == null
-            ? null
-            : '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
+        _runtimeDetails = info == null ? null : _formatRuntimeDetails(info);
       });
     } catch (error) {
       if (!mounted) {
@@ -180,6 +180,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
 
     try {
       await ref.read(localLlmBackendProvider).unloadModel();
+      await ref.read(lastModelStoreProvider).clear();
       if (!mounted) {
         return;
       }
@@ -414,6 +415,9 @@ class _ModelCard extends StatelessWidget {
     );
   }
 }
+
+String _formatRuntimeDetails(FoxGptModelInfo info) =>
+    '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
 
 String _formatBytes(int bytes) {
   const units = <String>['o', 'Ko', 'Mo', 'Go', 'To'];

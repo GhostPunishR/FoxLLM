@@ -48,15 +48,15 @@ void main() {
 
   group('isAllowedPersonalApiBaseUrl', () {
     test('accepts HTTPS providers', () {
-      expect(
-        isAllowedPersonalApiBaseUrl('https://api.example.com/v1'),
-        isTrue,
-      );
+      expect(isAllowedPersonalApiBaseUrl('https://api.example.com/v1'), isTrue);
     });
 
     test('accepts HTTP only for private or loopback hosts', () {
       expect(isAllowedPersonalApiBaseUrl('http://127.0.0.1:11434/v1'), isTrue);
-      expect(isAllowedPersonalApiBaseUrl('http://192.168.1.20:8080/v1'), isTrue);
+      expect(
+        isAllowedPersonalApiBaseUrl('http://192.168.1.20:8080/v1'),
+        isTrue,
+      );
       expect(isAllowedPersonalApiBaseUrl('http://10.0.0.4/v1'), isTrue);
       expect(isAllowedPersonalApiBaseUrl('http://172.16.1.4/v1'), isTrue);
       expect(isAllowedPersonalApiBaseUrl('http://api.example.com/v1'), isFalse);

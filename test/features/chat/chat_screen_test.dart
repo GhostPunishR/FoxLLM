@@ -39,9 +39,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: ChatScreen()),
-      ),
+      const ProviderScope(child: MaterialApp(home: ChatScreen())),
     );
     await tester.pump();
 
@@ -70,9 +68,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: ChatScreen()),
-      ),
+      const ProviderScope(child: MaterialApp(home: ChatScreen())),
     );
 
     await tester.tap(find.byTooltip('Menu'));
@@ -90,9 +86,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: ChatScreen()),
-      ),
+      const ProviderScope(child: MaterialApp(home: ChatScreen())),
     );
 
     await tester.tap(find.byTooltip('Menu'));

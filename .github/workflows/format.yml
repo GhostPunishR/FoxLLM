@@ -33,6 +33,7 @@ jobs:
         run: >-
           dart format
           lib
+          test
           packages/foxgpt_native/lib
           packages/foxgpt_native/hook
           packages/foxgpt_native/tool

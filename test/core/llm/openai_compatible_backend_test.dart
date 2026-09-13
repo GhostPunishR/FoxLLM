@@ -19,36 +19,41 @@ void main() {
   const messages = <ChatMessage>[ChatMessage.user('Bonjour')];
 
   group('OpenAiCompatibleBackend cancellation', () {
-    test('stop prevents a request while the API key is still loading', () async {
-      final keyReadStarted = Completer<void>();
-      final keyRead = Completer<String?>();
-      final keyStore = _FakeApiKeyStore(() {
-        if (!keyReadStarted.isCompleted) {
-          keyReadStarted.complete();
-        }
-        return keyRead.future;
-      });
+    test(
+      'stop prevents a request while the API key is still loading',
+      () async {
+        final keyReadStarted = Completer<void>();
+        final keyRead = Completer<String?>();
+        final keyStore = _FakeApiKeyStore(() {
+          if (!keyReadStarted.isCompleted) {
+            keyReadStarted.complete();
+          }
+          return keyRead.future;
+        });
 
-      var clientsCreated = 0;
-      final backend = OpenAiCompatibleBackend(
-        provider: provider,
-        keyStore: keyStore,
-        clientFactory: () {
-          clientsCreated += 1;
-          return _HoldingClient();
-        },
-      );
+        var clientsCreated = 0;
+        final backend = OpenAiCompatibleBackend(
+          provider: provider,
+          keyStore: keyStore,
+          clientFactory: () {
+            clientsCreated += 1;
+            return _HoldingClient();
+          },
+        );
 
-      final generationDone = backend.generate(messages: messages).drain<void>();
+        final generationDone = backend
+            .generate(messages: messages)
+            .drain<void>();
 
-      await keyReadStarted.future;
-      await backend.stop();
-      keyRead.complete('secret-key');
-      await generationDone;
+        await keyReadStarted.future;
+        await backend.stop();
+        keyRead.complete('secret-key');
+        await generationDone;
 
-      expect(clientsCreated, 0);
-      await backend.dispose();
-    });
+        expect(clientsCreated, 0);
+        await backend.dispose();
+      },
+    );
 
     test('stop closes every concurrently active HTTP client', () async {
       final keyStore = _FakeApiKeyStore(() async => 'secret-key');
@@ -112,8 +117,7 @@ class _FakeApiKeyStore extends ApiKeyStore {
 }
 
 class _HoldingClient extends http.BaseClient {
-  final StreamController<List<int>> _controller =
-      StreamController<List<int>>();
+  final StreamController<List<int>> _controller = StreamController<List<int>>();
   final Completer<void> sendStarted = Completer<void>();
 
   bool closed = false;

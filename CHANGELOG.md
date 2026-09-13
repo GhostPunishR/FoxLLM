@@ -2,6 +2,147 @@
 
 Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
+## [0.1.1] - 2026-09-13
+
+Première mise à jour après la v0.1.0 : démarrage raccourci, conversations et
+modèle conservés entre deux lancements, deux déclinaisons de thème, lecture
+confortable du code, et une passe de qualité sur le code existant. La suite de
+tests passe de 29 à 120 cas.
+
+### Démarrage
+
+- suppression du splash Flutter : l'application ouvre directement l'écran de
+  chat. Cet écran n'effectuait aucun préchargement et ajoutait 700 ms d'attente
+  purement décorative ;
+- le moteur local n'est plus chargé au lancement : l'isolate worker et
+  `libfoxgpt_native.so`, qui embarque `llama.cpp`, étaient créés avant le
+  premier frame et retardaient d'autant l'apparition de l'interface. Ils sont
+  désormais construits à la première utilisation réelle (envoi d'un message,
+  ouverture des modèles locaux) ;
+- la fenêtre de lancement Android porte le logo FoxGPT sur le fond de la
+  déclinaison choisie, au lieu d'une couleur figée. Android la dessine avant
+  que le processus démarre et ne peut donc pas lire une préférence Flutter :
+  l'application déclare son mode au système via
+  `UiModeManager.setApplicationNightMode`, qui teinte le splash dès le
+  lancement suivant. Avant Android 12 cette API n'existe pas, la fenêtre de
+  lancement suit alors le mode sombre du système ;
+- le dernier modèle GGUF utilisé est rouvert automatiquement au premier
+  message, au lieu de devoir le recharger à la main à chaque démarrage. Il
+  n'est pas ouvert au lancement, ce qui retarderait l'affichage du chat de
+  plusieurs secondes.
+
+### Interface du chat
+
+- nouveau logo FoxGPT, partagé par l'écran de lancement, le chat et l'icône
+  Android. Le tracé précédent du chat était polygonal ; le nouveau est fourni
+  en 1x, 2x et 3x pour rester net aux petites tailles ;
+- les boutons du haut forment une barre opaque : le fil de messages s'arrête
+  dessous au lieu de défiler derrière eux, où le texte devenait illisible ;
+- les réponses sont affichées en Markdown plutôt qu'en texte brut. Chaque bloc
+  de code annonce son langage, se copie d'un bouton et défile à l'horizontale
+  sans repli au milieu d'une ligne ; le code en ligne est mis en valeur sans
+  ses accents graves. Un bloc encore ouvert s'affiche déjà comme tel pendant le
+  streaming ;
+- le menu « + » du composer propose de joindre un fichier texte ou du code, lu
+  et inséré dans le message en bloc annoté. Photos et caméra y figurent,
+  signalées comme dépendantes d'un modèle multimodal, qu'aucun backend ne sait
+  lire aujourd'hui. « Modèles locaux » quitte ce menu : sa place est dans les
+  Paramètres ;
+- une conversation peut être renommée ou supprimée depuis le menu latéral, via
+  le bouton « … » ou un appui long ; la suppression demande confirmation,
+  puisque l'historique est désormais conservé sur l'appareil ;
+- l'historique des conversations est enregistré dans le stockage privé de
+  l'application et rechargé au lancement suivant ; l'écriture passe par un
+  fichier temporaire renommé, pour qu'une fermeture brutale ne laisse pas un
+  historique tronqué.
+
+### Paramètres
+
+- Apparence propose deux déclinaisons aux couleurs du renard, « Clair renard »
+  et « Sombre renard », avec aperçu et choix conservé entre deux lancements. La
+  déclinaison claire ouvre la liste et s'applique par défaut. Les écrans lisent
+  une palette centralisée (`FoxPalette`) au lieu de couleurs codées en dur, et
+  les puces d'outils du chat passent du bleu Material à l'orange FoxGPT ;
+- nouvelle entrée Personnalisation, à la place de « Confidentialité » qui
+  n'était qu'un libellé inerte : l'utilisateur y décrit comment FoxGPT doit
+  répondre — ton, longueur, langue, rôle à tenir — avec des modèles prêts à
+  l'emploi. Ces consignes ouvrent chaque requête en message système, aussi bien
+  vers le moteur local que vers une API personnelle, et ne sont pas figées dans
+  les conversations enregistrées ;
+- l'entrée « À propos » ouvre un écran donnant accès aux conditions
+  d'utilisation et à la politique de confidentialité ;
+- suppression du pied de page des Paramètres (le libellé « FoxGPT » et son
+  trait orange).
+
+### Corrections
+
+- une API personnelle activée était ignorée : le chat réclamait un modèle GGUF
+  alors qu'il aurait dû interroger le fournisseur. L'override du backend était
+  posé conditionnellement dans un `ProviderScope` imbriqué, or Riverpod
+  n'accepte pas qu'un override apparaisse en cours de route ; les réglages
+  étant lus de façon asynchrone, il arrivait toujours trop tard ;
+- les écrans « Modèles locaux » et « API personnelle » ignoraient le thème
+  choisi : leurs cartes et libellés suivent les rôles Material, qui n'étaient
+  pas dérivés de la palette FoxGPT ;
+- une lecture lente du stockage revenait par-dessus un choix fait entre-temps :
+  un thème sélectionné juste après le lancement pouvait repasser tout seul à
+  l'ancien, et les instructions de personnalisation subissaient le même sort ;
+- deux appuis rapprochés sur Envoyer lançaient deux générations pendant
+  l'ouverture d'un modèle, dont une était perdue : l'indicateur de génération
+  n'était levé qu'une fois la requête partie ;
+- une erreur de lecture de l'historique empêchait aussi la restauration du
+  dernier modèle : les deux sont désormais indépendantes ;
+- renommer une conversation touchait le champ de texte après sa libération,
+  pendant l'animation de fermeture du dialogue ;
+- deux imports GGUF du même nom lancés en parallèle ne s'écrasent plus : la
+  destination est réservée avant l'écriture, alors que la vérification
+  d'existence laissait les deux imports viser le même fichier ;
+- quitter l'écran « API personnelle » pendant un test de connexion ne déclenche
+  plus `setState()` après `dispose()` ;
+- l'enregistrement d'une API personnelle ne touche plus les contrôleurs de
+  texte après le démontage de l'écran, ce qui levait une exception aussitôt
+  avalée et masquait un enregistrement pourtant réussi ;
+- une Base URL comportant plusieurs barres obliques finales ne produit plus
+  d'URL à double séparateur.
+
+### Qualité interne
+
+- backends OpenAI-compatible et Gemini construits sur un socle commun
+  `HttpStreamingBackend` : annulation, fermeture du client HTTP, lecture SSE et
+  cycle de vie `stop()`/`dispose()` ne sont plus dupliqués entre fournisseurs ;
+- une seule exception HTTP distante, `PersonalApiHttpException` ; le doublon
+  `HttpException`, qui masquait en plus la classe homonyme de `dart:io`, est
+  supprimé ;
+- normalisation de Base URL factorisée en un seul point ;
+- tous les rôles de surface, de contour et de texte du `ColorScheme` dérivent
+  de la palette : un écran Material suit le thème sans réglage par widget ;
+- l'écran de chat ne se reconstruit plus entièrement à chaque frappe : seul le
+  bouton d'envoi observe le brouillon ;
+- le défilement automatique n'empile plus un post-frame callback et une
+  animation par token pendant le streaming.
+
+### Tests et intégration continue
+
+- couverture de l'envoi d'un message : rendu, streaming, historique transmis au
+  backend, bouton Arrêter, erreur de génération, réponse vide et rechargement
+  du modèle mémorisé ;
+- tests du découpage Markdown, du bouton de copie et du rendu d'un bloc encore
+  ouvert ;
+- tests de la barre du haut : le fil de messages ne recouvre jamais les boutons,
+  encoche comprise ;
+- tests des pièces jointes : refus d'un binaire, d'un fichier trop volumineux
+  ou vide, insertion dans le brouillon ;
+- tests de la personnalisation : relecture, troncature, message système en tête
+  de requête et absent des conversations enregistrées ;
+- tests du thème : contraste WCAG des deux palettes, ordre d'affichage, défaut
+  clair, et déclaration du mode au système pour le splash ;
+- tests de persistance des conversations, de renommage et de suppression ;
+- tests du socle HTTP partagé : lecture SSE, erreurs HTTP, absence de clé API ;
+- tests d'import GGUF concurrent et de libération d'un nom réservé ;
+- la CI produit aussi un APK release : le mode debug s'exécute en JIT et ne
+  reflète pas les performances réelles de démarrage ;
+- le dossier `test/` est désormais vérifié par le workflow Dart Format.
+
 ## [0.1.0] - 2026-09-12
 
 Première version fonctionnelle de FoxGPT pour Android, avec exécution locale de modèles GGUF et prise en charge d'API personnelles BYOK.

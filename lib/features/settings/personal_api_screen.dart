@@ -5,6 +5,7 @@ import '../../core/llm/personal_api_provider.dart';
 import '../../core/llm/personal_api_settings.dart';
 import '../../core/llm/personal_api_settings_provider.dart';
 import '../../core/llm/provider_config.dart';
+import '../../core/theme/fox_palette.dart';
 
 class PersonalApiScreen extends ConsumerStatefulWidget {
   const PersonalApiScreen({super.key});
@@ -14,12 +15,6 @@ class PersonalApiScreen extends ConsumerStatefulWidget {
 }
 
 class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
-  static const background = Color(0xFF0B0B0B);
-  static const surface = Color(0xFF181818);
-  static const border = Color(0xFF2A2A2A);
-  static const muted = Color(0xFF969696);
-  static const orange = Color(0xFFFC6117);
-
   final _baseUrlController = TextEditingController();
   final _modelController = TextEditingController();
   final _apiKeyController = TextEditingController();
@@ -186,10 +181,13 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
             useInChat: _useInChat,
             apiKey: _apiKeyController.text,
           );
-      _apiKeyController.clear();
+      // Les contrôleurs sont libérés avec l'écran : y toucher après l'await
+      // lançait une exception que le `catch` ci-dessous avalait, masquant le
+      // fait que l'enregistrement avait bien abouti.
       if (!mounted) {
         return settings;
       }
+      _apiKeyController.clear();
       setState(() {
         _providerId = settings.providerId;
         _selectedModel = settings.model;
@@ -218,7 +216,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
   Future<void> _testConnection() async {
     final saved = await _save(showSuccess: false);
-    if (saved == null) {
+    // `_save` rend les réglages même si l'écran a été quitté entre-temps :
+    // sans ce garde, le `setState` suivant s'exécute après `dispose()`.
+    if (saved == null || !mounted) {
       return;
     }
 
@@ -285,19 +285,17 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     final state = ref.watch(personalApiSettingsProvider);
     final hasStoredKey =
         state.value?.providerId == _providerId &&
         (state.value?.hasApiKey ?? false);
 
     return Scaffold(
-      backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: background,
-        surfaceTintColor: Colors.transparent,
-        title: const Text(
+        title: Text(
           'API personnelle',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
       body: !_initialized
@@ -305,20 +303,24 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 36),
               children: <Widget>[
-                const Text(
+                Text(
                   'Ton fournisseur, ta clé, ton modèle',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: fox.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'FoxGPT contacte directement le fournisseur depuis ton téléphone. '
                   'Pour les fournisseurs connus, la Base URL est configurée automatiquement '
                   'et les modèles accessibles sont récupérés avec ta clé.',
-                  style: TextStyle(color: muted, fontSize: 14, height: 1.45),
+                  style: TextStyle(
+                    color: fox.textSecondary,
+                    fontSize: 14,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: 22),
                 _FieldCard(
@@ -329,8 +331,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       DropdownButtonFormField<String>(
                         key: ValueKey<String>('provider-$_providerId'),
                         initialValue: _providerId,
-                        dropdownColor: const Color(0xFF222222),
-                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: fox.surfaceInput,
+                        style: TextStyle(color: fox.textPrimary),
                         decoration: _inputDecoration('Fournisseur'),
                         items: personalApiProviders
                             .map(
@@ -348,10 +350,10 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                         TextFormField(
                           controller: _baseUrlController,
                           keyboardType: TextInputType.url,
-                          keyboardAppearance: Brightness.dark,
+                          keyboardAppearance: Theme.of(context).brightness,
                           autocorrect: false,
                           enableSuggestions: false,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: fox.textPrimary),
                           decoration: _inputDecoration(
                             'https://fournisseur.example/v1',
                           ),
@@ -361,11 +363,11 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       const _FieldLabel('Clé API'),
                       TextFormField(
                         controller: _apiKeyController,
-                        keyboardAppearance: Brightness.dark,
+                        keyboardAppearance: Theme.of(context).brightness,
                         autocorrect: false,
                         enableSuggestions: false,
                         obscureText: _obscureApiKey,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: fox.textPrimary),
                         decoration:
                             _inputDecoration(
                               hasStoredKey
@@ -407,7 +409,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                               'Récupérer les modèles disponibles',
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
+                              foregroundColor: fox.textPrimary,
                               minimumSize: const Size.fromHeight(48),
                             ),
                           ),
@@ -417,10 +419,10 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       if (_provider.custom || _manualModel)
                         TextFormField(
                           controller: _modelController,
-                          keyboardAppearance: Brightness.dark,
+                          keyboardAppearance: Theme.of(context).brightness,
                           autocorrect: false,
                           enableSuggestions: false,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: fox.textPrimary),
                           decoration: _inputDecoration('identifiant-du-modèle'),
                         )
                       else
@@ -434,8 +436,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                               ? _selectedModel
                               : null,
                           isExpanded: true,
-                          dropdownColor: const Color(0xFF222222),
-                          style: const TextStyle(color: Colors.white),
+                          dropdownColor: fox.surfaceInput,
+                          style: TextStyle(color: fox.textPrimary),
                           decoration: _inputDecoration(
                             _models.isEmpty
                                 ? 'Récupère d’abord les modèles'
@@ -495,17 +497,20 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: _persistence == ApiKeyPersistence.device,
-                        activeThumbColor: orange,
-                        title: const Text(
+                        activeThumbColor: fox.accent,
+                        title: Text(
                           'Mémoriser sur cet appareil',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: fox.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        subtitle: const Text(
+                        subtitle: Text(
                           'Désactivé = clé gardée seulement pendant cette session.',
-                          style: TextStyle(color: muted, fontSize: 13),
+                          style: TextStyle(
+                            color: fox.textSecondary,
+                            fontSize: 13,
+                          ),
                         ),
                         onChanged: _busy
                             ? null
@@ -517,22 +522,25 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                                 });
                               },
                       ),
-                      const Divider(color: border, height: 1),
+                      Divider(color: fox.border, height: 1),
                       SwitchListTile.adaptive(
                         contentPadding: EdgeInsets.zero,
                         value: _useInChat,
-                        activeThumbColor: orange,
-                        title: const Text(
+                        activeThumbColor: fox.accent,
+                        title: Text(
                           'Utiliser dans le chat',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: fox.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         subtitle: Text(
                           'Quand activé, le chat utilise ${_provider.displayName} '
                           'au lieu du modèle GGUF local.',
-                          style: const TextStyle(color: muted, fontSize: 13),
+                          style: TextStyle(
+                            color: fox.textSecondary,
+                            fontSize: 13,
+                          ),
                         ),
                         onChanged: _busy
                             ? null
@@ -552,8 +560,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       : const Icon(Icons.save_outlined),
                   label: const Text('Enregistrer'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: orange,
-                    foregroundColor: Colors.white,
+                    backgroundColor: fox.accent,
+                    foregroundColor: fox.onAccent,
                     minimumSize: const Size.fromHeight(50),
                   ),
                 ),
@@ -568,16 +576,20 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                       : const Icon(Icons.wifi_tethering_outlined),
                   label: const Text('Tester la connexion'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
+                    foregroundColor: fox.textPrimary,
                     minimumSize: const Size.fromHeight(50),
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Le test envoie une très courte requête au modèle sélectionné '
                   'et peut consommer quelques tokens.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: muted, fontSize: 12, height: 1.4),
+                  style: TextStyle(
+                    color: fox.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
                 ),
                 if (hasStoredKey) ...<Widget>[
                   const SizedBox(height: 18),
@@ -596,22 +608,23 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   }
 
   InputDecoration _inputDecoration(String hintText) {
+    final fox = context.fox;
     return InputDecoration(
       hintText: hintText,
-      hintStyle: const TextStyle(color: muted),
+      hintStyle: TextStyle(color: fox.textSecondary),
       filled: true,
-      fillColor: const Color(0xFF222222),
+      fillColor: fox.surfaceInput,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: border),
+        borderSide: BorderSide(color: fox.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: border),
+        borderSide: BorderSide(color: fox.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: orange),
+        borderSide: BorderSide(color: fox.accent, width: 1.6),
       ),
     );
   }
@@ -624,11 +637,12 @@ class _FieldCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Material(
-      color: _PersonalApiScreenState.surface,
+      color: fox.surfaceRaised,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: _PersonalApiScreenState.border),
+        side: BorderSide(color: fox.border),
       ),
       child: Padding(padding: const EdgeInsets.all(16), child: child),
     );
@@ -646,8 +660,8 @@ class _FieldLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: context.fox.textPrimary,
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),

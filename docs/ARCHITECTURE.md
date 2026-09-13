@@ -17,7 +17,9 @@ Flutter / Dart (isolate UI)
 ├── stockage sécurisé des clés BYOK
 ├── bibliothèque locale GGUF
 │   └── Application Support / models
-├── OpenAiCompatibleBackend
+├── HttpStreamingBackend
+│   ├── OpenAiCompatibleBackend
+│   └── GeminiBackend
 └── LocalLlmBackend
     └── FoxGptNativeWorker (isolate dédié)
         └── foxgpt_native
@@ -63,6 +65,22 @@ Deux modes de conservation sont prévus :
 - `session` : clé conservée uniquement en mémoire jusqu'à la fermeture de l'application.
 
 Le backend `OpenAiCompatibleBackend` effectue directement la requête HTTPS depuis l'appareil.
+
+### Socle HTTP partagé
+
+`OpenAiCompatibleBackend` et `GeminiBackend` dérivent tous deux de
+`HttpStreamingBackend`. Ce socle porte tout ce qui ne dépend pas du fournisseur :
+lecture de la clé API, création et fermeture du client HTTP, détection d'une
+réponse non 2xx, découpage des lignes SSE, et cycle de vie `stop()`/`dispose()`
+y compris l'annulation d'une génération encore en attente de sa clé API.
+
+Une sous-classe ne décrit que deux choses : la requête à envoyer
+(`buildRequest`) et la façon d'extraire les fragments de texte d'un évènement
+SSE décodé (`extractDeltas`). Ajouter un protocole non OpenAI-compatible revient
+donc à implémenter ces deux méthodes, sans réécrire la mécanique d'annulation.
+
+Une réponse HTTP non 2xx lève toujours `PersonalApiHttpException`, que
+`describePersonalApiError` traduit en message lisible pour l'interface.
 
 ## Moteur natif
 

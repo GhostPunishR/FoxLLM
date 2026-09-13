@@ -5,7 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/chat_message.dart';
-import '../../core/llm/local_backend_provider.dart';
+import '../../core/llm/last_model_store.dart';
+import '../../core/llm/local_llm_backend.dart';
+import '../../core/llm/personalization.dart';
+import '../../core/theme/fox_palette.dart';
+import 'chat_backend_host.dart';
+import 'chat_conversation.dart';
+import 'conversation_store.dart';
+import 'message_markdown.dart';
+import 'text_attachment.dart';
 import '../local_models/local_models_screen.dart';
 import '../settings/settings_screen.dart';
 import 'fox_mark.dart';
@@ -18,21 +26,17 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  static const background = Color(0xFF0B0B0B);
-  static const composer = Color(0xFF242424);
-  static const composerBorder = Color(0xFF3A3A3A);
-  static const muted = Color(0xFF949494);
-  static const blue = Color(0xFF5B8CFF);
-  static const blueSurface = Color(0xFF202B43);
-  static const blueBorder = Color(0xFF35558C);
-
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final List<ChatMessage> _messages = <ChatMessage>[];
-  final List<_ChatConversation> _conversations = <_ChatConversation>[];
+  final List<ChatConversation> _conversations = <ChatConversation>[];
 
   bool _isGenerating = false;
+  bool _sending = false;
+  bool _scrollScheduled = false;
+  bool _restoringModel = false;
+  String? _restorableModelPath;
   int _generationEpoch = 0;
   int _nextConversationId = 1;
   int? _activeConversationId;
@@ -40,21 +44,106 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _inputController.addListener(_onInputChanged);
+    unawaited(_restoreSession());
   }
 
-  void _onInputChanged() {
-    if (mounted) {
-      setState(() {});
+  /// Recharge l'historique et déclare le dernier modèle utilisé.
+  ///
+  /// Le modèle n'est pas ouvert ici : le faire retarderait l'affichage du chat
+  /// de plusieurs secondes. Il l'est au premier envoi, via
+  /// `restoreModelIfNeeded()`.
+  Future<void> _restoreSession() async {
+    // Les instructions personnalisées partent en premier et sans attente :
+    // elles accompagnent chaque envoi, et la lecture du stockage ne doit
+    // dépendre ni de l'historique ni du modèle, qui peuvent échouer.
+    unawaited(ref.read(personalizationProvider.notifier).resolved());
+    // Les deux restaurations suivantes sont indépendantes : un historique
+    // illisible ne doit pas empêcher de retrouver le modèle, et inversement.
+    await _restoreConversations();
+    await _restoreModelPath();
+  }
+
+  Future<void> _restoreConversations() async {
+    final List<ChatConversation> conversations;
+    try {
+      conversations = await ref.read(conversationStoreProvider).load();
+    } catch (_) {
+      return;
     }
+    if (mounted && conversations.isNotEmpty) {
+      setState(() {
+        _conversations
+          ..clear()
+          ..addAll(conversations);
+        _nextConversationId =
+            conversations
+                .map((conversation) => conversation.id)
+                .reduce((a, b) => a > b ? a : b) +
+            1;
+      });
+    }
+  }
+
+  Future<void> _restoreModelPath() async {
+    final String? lastModel;
+    try {
+      lastModel = await ref.read(lastModelStoreProvider).load();
+    } catch (_) {
+      return;
+    }
+    if (lastModel != null && mounted) {
+      setState(() => _restorableModelPath = lastModel);
+    }
+  }
+
+  Future<void> _renameConversation(int id, String title) async {
+    final trimmed = title.trim();
+    final conversation = _conversationById(id);
+    if (trimmed.isEmpty || conversation == null) {
+      return;
+    }
+    setState(() => conversation.title = trimmed);
+    _persistConversations();
+  }
+
+  Future<void> _deleteConversation(int id) async {
+    final conversation = _conversationById(id);
+    if (conversation == null) {
+      return;
+    }
+
+    final wasActive = _activeConversationId == id;
+    if (wasActive && _isGenerating) {
+      _generationEpoch += 1;
+      await ref.read(chatBackendProvider).stop();
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _conversations.remove(conversation);
+      if (wasActive) {
+        _activeConversationId = null;
+        _messages.clear();
+        _isGenerating = false;
+      }
+    });
+    _persistConversations();
+  }
+
+  void _persistConversations() {
+    unawaited(
+      ref
+          .read(conversationStoreProvider)
+          .save(List<ChatConversation>.of(_conversations)),
+    );
   }
 
   @override
   void dispose() {
     _generationEpoch += 1;
-    _inputController
-      ..removeListener(_onInputChanged)
-      ..dispose();
+    _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -62,7 +151,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _newChat() async {
     _generationEpoch += 1;
     if (_isGenerating) {
-      await ref.read(localLlmBackendProvider).stop();
+      await ref.read(chatBackendProvider).stop();
     }
     if (!mounted) {
       return;
@@ -80,7 +169,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _selectConversation(int id) async {
     _generationEpoch += 1;
     if (_isGenerating) {
-      await ref.read(localLlmBackendProvider).stop();
+      await ref.read(chatBackendProvider).stop();
     }
     if (!mounted) {
       return;
@@ -106,24 +195,54 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isGenerating) {
+    // `_isGenerating` n'est levé qu'une fois la requête partie : sans ce
+    // second verrou, deux appuis rapprochés pendant l'ouverture du modèle ou
+    // la lecture des réglages lanceraient deux envois, dont un serait perdu.
+    if (text.isEmpty || _isGenerating || _sending) {
       return;
     }
+    _sending = true;
+    try {
+      await _send(text);
+    } finally {
+      _sending = false;
+    }
+  }
 
-    final backend = ref.read(localLlmBackendProvider);
+  Future<void> _send(String text) async {
+    final backend = ref.read(chatBackendProvider);
     if (backend.loadedModelPath == null) {
-      _showModelRequired();
-      return;
+      // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
+      // retarder l'affichage du chat au lancement.
+      final restorable = _restorableModelPath;
+      if (restorable == null) {
+        _showModelRequired();
+        return;
+      }
+      if (!await _restoreModel(backend, restorable)) {
+        return;
+      }
     }
 
     final generationEpoch = ++_generationEpoch;
-    final requestMessages = <ChatMessage>[..._messages, ChatMessage.user(text)];
+    final history = <ChatMessage>[..._messages, ChatMessage.user(text)];
+
+    // Les instructions de Paramètres → Personnalisation ouvrent la requête,
+    // sans rejoindre l'historique : elles sont globales et modifiables, la
+    // conversation enregistrée ne doit pas figer celles du jour. Elles sont
+    // lues telles que connues, sans attendre le stockage : sa lecture démarre
+    // au lancement, bien avant qu'un message ait pu être écrit.
+    final instructions = ref.read(personalizationProvider);
+    final requestMessages = <ChatMessage>[
+      if (instructions.isNotEmpty) ChatMessage.system(instructions),
+      ...history,
+    ];
 
     setState(() {
       _ensureActiveConversation(text);
       _messages
         ..clear()
-        ..addAll(requestMessages)
+        ..addAll(history)
         ..add(const ChatMessage.assistant(''));
       _isGenerating = true;
       _syncActiveConversation();
@@ -164,12 +283,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  /// Ouvre le modèle mémorisé. Rend `false` si le chargement a échoué ou si
+  /// l'écran a disparu entre-temps.
+  Future<bool> _restoreModel(LocalLlmBackend backend, String path) async {
+    setState(() => _restoringModel = true);
+    try {
+      await backend.loadModel(path);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _restoringModel = false;
+          // Un modèle devenu illisible ne doit pas être retenté à chaque envoi.
+          _restorableModelPath = null;
+        });
+        _showSnack('Chargement du modèle impossible : $error');
+      }
+      return false;
+    }
+    if (!mounted) {
+      return false;
+    }
+    setState(() => _restoringModel = false);
+    return true;
+  }
+
   void _ensureActiveConversation(String firstMessage) {
     if (_activeConversationId != null) {
       return;
     }
 
-    final conversation = _ChatConversation(
+    final conversation = ChatConversation(
       id: _nextConversationId++,
       title: _conversationTitle(firstMessage),
       updatedAt: DateTime.now(),
@@ -187,7 +330,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return '${normalized.substring(0, 39)}…';
   }
 
-  _ChatConversation? _conversationById(int id) {
+  ChatConversation? _conversationById(int id) {
     for (final conversation in _conversations) {
       if (conversation.id == id) {
         return conversation;
@@ -212,6 +355,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _conversations
       ..remove(conversation)
       ..insert(0, conversation);
+    _persistConversations();
   }
 
   void _removeEmptyAssistantPlaceholder() {
@@ -227,7 +371,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _stopGeneration() async {
-    await ref.read(localLlmBackendProvider).stop();
+    await ref.read(chatBackendProvider).stop();
   }
 
   void _showModelRequired() {
@@ -248,7 +392,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _scrollToBottom() {
+    // Le streaming appelle cette méthode à chaque token : sans ce garde, chaque
+    // token empile un post-frame callback et une animation de plus par frame.
+    if (_scrollScheduled) {
+      return;
+    }
+    _scrollScheduled = true;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollScheduled = false;
       if (!_scrollController.hasClients) {
         return;
       }
@@ -291,7 +443,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _showAddMenu() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF191919),
+      backgroundColor: context.fox.surfaceRaised,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Padding(
@@ -300,19 +452,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.memory_outlined),
-                title: const Text('Modèles locaux'),
-                subtitle: const Text('Importer ou charger un fichier GGUF'),
+                leading: const Icon(Icons.attach_file),
+                title: const Text('Joindre un fichier'),
+                subtitle: const Text('Texte ou code, ajouté au message'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _openLocalModels();
+                  unawaited(_attachFile());
                 },
+              ),
+              // Photos et caméra attendent un modèle multimodal : aucun des
+              // deux backends ne sait lire une image aujourd'hui, les proposer
+              // actives enverrait une pièce jointe que le modèle ignorerait.
+              const ListTile(
+                enabled: false,
+                leading: Icon(Icons.photo_library_outlined),
+                title: Text('Photos'),
+                subtitle: Text('Nécessite un modèle multimodal'),
               ),
               const ListTile(
                 enabled: false,
-                leading: Icon(Icons.attach_file),
-                title: Text('Joindre un fichier'),
-                subtitle: Text('Bientôt disponible'),
+                leading: Icon(Icons.photo_camera_outlined),
+                title: Text('Caméra'),
+                subtitle: Text('Nécessite un modèle multimodal'),
               ),
             ],
           ),
@@ -321,13 +482,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  Future<void> _attachFile() async {
+    final TextAttachment? attachment;
+    try {
+      attachment = await ref.read(attachmentPickerProvider).pickTextFile();
+    } on AttachmentException catch (error) {
+      _showSnack(error.message);
+      return;
+    } catch (_) {
+      _showSnack('Impossible de lire ce fichier.');
+      return;
+    }
+    if (attachment == null || !mounted) {
+      return;
+    }
+    _insertAttachment(attachment);
+  }
+
+  /// Insère la pièce jointe au curseur, en préservant le brouillon en cours.
+  void _insertAttachment(TextAttachment attachment) {
+    final block = formatAttachment(attachment);
+    final value = _inputController.value;
+    final offset = value.selection.isValid
+        ? value.selection.end
+        : value.text.length;
+    final before = value.text.substring(0, offset);
+    final after = value.text.substring(offset);
+    final prefix = before.isEmpty || before.endsWith('\n') ? '' : '\n';
+    final inserted = '$prefix$block';
+
+    _inputController.value = TextEditingValue(
+      text: '$before$inserted$after',
+      selection: TextSelection.collapsed(
+        offset: before.length + inserted.length,
+      ),
+    );
+    _showSnack('« ${attachment.name} » ajouté au message.');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final hasDraft = _inputController.text.trim().isNotEmpty;
-
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: background,
       resizeToAvoidBottomInset: true,
       drawerScrimColor: Colors.black54,
       drawer: _FoxDrawer(
@@ -341,63 +537,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Navigator.of(context).pop();
           unawaited(_selectConversation(id));
         },
+        onConversationRenamed: (id, title) =>
+            unawaited(_renameConversation(id, title)),
+        onConversationDeleted: (id) => unawaited(_deleteConversation(id)),
         onSettings: () {
           Navigator.of(context).pop();
           _openSettings();
         },
       ),
-      body: Stack(
+      body: Column(
         children: <Widget>[
-          Positioned.fill(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: KeyedSubtree(
-                    key: const ValueKey<String>('chat-content'),
-                    child: _messages.isEmpty
-                        ? const _WelcomeState()
-                        : _MessageList(
-                            messages: _messages,
-                            controller: _scrollController,
-                          ),
-                  ),
-                ),
-                SafeArea(
-                  top: false,
-                  child: KeyedSubtree(
-                    key: const ValueKey<String>('chat-composer'),
-                    child: _Composer(
-                      controller: _inputController,
-                      isGenerating: _isGenerating,
-                      hasDraft: hasDraft,
-                      onReflection: _showReflectionInfo,
-                      onSearch: _showSearchInfo,
-                      onAdd: _showAddMenu,
-                      onVoice: _showVoiceInfo,
-                      onSend: () => unawaited(_sendMessage()),
-                      onStop: () => unawaited(_stopGeneration()),
+          // Barre opaque : le fil de messages s'arrête dessous au lieu de
+          // défiler derrière les deux boutons, où le texte devenait illisible.
+          _ChatTopBar(
+            onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+            onNewChat: () => unawaited(_newChat()),
+          ),
+          Expanded(
+            child: KeyedSubtree(
+              key: const ValueKey<String>('chat-content'),
+              child: _messages.isEmpty
+                  ? const _WelcomeState()
+                  : _MessageList(
+                      messages: _messages,
+                      controller: _scrollController,
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
-          Positioned(
-            top: 18,
-            left: 12,
-            child: _TopButton(
-              tooltip: 'Menu',
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              child: const _MenuGlyph(),
-            ),
-          ),
-          Positioned(
-            top: 18,
-            right: 12,
-            child: _TopButton(
-              tooltip: 'Nouveau chat',
-              onPressed: () => unawaited(_newChat()),
-              child: const _NewChatGlyph(),
+          if (_restoringModel) const _RestoringModelBanner(),
+          SafeArea(
+            top: false,
+            child: KeyedSubtree(
+              key: const ValueKey<String>('chat-composer'),
+              child: _Composer(
+                controller: _inputController,
+                isGenerating: _isGenerating,
+                onReflection: _showReflectionInfo,
+                onSearch: _showSearchInfo,
+                onAdd: _showAddMenu,
+                onVoice: _showVoiceInfo,
+                onSend: () => unawaited(_sendMessage()),
+                onStop: () => unawaited(_stopGeneration()),
+              ),
             ),
           ),
         ],
@@ -406,18 +587,68 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
-class _ChatConversation {
-  _ChatConversation({
-    required this.id,
-    required this.title,
-    required this.updatedAt,
-    required this.messages,
-  });
+/// En-tête du chat : menu latéral et nouveau chat, sur le fond du thème.
+class _ChatTopBar extends StatelessWidget {
+  const _ChatTopBar({required this.onMenu, required this.onNewChat});
 
-  final int id;
-  final String title;
-  DateTime updatedAt;
-  List<ChatMessage> messages;
+  final VoidCallback onMenu;
+  final VoidCallback onNewChat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.fox.background,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 52,
+          child: Row(
+            children: <Widget>[
+              const SizedBox(width: 12),
+              _TopButton(
+                tooltip: 'Menu',
+                onPressed: onMenu,
+                child: const _MenuGlyph(),
+              ),
+              const Spacer(),
+              _TopButton(
+                tooltip: 'Nouveau chat',
+                onPressed: onNewChat,
+                child: const _NewChatGlyph(),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RestoringModelBanner extends StatelessWidget {
+  const _RestoringModelBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          SizedBox.square(
+            dimension: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: fox.accent),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Chargement du modèle local…',
+            style: TextStyle(color: fox.textSecondary, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _WelcomeState extends StatelessWidget {
@@ -429,20 +660,20 @@ class _WelcomeState extends StatelessWidget {
       builder: (context, constraints) {
         return Padding(
           padding: EdgeInsets.only(top: constraints.maxHeight * 0.39),
-          child: const Align(
+          child: Align(
             alignment: Alignment.topCenter,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                FoxMark(size: 46),
-                SizedBox(height: 22),
+                const FoxMark(size: 46),
+                const SizedBox(height: 22),
                 SizedBox(
                   width: 300,
                   child: Text(
                     "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.fox.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       height: 1.28,
@@ -469,9 +700,10 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.fromLTRB(18, 72, 18, 24),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
       itemCount: messages.length,
       itemBuilder: (context, index) {
+        final fox = context.fox;
         final message = messages[index];
         final isUser = message.role == ChatRole.user;
         if (message.role == ChatRole.system) {
@@ -488,7 +720,7 @@ class _MessageList extends StatelessWidget {
                 : const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: isUser
                 ? BoxDecoration(
-                    color: const Color(0xFF282828),
+                    color: fox.userBubble,
                     borderRadius: BorderRadius.circular(22),
                   )
                 : null,
@@ -498,10 +730,10 @@ class _MessageList extends StatelessWidget {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(
-                    message.content,
-                    style: const TextStyle(
-                      color: Colors.white,
+                : MessageMarkdown(
+                    content: message.content,
+                    textStyle: TextStyle(
+                      color: fox.textPrimary,
                       fontSize: 16,
                       height: 1.45,
                     ),
@@ -517,7 +749,6 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.isGenerating,
-    required this.hasDraft,
     required this.onReflection,
     required this.onSearch,
     required this.onAdd,
@@ -528,7 +759,6 @@ class _Composer extends StatelessWidget {
 
   final TextEditingController controller;
   final bool isGenerating;
-  final bool hasDraft;
   final VoidCallback onReflection;
   final VoidCallback onSearch;
   final VoidCallback onAdd;
@@ -538,15 +768,16 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: _ChatScreenState.composer,
+            color: fox.surfaceInput,
             borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: _ChatScreenState.composerBorder),
+            border: Border.all(color: fox.borderStrong),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 13, 12, 11),
@@ -557,18 +788,18 @@ class _Composer extends StatelessWidget {
                   controller: controller,
                   minLines: 1,
                   maxLines: 5,
-                  keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(color: Colors.white, fontSize: 17),
-                  decoration: const InputDecoration(
+                  keyboardAppearance: Theme.of(context).brightness,
+                  style: TextStyle(color: fox.textPrimary, fontSize: 17),
+                  decoration: InputDecoration(
                     isDense: true,
                     hintText: 'Message ou maintenir pour parler',
                     hintStyle: TextStyle(
-                      color: _ChatScreenState.muted,
+                      color: fox.textSecondary,
                       fontSize: 17,
                       fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 2),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 2),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -612,18 +843,27 @@ class _Composer extends StatelessWidget {
                         icon: Icons.stop_rounded,
                         onPressed: onStop,
                       )
-                    else if (hasDraft)
-                      _RoundComposerButton(
-                        tooltip: 'Envoyer',
-                        icon: Icons.arrow_upward_rounded,
-                        filled: true,
-                        onPressed: onSend,
-                      )
                     else
-                      _RoundComposerButton(
-                        tooltip: 'Parler',
-                        icon: Icons.graphic_eq_rounded,
-                        onPressed: onVoice,
+                      // Seul ce bouton dépend du brouillon : le reste de
+                      // l'écran, liste de messages comprise, n'est pas
+                      // reconstruit à chaque frappe.
+                      ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: controller,
+                        builder: (context, value, child) {
+                          if (value.text.trim().isEmpty) {
+                            return _RoundComposerButton(
+                              tooltip: 'Parler',
+                              icon: Icons.graphic_eq_rounded,
+                              onPressed: onVoice,
+                            );
+                          }
+                          return _RoundComposerButton(
+                            tooltip: 'Envoyer',
+                            icon: Icons.arrow_upward_rounded,
+                            filled: true,
+                            onPressed: onSend,
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -649,11 +889,10 @@ class _ToolChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Material(
-      color: _ChatScreenState.blueSurface,
-      shape: StadiumBorder(
-        side: BorderSide(color: _ChatScreenState.blueBorder),
-      ),
+      color: fox.accentSurface,
+      shape: StadiumBorder(side: BorderSide(color: fox.accentBorder)),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onPressed,
@@ -662,12 +901,12 @@ class _ToolChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(icon, size: 18, color: _ChatScreenState.blue),
+              Icon(icon, size: 18, color: fox.accentText),
               const SizedBox(width: 5),
               Text(
                 label,
-                style: const TextStyle(
-                  color: _ChatScreenState.blue,
+                style: TextStyle(
+                  color: fox.accentText,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -695,6 +934,7 @@ class _RoundComposerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Tooltip(
       message: tooltip,
       child: SizedBox.square(
@@ -707,13 +947,16 @@ class _RoundComposerButton extends StatelessWidget {
               width: 31,
               height: 31,
               decoration: BoxDecoration(
-                color: filled ? Colors.white : Colors.transparent,
+                color: filled ? fox.accent : Colors.transparent,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.7),
+                border: Border.all(
+                  color: filled ? fox.accent : fox.textPrimary,
+                  width: 1.7,
+                ),
               ),
               child: Icon(
                 icon,
-                color: filled ? Colors.black : Colors.white,
+                color: filled ? fox.onAccent : fox.textPrimary,
                 size: 20,
               ),
             ),
@@ -763,9 +1006,9 @@ class _MenuGlyph extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Container(width: 24, height: 2, color: Colors.white),
+          Container(width: 24, height: 2, color: context.fox.textPrimary),
           const SizedBox(height: 7),
-          Container(width: 16, height: 2, color: Colors.white),
+          Container(width: 16, height: 2, color: context.fox.textPrimary),
         ],
       ),
     );
@@ -777,20 +1020,22 @@ class _NewChatGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.square(
+    return SizedBox.square(
       dimension: 29,
-      child: CustomPaint(painter: _NewChatPainter()),
+      child: CustomPaint(painter: _NewChatPainter(context.fox.textPrimary)),
     );
   }
 }
 
 class _NewChatPainter extends CustomPainter {
-  const _NewChatPainter();
+  const _NewChatPainter(this.color);
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
@@ -816,7 +1061,8 @@ class _NewChatPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _NewChatPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _FoxDrawer extends StatefulWidget {
@@ -825,13 +1071,17 @@ class _FoxDrawer extends StatefulWidget {
     required this.activeConversationId,
     required this.onNewChat,
     required this.onConversationSelected,
+    required this.onConversationRenamed,
+    required this.onConversationDeleted,
     required this.onSettings,
   });
 
-  final List<_ChatConversation> conversations;
+  final List<ChatConversation> conversations;
   final int? activeConversationId;
   final VoidCallback onNewChat;
   final ValueChanged<int> onConversationSelected;
+  final void Function(int id, String title) onConversationRenamed;
+  final ValueChanged<int> onConversationDeleted;
   final VoidCallback onSettings;
 
   @override
@@ -839,10 +1089,6 @@ class _FoxDrawer extends StatefulWidget {
 }
 
 class _FoxDrawerState extends State<_FoxDrawer> {
-  static const _drawerColor = Color(0xFF0D0D0D);
-  static const _searchColor = Color(0xFF242424);
-  static const _muted = Color(0xFF969696);
-
   final _searchController = TextEditingController();
 
   @override
@@ -865,7 +1111,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     super.dispose();
   }
 
-  List<_ChatConversation> get _filteredConversations {
+  List<ChatConversation> get _filteredConversations {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) {
       return widget.conversations;
@@ -879,11 +1125,12 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
     final conversations = _filteredConversations;
-    final today = <_ChatConversation>[];
-    final lastWeek = <_ChatConversation>[];
-    final older = <_ChatConversation>[];
+    final today = <ChatConversation>[];
+    final lastWeek = <ChatConversation>[];
+    final older = <ChatConversation>[];
 
     for (final conversation in conversations) {
       final age = _dayDifference(conversation.updatedAt, DateTime.now());
@@ -899,7 +1146,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     return Drawer(
       width: width,
       shape: const RoundedRectangleBorder(),
-      backgroundColor: _drawerColor,
+      backgroundColor: fox.background,
       child: SafeArea(
         child: Column(
           children: <Widget>[
@@ -908,28 +1155,28 @@ class _FoxDrawerState extends State<_FoxDrawer> {
               child: Container(
                 height: 52,
                 decoration: BoxDecoration(
-                  color: _searchColor,
+                  color: fox.surfaceInput,
                   borderRadius: BorderRadius.circular(28),
                 ),
                 child: TextField(
                   controller: _searchController,
                   autofocus: false,
-                  keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  decoration: const InputDecoration(
+                  keyboardAppearance: Theme.of(context).brightness,
+                  style: TextStyle(color: fox.textPrimary, fontSize: 16),
+                  decoration: InputDecoration(
                     hintText: 'Rechercher dans les chats',
                     hintStyle: TextStyle(
-                      color: _muted,
+                      color: fox.textSecondary,
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                     ),
                     prefixIcon: Icon(
                       Icons.search_rounded,
-                      color: _muted,
+                      color: fox.textSecondary,
                       size: 27,
                     ),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 15),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
                   ),
                 ),
               ),
@@ -944,19 +1191,22 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                       tooltip: 'Nouveau chat',
                       visualDensity: VisualDensity.compact,
                       onPressed: widget.onNewChat,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add_comment_outlined,
-                        color: _muted,
+                        color: fox.textSecondary,
                         size: 21,
                       ),
                     ),
                   ),
                   if (today.isEmpty && lastWeek.isEmpty && older.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(2, 18, 2, 10),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
                       child: Text(
                         'Aucune conversation',
-                        style: TextStyle(color: _muted, fontSize: 16),
+                        style: TextStyle(
+                          color: fox.textSecondary,
+                          fontSize: 16,
+                        ),
                       ),
                     )
                   else
@@ -974,7 +1224,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFF1B1B1B)),
+            Divider(height: 1, thickness: 1, color: fox.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Material(
@@ -983,27 +1233,34 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                 child: InkWell(
                   onTap: widget.onSettings,
                   borderRadius: BorderRadius.circular(14),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 13,
+                    ),
                     child: Row(
                       children: <Widget>[
                         Icon(
                           Icons.settings_outlined,
-                          color: Colors.white,
+                          color: fox.textPrimary,
                           size: 25,
                         ),
-                        SizedBox(width: 13),
+                        const SizedBox(width: 13),
                         Expanded(
                           child: Text(
                             'Paramètres',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: fox.textPrimary,
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        Icon(Icons.more_horiz, color: _muted, size: 24),
+                        Icon(
+                          Icons.more_horiz,
+                          color: fox.textSecondary,
+                          size: 24,
+                        ),
                       ],
                     ),
                   ),
@@ -1016,27 +1273,45 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     );
   }
 
-  Widget _conversationTile(_ChatConversation conversation) {
+  Widget _conversationTile(ChatConversation conversation) {
+    final fox = context.fox;
     final selected = conversation.id == widget.activeConversationId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Material(
-        color: selected ? const Color(0xFF1B1B1B) : Colors.transparent,
+        color: selected ? fox.surfaceSelected : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => widget.onConversationSelected(conversation.id),
+          onLongPress: () => _showConversationActions(conversation),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
-            child: Text(
-              conversation.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? Colors.white : const Color(0xFFE9E9E9),
-                fontSize: 17,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              ),
+            padding: const EdgeInsets.only(left: 2, top: 2, bottom: 2),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    conversation.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? fox.textPrimary : fox.textSecondary,
+                      fontSize: 17,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Actions de la conversation',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _showConversationActions(conversation),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    color: fox.textTertiary,
+                    size: 21,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1044,10 +1319,150 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     );
   }
 
+  /// Renommer ou supprimer, depuis le bouton « … » ou un appui long.
+  Future<void> _showConversationActions(ChatConversation conversation) async {
+    final action = await showModalBottomSheet<_ConversationAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline),
+              title: const Text('Renommer'),
+              onTap: () =>
+                  Navigator.of(context).pop(_ConversationAction.rename),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Supprimer',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () =>
+                  Navigator.of(context).pop(_ConversationAction.delete),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+    switch (action) {
+      case _ConversationAction.rename:
+        await _promptRename(conversation);
+      case _ConversationAction.delete:
+        await _confirmDelete(conversation);
+    }
+  }
+
+  Future<void> _promptRename(ChatConversation conversation) async {
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => _RenameDialog(initialTitle: conversation.title),
+    );
+
+    if (title != null && title.trim().isNotEmpty) {
+      widget.onConversationRenamed(conversation.id, title);
+    }
+  }
+
+  Future<void> _confirmDelete(ChatConversation conversation) async {
+    // L'historique étant conservé sur l'appareil, une suppression accidentelle
+    // ne se rattrape pas en fermant l'application.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la conversation ?'),
+        content: Text(
+          '« ${conversation.title} » sera définitivement supprimée de '
+          'l’appareil.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      widget.onConversationDeleted(conversation.id);
+    }
+  }
+
   int _dayDifference(DateTime from, DateTime to) {
     final fromDay = DateTime(from.year, from.month, from.day);
     final toDay = DateTime(to.year, to.month, to.day);
     return toDay.difference(fromDay).inDays;
+  }
+}
+
+enum _ConversationAction { rename, delete }
+
+/// Dialogue de renommage.
+///
+/// Le contrôleur appartient à ce widget : le libérer depuis l'appelant, dès
+/// le retour de `showDialog`, le détruirait alors que le champ est encore
+/// affiché pendant l'animation de fermeture.
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initialTitle});
+
+  final String initialTitle;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialTitle,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Renommer la conversation'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 60,
+        textInputAction: TextInputAction.done,
+        decoration: const InputDecoration(hintText: 'Nom de la conversation'),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Renommer')),
+      ],
+    );
   }
 }
 
@@ -1066,8 +1481,8 @@ class _DrawerSectionHeader extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF949494),
+              style: TextStyle(
+                color: context.fox.textSecondary,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),

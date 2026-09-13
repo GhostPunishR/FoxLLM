@@ -15,10 +15,19 @@ class ProviderConfig {
   final String model;
   final ApiKeyPersistence apiKeyPersistence;
 
-  Uri get chatCompletionsUri {
-    final normalized = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    return Uri.parse('$normalized/chat/completions');
+  Uri get chatCompletionsUri =>
+      Uri.parse('${normalizeBaseUrl(baseUrl)}/chat/completions');
+}
+
+/// Base URL sans espaces ni barre oblique finale, prête à être concaténée.
+///
+/// Toutes les barres finales sont retirées : une valeur collée depuis une
+/// documentation (`https://api.example.com/v1//`) produisait sinon une URL à
+/// double séparateur que certains fournisseurs rejettent.
+String normalizeBaseUrl(String value) {
+  var normalized = value.trim();
+  while (normalized.endsWith('/')) {
+    normalized = normalized.substring(0, normalized.length - 1);
   }
+  return normalized;
 }

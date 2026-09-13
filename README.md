@@ -42,13 +42,19 @@ La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHIT
 
 Déjà présent :
 
-- écran de chat FoxGPT affiché directement après le splash de marque ;
-- identité renard orange tracée depuis la référence visuelle officielle FoxGPT et partagée entre chat, splash et icône Android ;
+- écran de chat FoxGPT affiché dès le lancement, sans écran intermédiaire ;
+- logo renard orange unique, partagé par l'écran de lancement, le chat et l'icône Android ;
 - icône APK/adaptive icon sur fond blanc ;
-- splash Android natif blanc avec renard, suivi d'un splash Flutter avec barre de chargement orange ;
+- fenêtre de lancement Android avec le renard FoxGPT sur le fond de la déclinaison choisie, sans rupture visuelle ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
-- historique de conversations disponible pendant la session avec retour vers un chat précédent ;
-- écran Paramètres avec accès aux modèles locaux et aux sections FoxGPT ;
+- historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
+- renommage et suppression d'une conversation depuis le menu latéral ;
+- écran Paramètres avec accès aux modèles locaux, à l'API personnelle, à l'apparence et à « À propos » ;
+- deux thèmes FoxGPT, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
+- conditions d'utilisation et politique de confidentialité consultables dans l'application ;
+- réponses affichées en Markdown, avec blocs de code annotés et copiables ;
+- pièce jointe texte ou code depuis le composer, insérée dans le message ;
+- personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;
@@ -76,4 +82,4 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 
 ## Prochain jalon
 
-La prochaine étape est de rendre l'historique des conversations persistant entre les redémarrages, de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
+La prochaine étape est de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
