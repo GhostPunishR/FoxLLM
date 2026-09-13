@@ -55,17 +55,6 @@ class PersonalApiChatBackend implements LocalLlmBackend {
   String? get loadedModelPath =>
       'api://${_settings.provider.id}/${_settings.model}';
 
-  // Le modèle local garde son propre cycle de vie : l'écran des modèles
-  // continue de le piloter même quand le chat passe par l'API personnelle.
-  @override
-  String? get restorableModelPath => _localBackend.restorableModelPath;
-
-  @override
-  void markRestorable(String? path) => _localBackend.markRestorable(path);
-
-  @override
-  Future<void> restoreModelIfNeeded() => Future<void>.value();
-
   @override
   Future<String> get nativeVersion => Future<String>.value('API distante');
 

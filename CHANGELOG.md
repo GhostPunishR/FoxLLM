@@ -51,6 +51,17 @@ n'est volontairement modifié.
 
 ### Corrections
 
+- une API personnelle activée était ignorée : le chat réclamait un modèle GGUF
+  alors qu'il aurait dû interroger le fournisseur. L'override du backend était
+  posé conditionnellement dans un `ProviderScope` imbriqué, or Riverpod
+  n'accepte pas qu'un override apparaisse en cours de route ; les réglages
+  étant lus de façon asynchrone, il arrivait toujours trop tard ;
+- les écrans « Modèles locaux » et « API personnelle » ignoraient le thème
+  choisi : leurs cartes et libellés suivent les rôles Material, qui n'étaient
+  pas dérivés de la palette FoxGPT ;
+- une erreur de lecture de l'historique empêchait aussi la restauration du
+  dernier modèle : les deux sont désormais indépendantes.
+
 - deux imports GGUF du même nom lancés en parallèle ne s'écrasent plus : la
   destination est réservée avant l'écriture, alors que la vérification
   d'existence laissait les deux imports viser le même fichier ;

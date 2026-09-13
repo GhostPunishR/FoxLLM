@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/chat_message.dart';
 import '../../core/llm/last_model_store.dart';
-import '../../core/llm/local_backend_provider.dart';
 import '../../core/llm/local_llm_backend.dart';
 import '../../core/theme/fox_palette.dart';
+import 'chat_backend_host.dart';
 import 'chat_conversation.dart';
 import 'conversation_store.dart';
 import '../local_models/local_models_screen.dart';
@@ -32,6 +32,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _isGenerating = false;
   bool _scrollScheduled = false;
   bool _restoringModel = false;
+  String? _restorableModelPath;
   int _generationEpoch = 0;
   int _nextConversationId = 1;
   int? _activeConversationId;
@@ -48,7 +49,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// de plusieurs secondes. Il l'est au premier envoi, via
   /// `restoreModelIfNeeded()`.
   Future<void> _restoreSession() async {
-    final conversations = await ref.read(conversationStoreProvider).load();
+    // Les deux restaurations sont indépendantes : un historique illisible ne
+    // doit pas empêcher de retrouver le modèle, et inversement.
+    await _restoreConversations();
+    await _restoreModelPath();
+  }
+
+  Future<void> _restoreConversations() async {
+    final List<ChatConversation> conversations;
+    try {
+      conversations = await ref.read(conversationStoreProvider).load();
+    } catch (_) {
+      return;
+    }
     if (mounted && conversations.isNotEmpty) {
       setState(() {
         _conversations
@@ -61,11 +74,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             1;
       });
     }
+  }
 
-    final lastModel = await ref.read(lastModelStoreProvider).load();
+  Future<void> _restoreModelPath() async {
+    final String? lastModel;
+    try {
+      lastModel = await ref.read(lastModelStoreProvider).load();
+    } catch (_) {
+      return;
+    }
     if (lastModel != null && mounted) {
-      ref.read(localLlmBackendProvider).markRestorable(lastModel);
-      setState(() {});
+      setState(() => _restorableModelPath = lastModel);
     }
   }
 
@@ -88,7 +107,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final wasActive = _activeConversationId == id;
     if (wasActive && _isGenerating) {
       _generationEpoch += 1;
-      await ref.read(localLlmBackendProvider).stop();
+      await ref.read(chatBackendProvider).stop();
     }
     if (!mounted) {
       return;
@@ -124,7 +143,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _newChat() async {
     _generationEpoch += 1;
     if (_isGenerating) {
-      await ref.read(localLlmBackendProvider).stop();
+      await ref.read(chatBackendProvider).stop();
     }
     if (!mounted) {
       return;
@@ -142,7 +161,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _selectConversation(int id) async {
     _generationEpoch += 1;
     if (_isGenerating) {
-      await ref.read(localLlmBackendProvider).stop();
+      await ref.read(chatBackendProvider).stop();
     }
     if (!mounted) {
       return;
@@ -172,15 +191,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
-    final backend = ref.read(localLlmBackendProvider);
+    final backend = ref.read(chatBackendProvider);
     if (backend.loadedModelPath == null) {
       // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
       // retarder l'affichage du chat au lancement.
-      if (backend.restorableModelPath == null) {
+      final restorable = _restorableModelPath;
+      if (restorable == null) {
         _showModelRequired();
         return;
       }
-      if (!await _restoreModel(backend)) {
+      if (!await _restoreModel(backend, restorable)) {
         return;
       }
     }
@@ -235,13 +255,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Ouvre le modèle mémorisé. Rend `false` si le chargement a échoué ou si
   /// l'écran a disparu entre-temps.
-  Future<bool> _restoreModel(LocalLlmBackend backend) async {
+  Future<bool> _restoreModel(LocalLlmBackend backend, String path) async {
     setState(() => _restoringModel = true);
     try {
-      await backend.restoreModelIfNeeded();
+      await backend.loadModel(path);
     } catch (error) {
       if (mounted) {
-        setState(() => _restoringModel = false);
+        setState(() {
+          _restoringModel = false;
+          // Un modèle devenu illisible ne doit pas être retenté à chaque envoi.
+          _restorableModelPath = null;
+        });
         _showSnack('Chargement du modèle impossible : $error');
       }
       return false;
@@ -250,10 +274,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return false;
     }
     setState(() => _restoringModel = false);
-    if (backend.loadedModelPath == null) {
-      _showModelRequired();
-      return false;
-    }
     return true;
   }
 
@@ -321,7 +341,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _stopGeneration() async {
-    await ref.read(localLlmBackendProvider).stop();
+    await ref.read(chatBackendProvider).stop();
   }
 
   void _showModelRequired() {

@@ -29,6 +29,10 @@ ThemeData _buildTheme(FoxTheme theme) {
   final fox = theme.palette;
   final isDark = theme.brightness == Brightness.dark;
 
+  // Tous les rôles de surface et de contour sont repris de la palette : les
+  // widgets Material (Card, ListTile, champs) s'appuient dessus, et laisser
+  // ceux générés automatiquement donnait des écrans aux teintes étrangères au
+  // thème choisi.
   final colorScheme =
       ColorScheme.fromSeed(
         seedColor: fox.accent,
@@ -36,8 +40,25 @@ ThemeData _buildTheme(FoxTheme theme) {
       ).copyWith(
         primary: fox.accent,
         onPrimary: fox.onAccent,
-        surface: fox.surfaceRaised,
+        primaryContainer: fox.accentSurface,
+        onPrimaryContainer: fox.accentText,
+        secondary: fox.accent,
+        onSecondary: fox.onAccent,
+        secondaryContainer: fox.accentSurface,
+        onSecondaryContainer: fox.accentText,
+        surface: fox.background,
         onSurface: fox.textPrimary,
+        onSurfaceVariant: fox.textSecondary,
+        surfaceContainerLowest: fox.background,
+        surfaceContainerLow: fox.surfaceRaised,
+        surfaceContainer: fox.surfaceRaised,
+        surfaceContainerHigh: fox.surfaceInput,
+        surfaceContainerHighest: fox.surfaceInput,
+        surfaceTint: Colors.transparent,
+        outline: fox.borderStrong,
+        outlineVariant: fox.border,
+        inverseSurface: fox.textPrimary,
+        onInverseSurface: fox.background,
       );
 
   return ThemeData(
@@ -57,6 +78,26 @@ ThemeData _buildTheme(FoxTheme theme) {
     cardTheme: CardThemeData(
       color: fox.surfaceRaised,
       surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: fox.border),
+      ),
+    ),
+    listTileTheme: ListTileThemeData(
+      textColor: fox.textPrimary,
+      iconColor: fox.textPrimary,
+      subtitleTextStyle: TextStyle(color: fox.textSecondary, fontSize: 13),
+    ),
+    textTheme: ThemeData(brightness: theme.brightness).textTheme.apply(
+      bodyColor: fox.textPrimary,
+      displayColor: fox.textPrimary,
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: fox.accentSurface,
+      side: BorderSide(color: fox.accentBorder),
+      labelStyle: TextStyle(color: fox.accentText),
+      iconTheme: IconThemeData(color: fox.accentText),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: fox.surfaceRaised,

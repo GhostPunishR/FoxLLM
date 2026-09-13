@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxgpt/core/llm/chat_message.dart';
 import 'package:foxgpt/core/llm/generation_settings.dart';
+import 'package:foxgpt/core/llm/last_model_store.dart';
 import 'package:foxgpt/core/llm/local_backend_provider.dart';
 import 'package:foxgpt/core/llm/local_llm_backend.dart';
+import 'package:foxgpt/features/chat/chat_conversation.dart';
 import 'package:foxgpt/features/chat/chat_screen.dart';
+import 'package:foxgpt/features/chat/conversation_store.dart';
 import 'package:foxgpt_native/foxgpt_native.dart';
 
 void main() {
@@ -130,15 +133,18 @@ void main() {
   testWidgets('recharge le modèle mémorisé au premier envoi', (tester) async {
     final backend = _FakeChatBackend(
       loadedModelPath: null,
-      restorableModelPath: '/models/memorise.gguf',
       chunks: <String>['ok'],
     );
-    await _pumpChat(tester, backend);
+    await _pumpChat(
+      tester,
+      backend,
+      lastModel: _FakeLastModelStore('/models/memorise.gguf'),
+    );
 
     await _send(tester, 'Bonjour');
     await tester.pumpAndSettle();
 
-    expect(backend.restoreCalls, 1);
+    expect(backend.loadedModels, <String>['/models/memorise.gguf']);
     expect(backend.loadedModelPath, '/models/memorise.gguf');
     expect(backend.generateCalls, hasLength(1));
     expect(find.text('ok'), findsOneWidget);
@@ -146,21 +152,27 @@ void main() {
   });
 
   testWidgets('signale un modèle mémorisé devenu illisible', (tester) async {
-    final backend = _FakeChatBackend(
-      loadedModelPath: null,
-      restorableModelPath: '/models/casse.gguf',
-      restoreFails: true,
+    final backend = _FakeChatBackend(loadedModelPath: null, loadFails: true);
+    await _pumpChat(
+      tester,
+      backend,
+      lastModel: _FakeLastModelStore('/models/casse.gguf'),
     );
-    await _pumpChat(tester, backend);
 
     await _send(tester, 'Bonjour');
     await tester.pumpAndSettle();
 
-    expect(backend.restoreCalls, 1);
+    expect(backend.loadedModels, <String>['/models/casse.gguf']);
     expect(
       find.textContaining('Chargement du modèle impossible'),
       findsOneWidget,
     );
+    expect(backend.generateCalls, isEmpty);
+
+    // Un modèle illisible n'est pas retenté à chaque envoi.
+    await _send(tester, 'Encore');
+    await tester.pumpAndSettle();
+    expect(backend.loadedModels, hasLength(1));
     expect(backend.generateCalls, isEmpty);
   });
 
@@ -181,17 +193,52 @@ void main() {
   });
 }
 
-Future<void> _pumpChat(WidgetTester tester, _FakeChatBackend backend) async {
+Future<void> _pumpChat(
+  WidgetTester tester,
+  _FakeChatBackend backend, {
+  LastModelStore? lastModel,
+}) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [localLlmBackendProvider.overrideWithValue(backend)],
+      overrides: [
+        localLlmBackendProvider.overrideWithValue(backend),
+        conversationStoreProvider.overrideWithValue(_EmptyConversationStore()),
+        if (lastModel != null)
+          lastModelStoreProvider.overrideWithValue(lastModel),
+      ],
       child: const MaterialApp(home: ChatScreen()),
     ),
   );
-  await tester.pump();
+  await tester.pumpAndSettle();
+}
+
+class _EmptyConversationStore implements ConversationStore {
+  @override
+  Future<List<ChatConversation>> load() async => <ChatConversation>[];
+
+  @override
+  Future<void> save(List<ChatConversation> conversations) async {}
+
+  @override
+  Future<void> clear() async {}
+}
+
+class _FakeLastModelStore implements LastModelStore {
+  _FakeLastModelStore(this.path);
+
+  String? path;
+
+  @override
+  Future<String?> load() async => path;
+
+  @override
+  Future<void> save(String value) async => path = value;
+
+  @override
+  Future<void> clear() async => path = null;
 }
 
 Future<void> _send(WidgetTester tester, String text) async {
@@ -208,8 +255,7 @@ class _FakeChatBackend implements LocalLlmBackend {
     this.chunks = const <String>[],
     this.stream,
     String? loadedModelPath = '/models/test.gguf',
-    this.restorableModelPath,
-    this.restoreFails = false,
+    this.loadFails = false,
   }) : _loadedModelPath = loadedModelPath;
 
   final List<String> chunks;
@@ -217,30 +263,15 @@ class _FakeChatBackend implements LocalLlmBackend {
 
   final List<List<ChatMessage>> generateCalls = <List<ChatMessage>>[];
   int stopCalls = 0;
-  int restoreCalls = 0;
+  final List<String> loadedModels = <String>[];
 
   /// Échec simulé de l'ouverture du GGUF mémorisé.
-  final bool restoreFails;
+  final bool loadFails;
 
   String? _loadedModelPath;
 
   @override
   String? get loadedModelPath => _loadedModelPath;
-
-  @override
-  String? restorableModelPath;
-
-  @override
-  void markRestorable(String? path) => restorableModelPath = path;
-
-  @override
-  Future<void> restoreModelIfNeeded() async {
-    restoreCalls += 1;
-    if (restoreFails) {
-      throw StateError('GGUF illisible');
-    }
-    _loadedModelPath = restorableModelPath;
-  }
 
   @override
   String get id => 'fake';
@@ -261,7 +292,13 @@ class _FakeChatBackend implements LocalLlmBackend {
   Future<FoxGptGenerationStats?> get lastGenerationStats async => null;
 
   @override
-  Future<void> loadModel(String path) async {}
+  Future<void> loadModel(String path) async {
+    loadedModels.add(path);
+    if (loadFails) {
+      throw StateError('GGUF illisible');
+    }
+    _loadedModelPath = path;
+  }
 
   @override
   Future<void> unloadModel() async {}

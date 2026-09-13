@@ -169,15 +169,6 @@ class _FakeBackend implements LocalLlmBackend {
   String? get loadedModelPath => '/models/test.gguf';
 
   @override
-  String? restorableModelPath;
-
-  @override
-  void markRestorable(String? path) => restorableModelPath = path;
-
-  @override
-  Future<void> restoreModelIfNeeded() async {}
-
-  @override
   Future<String> get nativeVersion async => 'fake/0.0.0';
 
   @override
