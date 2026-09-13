@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/fox_palette.dart';
 
 /// Version de l'application, tenue en phase avec `pubspec.yaml` par un test.
-const foxGptVersion = '0.1.0';
+const foxGptVersion = '0.1.1';
 
 class LegalSection {
   const LegalSection({required this.title, required this.paragraphs});

@@ -45,13 +45,16 @@ Déjà présent :
 - écran de chat FoxGPT affiché dès le lancement, sans écran intermédiaire ;
 - logo renard orange unique, partagé par l'écran de lancement, le chat et l'icône Android ;
 - icône APK/adaptive icon sur fond blanc ;
-- fenêtre de lancement Android avec le renard FoxGPT sur le fond du chat, sans rupture visuelle ;
+- fenêtre de lancement Android avec le renard FoxGPT sur le fond de la déclinaison choisie, sans rupture visuelle ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
 - renommage et suppression d'une conversation depuis le menu latéral ;
 - écran Paramètres avec accès aux modèles locaux, à l'API personnelle, à l'apparence et à « À propos » ;
-- deux thèmes FoxGPT, sombre et clair, tous deux teintés de l'orange du renard ;
+- deux thèmes FoxGPT, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
 - conditions d'utilisation et politique de confidentialité consultables dans l'application ;
+- réponses affichées en Markdown, avec blocs de code annotés et copiables ;
+- pièce jointe texte ou code depuis le composer, insérée dans le message ;
+- personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;
