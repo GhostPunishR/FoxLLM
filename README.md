@@ -43,9 +43,9 @@ La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHIT
 Déjà présent :
 
 - écran de chat FoxGPT affiché dès le lancement, sans écran intermédiaire ;
-- identité renard orange tracée depuis la référence visuelle officielle FoxGPT et partagée entre chat et icône Android ;
+- logo renard orange unique, partagé par l'écran de lancement, le chat et l'icône Android ;
 - icône APK/adaptive icon sur fond blanc ;
-- démarrage sans écran de marque : la fenêtre de lancement Android reprend le fond du chat ;
+- fenêtre de lancement Android avec le renard FoxGPT sur le fond du chat, sans rupture visuelle ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations disponible pendant la session avec retour vers un chat précédent ;
 - écran Paramètres avec accès aux modèles locaux et aux sections FoxGPT ;

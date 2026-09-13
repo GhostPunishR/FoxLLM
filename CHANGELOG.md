@@ -13,11 +13,13 @@ n'est volontairement modifié.
 - suppression du splash Flutter : l'application ouvre directement l'écran de
   chat. Cet écran n'effectuait aucun préchargement et ajoutait 700 ms d'attente
   purement décorative ;
-- suppression de l'écran de marque natif Android : la fenêtre de lancement
-  reprend le fond du chat (`#0B0B0B`) au lieu du renard sur blanc. Sur Android
-  12 et plus, le système impose sa propre fenêtre de lancement et ne permet pas
-  de la désactiver : elle est neutralisée avec ce même fond et une icône
-  transparente, ce qui ne laisse plus aucun écran visible avant le chat.
+- nouveau logo FoxGPT, partagé par l'écran de lancement, le chat et l'icône
+  Android. Le tracé précédent du chat était polygonal ; le nouveau est fourni
+  en 1x, 2x et 3x pour rester net aux petites tailles ;
+- la fenêtre de lancement Android affiche ce logo sur le fond du chat
+  (`#0B0B0B`) au lieu du renard sur blanc, donc sans rupture visuelle avec
+  l'interface qui suit. Le démarrage du moteur Flutter reste visible — il ne
+  peut pas être supprimé — mais il n'affiche plus un écran d'une autre couleur.
 
 - le moteur local n'est plus chargé au lancement : l'isolate worker et
   `libfoxgpt_native.so`, qui embarque `llama.cpp`, n'étaient créés qu'à
