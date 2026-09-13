@@ -12,8 +12,12 @@ n'est volontairement modifié.
 
 - suppression du splash Flutter : l'application ouvre directement l'écran de
   chat. Cet écran n'effectuait aucun préchargement et ajoutait 700 ms d'attente
-  purement décorative. Le splash natif Android, lui, est conservé : il occupe
-  l'écran pendant le démarrage du moteur Flutter et n'ajoute aucun délai.
+  purement décorative ;
+- suppression de l'écran de marque natif Android : la fenêtre de lancement
+  reprend le fond du chat (`#0B0B0B`) au lieu du renard sur blanc. Sur Android
+  12 et plus, le système impose sa propre fenêtre de lancement et ne permet pas
+  de la désactiver : elle est neutralisée avec ce même fond et une icône
+  transparente, ce qui ne laisse plus aucun écran visible avant le chat.
 
 ### Corrections
 
