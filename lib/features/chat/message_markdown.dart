@@ -7,8 +7,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/external_link.dart';
 import '../../core/theme/fox_palette.dart';
-import 'external_link.dart';
+
 import 'code_highlighter.dart';
 
 /// Morceau d'un message de chat.

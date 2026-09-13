@@ -1,8 +1,11 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/external_link.dart';
 import '../../core/theme/fox_palette.dart';
 import '../chat/fox_mark.dart';
 import 'legal_documents.dart';
@@ -45,6 +48,13 @@ class AboutScreen extends StatelessWidget {
               style: TextStyle(color: fox.textSecondary, fontSize: 14),
             ),
           ),
+          const SizedBox(height: 4),
+          Center(
+            child: Text(
+              foxGptCopyright,
+              style: TextStyle(color: fox.textTertiary, fontSize: 13),
+            ),
+          ),
           const SizedBox(height: 20),
           Text(
             'Client de discussion qui exécute des modèles GGUF directement sur '
@@ -72,6 +82,17 @@ class AboutScreen extends StatelessWidget {
                 title: privacyPolicyDocument.title,
                 subtitle: 'Ce que deviennent tes données',
                 document: privacyPolicyDocument,
+              ),
+              Divider(height: 1, color: fox.border),
+              _AboutTile(
+                icon: Icons.code,
+                title: 'Code source',
+                subtitle: foxGptSourceUrl.replaceFirst('https://', ''),
+                // L'AGPL demande que le code reste accessible à qui reçoit le
+                // programme : l'adresse est donnée ici, pas seulement dans le
+                // dépôt.
+                onTap: () =>
+                    unawaited(openExternalLink(Uri.parse(foxGptSourceUrl))),
               ),
               Divider(height: 1, color: fox.border),
               _AboutTile(

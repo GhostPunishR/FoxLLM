@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxgpt/core/theme/fox_theme.dart';
 import 'package:foxgpt/features/settings/about_screen.dart';
+import 'package:foxgpt/features/settings/legal_documents.dart';
 import 'package:foxgpt/features/settings/license_screen.dart';
 
 void main() {
@@ -72,7 +73,56 @@ void main() {
     });
   });
 
+  group('signature de la licence', () {
+    test('la notice porte l’année et le titulaire', () {
+      expect(foxGptCopyright, 'Copyright © 2026 GhostPunishR');
+    });
+
+    test('chaque fichier source porte la même notice que « À propos »', () {
+      // La notice affichée et celle des fichiers doivent désigner le même
+      // titulaire : deux formulations qui divergent sèment le doute sur qui
+      // détient les droits.
+      final source = File('lib/main.dart').readAsStringSync();
+      expect(source, contains('// $foxGptCopyright'));
+    });
+
+    testWidgets('l’écran Licence affiche la notice avant le texte', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final license = File('LICENSE').readAsStringSync();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: FoxTheme.light.themeData,
+          home: LicenseScreen(loader: () async => license),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(foxGptCopyright), findsOneWidget);
+    });
+  });
+
   group('À propos', () {
+    testWidgets('affiche la signature et le lien vers le code source', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: AboutScreen())),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(foxGptCopyright), findsOneWidget);
+      expect(find.text('Code source'), findsOneWidget);
+      // L'adresse est visible : l'AGPL demande que le code reste joignable.
+      expect(find.text('github.com/GhostPunishR/FoxGPT'), findsOneWidget);
+    });
+
     testWidgets('propose la licence et les licences tierces', (tester) async {
       await tester.binding.setSurfaceSize(const Size(420, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));

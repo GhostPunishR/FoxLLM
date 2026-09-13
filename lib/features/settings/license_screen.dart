@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../../core/theme/fox_palette.dart';
+import 'legal_documents.dart';
 
 /// Texte intégral de la licence, lu depuis le fichier `LICENSE` du dépôt.
 ///
@@ -71,15 +72,30 @@ class _LicenseScreenState extends State<LicenseScreen> {
               if (index == 0) {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: Text(
-                    'FoxGPT est distribué sous licence GNU Affero General '
-                    'Public License, version 3. Le texte officiel ci-dessous '
-                    'fait foi.',
-                    style: TextStyle(
-                      color: fox.textSecondary,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        foxGptCopyright,
+                        style: TextStyle(
+                          color: fox.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'FoxGPT est distribué sous licence GNU Affero General '
+                        'Public License, version 3, à l’exclusion de toute '
+                        'version ultérieure. Le texte officiel ci-dessous fait '
+                        'foi.',
+                        style: TextStyle(
+                          color: fox.textSecondary,
+                          fontSize: 14,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
                   ),
                 );
               }

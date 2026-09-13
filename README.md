@@ -99,8 +99,10 @@ commercialisation ou d'adaptation à un usage particulier. Voir la licence pour
 plus de détails.
 
 Chaque fichier source porte la notice correspondante sous forme d'identifiant
-SPDX (`AGPL-3.0-only`). Le texte intégral de la licence est aussi
-consultable dans l'application, dans Paramètres → À propos → Licence.
+SPDX (`AGPL-3.0-only`). Le texte intégral de la licence est aussi consultable
+dans l'application, dans Paramètres → À propos → Licence, avec l'adresse du
+dépôt : l'AGPL demande que celui qui reçoit le programme puisse en obtenir le
+code source.
 
 Les bibliothèques tierces gardent leurs licences respectives ; l'application les
 rassemble dans Paramètres → À propos → Licences tierces.

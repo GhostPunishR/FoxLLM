@@ -6,6 +6,9 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- « À propos » porte la notice de copyright et l'adresse du code source, et
+  l'écran Licence ouvre sur la même notice : l'AGPL demande que celui qui
+  reçoit le programme puisse obtenir son code, encore faut-il qu'il sache où ;
 - chaque fichier source porte la notice de licence sous forme d'identifiant
   SPDX (`AGPL-3.0-only`), et le README la notice de copyright complète.
   Le fichier `LICENSE` retrouve le texte de la FSF mot pour mot : la ligne de

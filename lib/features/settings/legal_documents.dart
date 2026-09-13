@@ -8,6 +8,16 @@ import '../../core/theme/fox_palette.dart';
 /// Version de l'application, tenue en phase avec `pubspec.yaml` par un test.
 const foxGptVersion = '0.1.1';
 
+/// Titulaire des droits, affiché dans « À propos » et porté par chaque fichier
+/// source sous forme d'identifiant SPDX.
+const foxGptCopyright = 'Copyright © 2026 GhostPunishR';
+
+/// Dépôt du code source.
+///
+/// L'AGPL demande que celui qui reçoit le programme puisse en obtenir le code :
+/// l'application donne donc l'adresse plutôt que de laisser chercher.
+const foxGptSourceUrl = 'https://github.com/GhostPunishR/FoxGPT';
+
 class LegalSection {
   const LegalSection({required this.title, required this.paragraphs});
 
