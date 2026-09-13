@@ -6,6 +6,16 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- le menu « + » du chat joint de vraies pièces jointes : un fichier, une photo
+  de la galerie ou une prise de vue. Elles apparaissent dans le fil comme
+  pièces jointes — aperçu pour une image, carte nommée pour un fichier — au
+  lieu de déverser le texte du fichier dans le message. Une copie est rangée
+  dans l'espace privé de l'application, ce qui permet de les retrouver en
+  rouvrant la conversation, et elle est effacée avec elle ;
+- les images partent aux API personnelles au format multimodal : morceaux
+  `image_url` pour un fournisseur compatible OpenAI, `inline_data` pour Gemini.
+  Le moteur local ne lit pas les images et le dit avant d'envoyer, en nommant
+  la pièce jointe concernée ;
 - « À propos » porte la notice de copyright et l'adresse du code source, et
   l'écran Licence ouvre sur la même notice : l'AGPL demande que celui qui
   reçoit le programme puisse obtenir son code, encore faut-il qu'il sache où ;

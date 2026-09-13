@@ -1,6 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import '../../core/llm/chat_attachment.dart';
 import '../../core/llm/chat_message.dart';
 
 /// Conversation affichée dans le menu latéral et rechargeable après fermeture.
@@ -26,6 +27,12 @@ class ChatConversation {
           (message) => <String, Object?>{
             'role': message.role.name,
             'content': message.content,
+            // Seules les références sont enregistrées : les octets d'une
+            // image feraient grossir ce fichier à chaque message.
+            if (message.attachments.isNotEmpty)
+              'attachments': message.attachments
+                  .map((attachment) => attachment.toJson())
+                  .toList(growable: false),
           },
         )
         .toList(growable: false),
@@ -61,13 +68,31 @@ class ChatConversation {
       if (content is! String) {
         continue;
       }
+
       final role = ChatRole.values.where(
         (role) => role.name == rawMessage['role'],
       );
       if (role.isEmpty) {
         continue;
       }
-      messages.add(ChatMessage(role: role.first, content: content));
+      final rawAttachments = rawMessage['attachments'];
+      final attachments = <ChatAttachment>[];
+      if (rawAttachments is List) {
+        for (final rawAttachment in rawAttachments) {
+          final attachment = ChatAttachment.fromJson(rawAttachment);
+          if (attachment != null) {
+            attachments.add(attachment);
+          }
+        }
+      }
+
+      messages.add(
+        ChatMessage(
+          role: role.first,
+          content: content,
+          attachments: attachments,
+        ),
+      );
     }
 
     if (messages.isEmpty) {

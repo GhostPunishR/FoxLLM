@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/llm/chat_attachment.dart';
 import '../../core/llm/chat_message.dart';
+import '../../core/llm/personal_api_chat_backend.dart';
 import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_llm_backend.dart';
 import '../../core/llm/personalization.dart';
@@ -16,7 +19,9 @@ import 'chat_backend_host.dart';
 import 'chat_conversation.dart';
 import 'conversation_store.dart';
 import 'message_markdown.dart';
-import 'text_attachment.dart';
+import 'attachment_picker.dart';
+import 'attachment_resolver.dart';
+import 'attachment_store.dart';
 import '../local_models/local_models_screen.dart';
 import '../settings/settings_screen.dart';
 import 'fox_mark.dart';
@@ -34,6 +39,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   final List<ChatMessage> _messages = <ChatMessage>[];
   final List<ChatConversation> _conversations = <ChatConversation>[];
+
+  /// Pièces jointes du message en cours de rédaction.
+  final List<ChatAttachment> _pendingAttachments = <ChatAttachment>[];
 
   bool _isGenerating = false;
   bool _sending = false;
@@ -124,6 +132,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
+    // Les copies des pièces jointes ne servent plus à personne.
+    unawaited(
+      ref
+          .read(attachmentStoreProvider)
+          .delete(
+            conversation.messages.expand((message) => message.attachments),
+          ),
+    );
+
     setState(() {
       _conversations.remove(conversation);
       if (wasActive) {
@@ -201,7 +218,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // `_isGenerating` n'est levé qu'une fois la requête partie : sans ce
     // second verrou, deux appuis rapprochés pendant l'ouverture du modèle ou
     // la lecture des réglages lanceraient deux envois, dont un serait perdu.
-    if (text.isEmpty || _isGenerating || _sending) {
+    if ((text.isEmpty && _pendingAttachments.isEmpty) ||
+        _isGenerating ||
+        _sending) {
       return;
     }
     _sending = true;
@@ -228,7 +247,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final generationEpoch = ++_generationEpoch;
-    final history = <ChatMessage>[..._messages, ChatMessage.user(text)];
+    final attachments = List<ChatAttachment>.of(_pendingAttachments);
+    final history = <ChatMessage>[
+      ..._messages,
+      ChatMessage(role: ChatRole.user, content: text, attachments: attachments),
+    ];
 
     // Les instructions de Paramètres → Personnalisation ouvrent la requête,
     // sans rejoindre l'historique : elles sont globales et modifiables, la
@@ -236,10 +259,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // lues telles que connues, sans attendre le stockage : sa lecture démarre
     // au lancement, bien avant qu'un message ait pu être écrit.
     final instructions = ref.read(personalizationProvider);
-    final requestMessages = <ChatMessage>[
-      if (instructions.isNotEmpty) ChatMessage.system(instructions),
-      ...history,
-    ];
+
+    // Le fil garde des références aux pièces jointes ; la requête, elle, a
+    // besoin de leur contenu.
+    final List<ChatMessage> requestMessages;
+    try {
+      requestMessages = <ChatMessage>[
+        if (instructions.isNotEmpty) ChatMessage.system(instructions),
+        ...await resolveAttachments(
+          history,
+          store: ref.read(attachmentStoreProvider),
+          supportsImages: backend is PersonalApiChatBackend,
+        ),
+      ];
+    } on UnsupportedAttachmentException catch (error) {
+      _showSnack(error.message);
+      return;
+    }
+    if (!mounted || generationEpoch != _generationEpoch) {
+      return;
+    }
 
     setState(() {
       _ensureActiveConversation(text);
@@ -251,6 +290,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _syncActiveConversation();
     });
     _inputController.clear();
+    _pendingAttachments.clear();
     _scrollToBottom();
 
     var response = '';
@@ -457,26 +497,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ListTile(
                 leading: const Icon(Icons.attach_file),
                 title: const Text('Joindre un fichier'),
-                subtitle: const Text('Texte ou code, ajouté au message'),
+                subtitle: const Text('Document ou code de l’appareil'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  unawaited(_attachFile());
+                  unawaited(_attach(AttachmentSource.file));
                 },
               ),
-              // Photos et caméra attendent un modèle multimodal : aucun des
-              // deux backends ne sait lire une image aujourd'hui, les proposer
-              // actives enverrait une pièce jointe que le modèle ignorerait.
-              const ListTile(
-                enabled: false,
-                leading: Icon(Icons.photo_library_outlined),
-                title: Text('Photos'),
-                subtitle: Text('Nécessite un modèle multimodal'),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Photos'),
+                subtitle: const Text('Choisir une image de la galerie'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  unawaited(_attach(AttachmentSource.gallery));
+                },
               ),
-              const ListTile(
-                enabled: false,
-                leading: Icon(Icons.photo_camera_outlined),
-                title: Text('Caméra'),
-                subtitle: Text('Nécessite un modèle multimodal'),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Caméra'),
+                subtitle: const Text('Prendre une photo'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  unawaited(_attach(AttachmentSource.camera));
+                },
               ),
             ],
           ),
@@ -485,42 +528,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  Future<void> _attachFile() async {
-    final TextAttachment? attachment;
+  /// Choisit une pièce jointe et en range une copie avec la conversation.
+  Future<void> _attach(AttachmentSource source) async {
+    final PickedAttachment? picked;
     try {
-      attachment = await ref.read(attachmentPickerProvider).pickTextFile();
+      picked = await ref.read(attachmentPickerProvider).pick(source);
     } on AttachmentException catch (error) {
       _showSnack(error.message);
       return;
     } catch (_) {
-      _showSnack('Impossible de lire ce fichier.');
+      _showSnack('Impossible de lire cette pièce jointe.');
       return;
     }
-    if (attachment == null || !mounted) {
+    if (picked == null || !mounted) {
       return;
     }
-    _insertAttachment(attachment);
+
+    final ChatAttachment attachment;
+    try {
+      attachment = await ref
+          .read(attachmentStoreProvider)
+          .save(
+            name: picked.name,
+            mimeType: picked.mimeType,
+            bytes: picked.bytes,
+          );
+    } catch (_) {
+      _showSnack('Impossible d’enregistrer cette pièce jointe.');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() => _pendingAttachments.add(attachment));
   }
 
-  /// Insère la pièce jointe au curseur, en préservant le brouillon en cours.
-  void _insertAttachment(TextAttachment attachment) {
-    final block = formatAttachment(attachment);
-    final value = _inputController.value;
-    final offset = value.selection.isValid
-        ? value.selection.end
-        : value.text.length;
-    final before = value.text.substring(0, offset);
-    final after = value.text.substring(offset);
-    final prefix = before.isEmpty || before.endsWith('\n') ? '' : '\n';
-    final inserted = '$prefix$block';
-
-    _inputController.value = TextEditingValue(
-      text: '$before$inserted$after',
-      selection: TextSelection.collapsed(
-        offset: before.length + inserted.length,
-      ),
+  void _removePendingAttachment(ChatAttachment attachment) {
+    setState(() => _pendingAttachments.remove(attachment));
+    // La copie ne sert plus : elle n'a jamais rejoint de message.
+    unawaited(
+      ref.read(attachmentStoreProvider).delete(<ChatAttachment>[attachment]),
     );
-    _showSnack('« ${attachment.name} » ajouté au message.');
   }
 
   @override
@@ -575,6 +623,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: _Composer(
                 controller: _inputController,
                 isGenerating: _isGenerating,
+                attachments: _pendingAttachments,
+                onRemoveAttachment: _removePendingAttachment,
                 onReflection: _showReflectionInfo,
                 onSearch: _showSearchInfo,
                 onAdd: _showAddMenu,
@@ -727,13 +777,26 @@ class _MessageList extends StatelessWidget {
                     borderRadius: BorderRadius.circular(22),
                   )
                 : null,
-            child: message.content.isEmpty
-                ? const SizedBox(
+            child: Column(
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                if (message.attachments.isNotEmpty) ...<Widget>[
+                  for (final attachment in message.attachments) ...<Widget>[
+                    _SentAttachment(attachment: attachment),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+                if (message.content.isEmpty && message.attachments.isEmpty)
+                  const SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : MessageMarkdown(
+                else if (message.content.isNotEmpty)
+                  MessageMarkdown(
                     content: message.content,
                     textStyle: TextStyle(
                       color: fox.textPrimary,
@@ -741,9 +804,100 @@ class _MessageList extends StatelessWidget {
                       height: 1.45,
                     ),
                   ),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+/// Pièce jointe telle qu'elle apparaît dans le fil, une fois envoyée.
+///
+/// Une image s'affiche en aperçu, un fichier en carte nommée : le contenu du
+/// fichier part au modèle mais n'encombre pas la conversation.
+class _SentAttachment extends StatelessWidget {
+  const _SentAttachment({required this.attachment});
+
+  final ChatAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+
+    if (attachment.isImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 260, maxWidth: 260),
+          child: Image.file(
+            File(attachment.path),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                _MissingAttachment(attachment: attachment),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      decoration: BoxDecoration(
+        color: fox.surfaceRaised,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: fox.border),
+      ),
+      padding: const EdgeInsets.all(10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _AttachmentIcon(attachment: attachment, size: 34),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  attachment.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fox.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  formatAttachmentSize(attachment.sizeBytes),
+                  style: TextStyle(color: fox.textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pièce jointe dont la copie a disparu de l'appareil.
+class _MissingAttachment extends StatelessWidget {
+  const _MissingAttachment({required this.attachment});
+
+  final ChatAttachment attachment;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      color: fox.surfaceInput,
+      child: Text(
+        '« ${attachment.name} » n’est plus sur l’appareil.',
+        style: TextStyle(color: fox.textSecondary, fontSize: 13),
+      ),
     );
   }
 }
@@ -752,6 +906,8 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.isGenerating,
+    required this.attachments,
+    required this.onRemoveAttachment,
     required this.onReflection,
     required this.onSearch,
     required this.onAdd,
@@ -762,6 +918,11 @@ class _Composer extends StatelessWidget {
 
   final TextEditingController controller;
   final bool isGenerating;
+
+  /// Pièces jointes du brouillon, affichées au-dessus du champ.
+  final List<ChatAttachment> attachments;
+  final void Function(ChatAttachment attachment) onRemoveAttachment;
+
   final VoidCallback onReflection;
   final VoidCallback onSearch;
   final VoidCallback onAdd;
@@ -785,8 +946,23 @@ class _Composer extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 13, 12, 11),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
+                if (attachments.isNotEmpty) ...<Widget>[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      for (final attachment in attachments)
+                        _AttachmentChip(
+                          attachment: attachment,
+                          onRemove: () => onRemoveAttachment(attachment),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 TextField(
                   controller: controller,
                   minLines: 1,
@@ -853,7 +1029,9 @@ class _Composer extends StatelessWidget {
                       ValueListenableBuilder<TextEditingValue>(
                         valueListenable: controller,
                         builder: (context, value, child) {
-                          if (value.text.trim().isEmpty) {
+                          // Une pièce jointe seule suffit à envoyer.
+                          if (value.text.trim().isEmpty &&
+                              attachments.isEmpty) {
                             return _RoundComposerButton(
                               tooltip: 'Parler',
                               icon: Icons.graphic_eq_rounded,
@@ -874,6 +1052,120 @@ class _Composer extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Pièce jointe du brouillon : aperçu, nom, taille et retrait.
+class _AttachmentChip extends StatelessWidget {
+  const _AttachmentChip({required this.attachment, required this.onRemove});
+
+  final ChatAttachment attachment;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 240),
+      decoration: BoxDecoration(
+        color: fox.surfaceRaised,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fox.border),
+      ),
+      padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _AttachmentThumbnail(attachment: attachment, size: 28),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  attachment.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: fox.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  formatAttachmentSize(attachment.sizeBytes),
+                  style: TextStyle(color: fox.textSecondary, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Retirer ${attachment.name}',
+            onPressed: onRemove,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.close_rounded, size: 16, color: fox.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Vignette d'une pièce jointe : l'image elle-même, ou une icône de fichier.
+class _AttachmentThumbnail extends StatelessWidget {
+  const _AttachmentThumbnail({required this.attachment, required this.size});
+
+  final ChatAttachment attachment;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachment.isImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          File(attachment.path),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          // La copie a pu être effacée par le système : mieux vaut une icône
+          // qu'une croix rouge au milieu du fil.
+          errorBuilder: (context, error, stackTrace) =>
+              _AttachmentIcon(attachment: attachment, size: size),
+        ),
+      );
+    }
+    return _AttachmentIcon(attachment: attachment, size: size);
+  }
+}
+
+class _AttachmentIcon extends StatelessWidget {
+  const _AttachmentIcon({required this.attachment, required this.size});
+
+  final ChatAttachment attachment;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: fox.surfaceInput,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        attachment.isImage
+            ? Icons.image_outlined
+            : Icons.insert_drive_file_outlined,
+        size: size * 0.6,
+        color: fox.textSecondary,
       ),
     );
   }

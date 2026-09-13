@@ -54,7 +54,9 @@ Déjà présent :
 - conditions d'utilisation, politique de confidentialité, licence AGPL v3 et licences tierces consultables dans l'application ;
 - réponses affichées en Markdown : titres, listes, gras, italique, liens
   cliquables, et blocs de code annotés, colorés et copiables ;
-- pièce jointe texte ou code depuis le composer, insérée dans le message ;
+- pièces jointes depuis le composer : fichier, photo de la galerie ou prise de vue,
+  affichées comme pièces jointes dans le fil ;
+- images envoyées aux API personnelles multimodales (format OpenAI ou Gemini) ;
 - personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
