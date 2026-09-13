@@ -10,7 +10,7 @@ class ChatConversation {
   });
 
   final int id;
-  final String title;
+  String title;
   DateTime updatedAt;
   List<ChatMessage> messages;
 

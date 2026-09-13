@@ -37,6 +37,9 @@ n'est volontairement modifié.
 - suppression du pied de page des Paramètres (le libellé « FoxGPT » et son
   trait orange).
 
+- une conversation peut être renommée ou supprimée depuis le menu latéral,
+  via le bouton « … » ou un appui long ; la suppression demande confirmation,
+  puisque l'historique est désormais conservé sur l'appareil ;
 - l'historique des conversations est enregistré dans le stockage privé de
   l'application et rechargé au lancement suivant ; l'écriture passe par un
   fichier temporaire renommé, pour qu'une fermeture brutale ne laisse pas un

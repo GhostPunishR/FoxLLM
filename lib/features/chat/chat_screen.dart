@@ -69,6 +69,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  Future<void> _renameConversation(int id, String title) async {
+    final trimmed = title.trim();
+    final conversation = _conversationById(id);
+    if (trimmed.isEmpty || conversation == null) {
+      return;
+    }
+    setState(() => conversation.title = trimmed);
+    _persistConversations();
+  }
+
+  Future<void> _deleteConversation(int id) async {
+    final conversation = _conversationById(id);
+    if (conversation == null) {
+      return;
+    }
+
+    final wasActive = _activeConversationId == id;
+    if (wasActive && _isGenerating) {
+      _generationEpoch += 1;
+      await ref.read(localLlmBackendProvider).stop();
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _conversations.remove(conversation);
+      if (wasActive) {
+        _activeConversationId = null;
+        _messages.clear();
+        _isGenerating = false;
+      }
+    });
+    _persistConversations();
+  }
+
   void _persistConversations() {
     unawaited(
       ref
@@ -404,6 +440,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Navigator.of(context).pop();
           unawaited(_selectConversation(id));
         },
+        onConversationRenamed: (id, title) =>
+            unawaited(_renameConversation(id, title)),
+        onConversationDeleted: (id) => unawaited(_deleteConversation(id)),
         onSettings: () {
           Navigator.of(context).pop();
           _openSettings();
@@ -915,6 +954,8 @@ class _FoxDrawer extends StatefulWidget {
     required this.activeConversationId,
     required this.onNewChat,
     required this.onConversationSelected,
+    required this.onConversationRenamed,
+    required this.onConversationDeleted,
     required this.onSettings,
   });
 
@@ -922,6 +963,8 @@ class _FoxDrawer extends StatefulWidget {
   final int? activeConversationId;
   final VoidCallback onNewChat;
   final ValueChanged<int> onConversationSelected;
+  final void Function(int id, String title) onConversationRenamed;
+  final ValueChanged<int> onConversationDeleted;
   final VoidCallback onSettings;
 
   @override
@@ -1123,18 +1166,35 @@ class _FoxDrawerState extends State<_FoxDrawer> {
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => widget.onConversationSelected(conversation.id),
+          onLongPress: () => _showConversationActions(conversation),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
-            child: Text(
-              conversation.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? fox.textPrimary : fox.textSecondary,
-                fontSize: 17,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              ),
+            padding: const EdgeInsets.only(left: 2, top: 2, bottom: 2),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    conversation.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: selected ? fox.textPrimary : fox.textSecondary,
+                      fontSize: 17,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Actions de la conversation',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _showConversationActions(conversation),
+                  icon: Icon(
+                    Icons.more_horiz,
+                    color: fox.textTertiary,
+                    size: 21,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1142,10 +1202,150 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     );
   }
 
+  /// Renommer ou supprimer, depuis le bouton « … » ou un appui long.
+  Future<void> _showConversationActions(ChatConversation conversation) async {
+    final action = await showModalBottomSheet<_ConversationAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.drive_file_rename_outline),
+              title: const Text('Renommer'),
+              onTap: () =>
+                  Navigator.of(context).pop(_ConversationAction.rename),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                'Supprimer',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onTap: () =>
+                  Navigator.of(context).pop(_ConversationAction.delete),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || action == null) {
+      return;
+    }
+    switch (action) {
+      case _ConversationAction.rename:
+        await _promptRename(conversation);
+      case _ConversationAction.delete:
+        await _confirmDelete(conversation);
+    }
+  }
+
+  Future<void> _promptRename(ChatConversation conversation) async {
+    final title = await showDialog<String>(
+      context: context,
+      builder: (context) => _RenameDialog(initialTitle: conversation.title),
+    );
+
+    if (title != null && title.trim().isNotEmpty) {
+      widget.onConversationRenamed(conversation.id, title);
+    }
+  }
+
+  Future<void> _confirmDelete(ChatConversation conversation) async {
+    // L'historique étant conservé sur l'appareil, une suppression accidentelle
+    // ne se rattrape pas en fermant l'application.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer la conversation ?'),
+        content: Text(
+          '« ${conversation.title} » sera définitivement supprimée de '
+          'l’appareil.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      widget.onConversationDeleted(conversation.id);
+    }
+  }
+
   int _dayDifference(DateTime from, DateTime to) {
     final fromDay = DateTime(from.year, from.month, from.day);
     final toDay = DateTime(to.year, to.month, to.day);
     return toDay.difference(fromDay).inDays;
+  }
+}
+
+enum _ConversationAction { rename, delete }
+
+/// Dialogue de renommage.
+///
+/// Le contrôleur appartient à ce widget : le libérer depuis l'appelant, dès
+/// le retour de `showDialog`, le détruirait alors que le champ est encore
+/// affiché pendant l'animation de fermeture.
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initialTitle});
+
+  final String initialTitle;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialTitle,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Renommer la conversation'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 60,
+        textInputAction: TextInputAction.done,
+        decoration: const InputDecoration(hintText: 'Nom de la conversation'),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Renommer')),
+      ],
+    );
   }
 }
 
