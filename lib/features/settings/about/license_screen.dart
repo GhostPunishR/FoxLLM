@@ -4,8 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
-import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/app_info.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
 
 /// Texte intégral de la licence, lu depuis le fichier `LICENSE` du dépôt.
 ///

@@ -3,9 +3,9 @@
 
 import 'dart:convert';
 
+import 'package:foxllm/features/chat/attachments/attachment_store.dart';
 import 'package:foxllm/llm/model/chat_attachment.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
-import 'package:foxllm/features/chat/attachments/attachment_store.dart';
 
 /// Le moteur choisi ne sait pas lire une pièce jointe du message.
 class UnsupportedAttachmentException implements Exception {

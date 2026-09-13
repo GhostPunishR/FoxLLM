@@ -6,12 +6,12 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:foxllm/core/storage/api_key_store.dart';
-import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
-import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
 import 'package:foxllm/llm/backend/openai_responses_backend.dart';
+import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 

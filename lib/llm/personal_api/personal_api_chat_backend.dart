@@ -6,11 +6,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
-import 'package:foxllm/llm/model/chat_message.dart';
-import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
+import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
 

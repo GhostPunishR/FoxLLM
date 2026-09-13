@@ -3,9 +3,9 @@
 
 import 'package:foxllm_native/foxllm_native.dart';
 
+import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
-import 'package:foxllm/llm/backend/llm_backend.dart';
 
 class LocalLlmBackend implements LlmBackend {
   LocalLlmBackend({Future<FoxLlmNativeWorker>? worker})

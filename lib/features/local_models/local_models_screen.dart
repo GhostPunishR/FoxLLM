@@ -9,9 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
 import 'package:foxllm/core/storage/last_model_store.dart';
-import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/features/local_models/local_model_file.dart';
 import 'package:foxllm/features/local_models/local_model_library.dart';
+import 'package:foxllm/llm/backend/local_backend_provider.dart';
 
 class LocalModelsScreen extends ConsumerStatefulWidget {
   const LocalModelsScreen({super.key});

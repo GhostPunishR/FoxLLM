@@ -4,8 +4,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
-import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
 import 'package:foxllm/features/local_models/current_local_model.dart';
@@ -14,6 +12,8 @@ import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
 import 'package:foxllm/features/settings/personal_api_screen.dart';
 import 'package:foxllm/features/settings/personalization_screen.dart';
+import 'package:foxllm/llm/model/personalization.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});

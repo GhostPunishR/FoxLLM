@@ -5,10 +5,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:foxllm/core/ui/external_link.dart';
-import 'package:foxllm/core/theme/fox_palette.dart';
-import 'package:foxllm/core/ui/fox_mark.dart';
 import 'package:foxllm/core/app_info.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/ui/external_link.dart';
+import 'package:foxllm/core/ui/fox_mark.dart';
 import 'package:foxllm/features/settings/about/legal_documents.dart';
 import 'package:foxllm/features/settings/about/license_screen.dart';
 

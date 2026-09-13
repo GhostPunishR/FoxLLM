@@ -5,9 +5,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
+import 'package:foxllm/llm/model/chat_message.dart';
 
 void main() {
   late Directory tempDirectory;

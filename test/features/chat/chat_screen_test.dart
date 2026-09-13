@@ -4,8 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/features/chat/chat_screen.dart';
 import 'package:foxllm/core/ui/fox_mark.dart';
+import 'package:foxllm/features/chat/chat_screen.dart';
 
 void main() {
   testWidgets('shows the FoxLLM chat home on launch', (tester) async {

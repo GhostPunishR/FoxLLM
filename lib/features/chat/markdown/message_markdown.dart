@@ -7,8 +7,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'package:foxllm/core/ui/external_link.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/ui/external_link.dart';
 
 import 'package:foxllm/features/chat/markdown/code_highlighter.dart';
 

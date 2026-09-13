@@ -24,6 +24,14 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ### Modifications
 
+- `chat_screen.dart` passait deux mille lignes : le widget d'écran, la barre du
+  haut, le fil des messages, la zone de saisie et le menu latéral dans un seul
+  fichier. Il est découpé en `chat_top_bar.dart`, `chat_messages.dart`,
+  `chat_composer.dart` et `chat_drawer.dart`, rattachés par `part` à la même
+  bibliothèque : les widgets gardent leur nom, leur portée privée et leur accès
+  à l'état de l'écran, seul le rangement change ;
+- les imports sont remis en ordre alphabétique, `dart:`, paquets tiers puis
+  FoxLLM ;
 - l'arborescence du code est refaite. `lib/core/llm/` ramassait dix-huit
   fichiers mêlant le contrat des moteurs, les modèles de données et les
   réglages ; `lib/features/chat/` mêlait écrans et stockage. Désormais `core/`

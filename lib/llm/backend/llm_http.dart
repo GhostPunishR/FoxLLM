@@ -6,9 +6,9 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:foxllm/core/storage/api_key_store.dart';
+import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
-import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 
 typedef HttpClientFactory = http.Client Function();

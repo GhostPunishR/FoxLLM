@@ -4,10 +4,10 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/llm/model/chat_message.dart';
-import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
-import 'package:foxllm/llm/personal_api/provider_config.dart';
 import 'package:foxllm/core/storage/api_key_store.dart';
+import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
+import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/personal_api/provider_config.dart';
 import 'package:http/http.dart' as http;
 
 void main() {

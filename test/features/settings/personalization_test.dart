@@ -4,10 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/features/settings/personalization_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
+import 'package:foxllm/llm/model/personalization.dart';
 
 void main() {
   group('PersonalizationController', () {
