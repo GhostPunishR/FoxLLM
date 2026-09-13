@@ -6,6 +6,15 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- les titres, les listes et les traits de séparation du Markdown sont rendus :
+  `### Titre` affichait ses dièses, `- point` son tiret, et la hiérarchie d'une
+  réponse disparaissait. Les titres prennent une taille selon leur niveau, les
+  listes une puce ou leur numéro d'origine, et l'indentation donne
+  l'imbrication ;
+- les liens `[texte](https://…)` deviennent cliquables et s'ouvrent dans le
+  navigateur du système. Seuls `http` et `https` sont acceptés : une réponse de
+  modèle est du texte non vérifié, et tout autre schéma s'affiche tel qu'écrit
+  plutôt que de masquer une destination sous un libellé ;
 - le gras et l'italique du Markdown sont rendus : `**réponse**` s'affichait
   avec ses astérisques et sans le gras demandé. Seuls les délimiteurs à
   astérisques sont reconnus — un astérisque pour l'italique, deux pour le

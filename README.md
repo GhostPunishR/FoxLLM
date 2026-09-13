@@ -52,7 +52,8 @@ Déjà présent :
 - écran Paramètres avec accès aux modèles locaux — le modèle en place y est nommé —, à l'API personnelle, à l'apparence et à « À propos » ;
 - deux thèmes FoxGPT, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
 - conditions d'utilisation, politique de confidentialité, licence AGPL v3 et licences tierces consultables dans l'application ;
-- réponses affichées en Markdown, avec blocs de code annotés, colorés et copiables ;
+- réponses affichées en Markdown : titres, listes, gras, italique, liens
+  cliquables, et blocs de code annotés, colorés et copiables ;
 - pièce jointe texte ou code depuis le composer, insérée dans le message ;
 - personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;

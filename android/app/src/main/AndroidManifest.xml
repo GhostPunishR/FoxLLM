@@ -33,5 +33,12 @@
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
         </intent>
+        <!-- Sans cette déclaration, Android 11 et suivants cachent le
+             navigateur à l'application : les liens des réponses ne
+             s'ouvriraient nulle part. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
     </queries>
 </manifest>

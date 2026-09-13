@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/fox_palette.dart';
+import 'external_link.dart';
 import 'code_highlighter.dart';
 
 /// Morceau d'un message de chat.
@@ -149,6 +151,171 @@ String _joinTrimmed(List<String> lines) {
   return lines.sublist(start, end).join('\n');
 }
 
+/// Bloc d'un passage de prose.
+///
+/// Un titre, une puce ou un trait de séparation ne sont pas du texte courant :
+/// affichés tels quels, leurs marques Markdown restaient visibles et la
+/// hiérarchie de la réponse disparaissait.
+sealed class MessageBlock {
+  const MessageBlock();
+}
+
+final class ParagraphBlock extends MessageBlock {
+  const ParagraphBlock(this.text);
+
+  final String text;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ParagraphBlock && other.text == text;
+
+  @override
+  int get hashCode => text.hashCode;
+
+  @override
+  String toString() => 'ParagraphBlock($text)';
+}
+
+final class HeadingBlock extends MessageBlock {
+  const HeadingBlock({required this.text, required this.level});
+
+  final String text;
+
+  /// Nombre de dièses, de 1 à 6.
+  final int level;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HeadingBlock && other.text == text && other.level == level;
+
+  @override
+  int get hashCode => Object.hash(text, level);
+
+  @override
+  String toString() => 'HeadingBlock($level, $text)';
+}
+
+final class ListItemBlock extends MessageBlock {
+  const ListItemBlock({
+    required this.text,
+    required this.bullet,
+    this.depth = 0,
+  });
+
+  final String text;
+
+  /// Puce affichée : « • » pour une liste à puces, « 1. » pour une numérotée.
+  final String bullet;
+
+  /// Niveau d'imbrication, déduit de l'indentation.
+  final int depth;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ListItemBlock &&
+      other.text == text &&
+      other.bullet == bullet &&
+      other.depth == depth;
+
+  @override
+  int get hashCode => Object.hash(text, bullet, depth);
+
+  @override
+  String toString() => 'ListItemBlock($bullet, $depth, $text)';
+}
+
+final class DividerBlock extends MessageBlock {
+  const DividerBlock();
+
+  @override
+  bool operator ==(Object other) => other is DividerBlock;
+
+  @override
+  int get hashCode => (DividerBlock).hashCode;
+
+  @override
+  String toString() => 'DividerBlock()';
+}
+
+final _headingPattern = RegExp(r'^ {0,3}(#{1,6})\s+(.*)$');
+final _bulletPattern = RegExp(r'^(\s*)[-*+]\s+(.*)$');
+final _orderedPattern = RegExp(r'^(\s*)(\d{1,9})[.)]\s+(.*)$');
+
+/// Trait de séparation : une ligne faite d'un seul caractère répété.
+final _rulePattern = RegExp(r'^ {0,3}([-*_])[ \t]*(?:\1[ \t]*){2,}$');
+
+/// Découpe un passage de prose en titres, puces, traits et paragraphes.
+List<MessageBlock> parseTextBlocks(String text) {
+  final blocks = <MessageBlock>[];
+  final paragraph = <String>[];
+
+  void flushParagraph() {
+    if (paragraph.isEmpty) {
+      return;
+    }
+    blocks.add(ParagraphBlock(paragraph.join('\n')));
+    paragraph.clear();
+  }
+
+  for (final line in text.split('\n')) {
+    if (line.trim().isEmpty) {
+      flushParagraph();
+      continue;
+    }
+
+    if (_rulePattern.hasMatch(line)) {
+      flushParagraph();
+      blocks.add(const DividerBlock());
+      continue;
+    }
+
+    final heading = _headingPattern.firstMatch(line);
+    if (heading != null) {
+      flushParagraph();
+      blocks.add(
+        HeadingBlock(
+          level: heading.group(1)!.length,
+          text: heading.group(2)!.trim(),
+        ),
+      );
+      continue;
+    }
+
+    final ordered = _orderedPattern.firstMatch(line);
+    if (ordered != null) {
+      flushParagraph();
+      blocks.add(
+        ListItemBlock(
+          text: ordered.group(3)!.trim(),
+          bullet: '${ordered.group(2)}.',
+          depth: _indentDepth(ordered.group(1)!),
+        ),
+      );
+      continue;
+    }
+
+    final bullet = _bulletPattern.firstMatch(line);
+    if (bullet != null) {
+      flushParagraph();
+      blocks.add(
+        ListItemBlock(
+          text: bullet.group(2)!.trim(),
+          bullet: '•',
+          depth: _indentDepth(bullet.group(1)!),
+        ),
+      );
+      continue;
+    }
+
+    paragraph.add(line);
+  }
+
+  flushParagraph();
+  return blocks;
+}
+
+int _indentDepth(String indent) => (indent.length ~/ 2).clamp(0, 4);
+
 /// Construit les fragments d'un paragraphe : gras, italique et code en ligne.
 ///
 /// Les modèles écrivent en Markdown. Rendu tel quel, `**réponse**` s'affichait
@@ -160,11 +327,25 @@ String _joinTrimmed(List<String> lines) {
 List<InlineSpan> buildInlineSpans(
   String text, {
   required TextStyle codeStyle,
-}) => _inlineSpans(text, codeStyle: codeStyle, bold: false, italic: false);
+  TextStyle? linkStyle,
+  void Function(Uri url)? onLinkTap,
+  List<GestureRecognizer>? recognizers,
+}) => _inlineSpans(
+  text,
+  codeStyle: codeStyle,
+  linkStyle: linkStyle,
+  onLinkTap: onLinkTap,
+  recognizers: recognizers,
+  bold: false,
+  italic: false,
+);
 
 List<InlineSpan> _inlineSpans(
   String text, {
   required TextStyle codeStyle,
+  required TextStyle? linkStyle,
+  required void Function(Uri url)? onLinkTap,
+  required List<GestureRecognizer>? recognizers,
   required bool bold,
   required bool italic,
 }) {
@@ -211,6 +392,28 @@ List<InlineSpan> _inlineSpans(
       }
     }
 
+    if (char == '[') {
+      final link = _matchLink(text, index);
+      if (link != null) {
+        flush();
+        final recognizer = onLinkTap == null
+            ? null
+            : (TapGestureRecognizer()..onTap = () => onLinkTap(link.url));
+        if (recognizer != null) {
+          recognizers?.add(recognizer);
+        }
+        spans.add(
+          TextSpan(
+            text: link.label,
+            style: (linkStyle ?? const TextStyle()).merge(emphasis()),
+            recognizer: recognizer,
+          ),
+        );
+        index = link.end;
+        continue;
+      }
+    }
+
     if (char == '*') {
       // Un astérisque met en italique, deux en gras, trois les deux à la fois.
       var run = 0;
@@ -226,6 +429,9 @@ List<InlineSpan> _inlineSpans(
           _inlineSpans(
             text.substring(contentStart, closing),
             codeStyle: codeStyle,
+            linkStyle: linkStyle,
+            onLinkTap: onLinkTap,
+            recognizers: recognizers,
             bold: bold || run >= 2,
             italic: italic || run.isOdd,
           ),
@@ -277,43 +483,213 @@ int _closingEmphasis(String text, int contentStart, String marker) {
   return -1;
 }
 
+/// Lien Markdown reconnu, et position où reprendre la lecture.
+typedef _Link = ({String label, Uri url, int end});
+
+/// Reconnaît `[texte](https://…)` ouvert en [start].
+///
+/// Rend `null` si la forme est incomplète, ou si l'adresse n'est pas en http
+/// ou https : le passage s'affiche alors tel qu'écrit, plutôt que de masquer
+/// une destination que l'application refuserait d'ouvrir.
+_Link? _matchLink(String text, int start) {
+  final labelEnd = text.indexOf(']', start + 1);
+  if (labelEnd <= start + 1) {
+    return null;
+  }
+  final label = text.substring(start + 1, labelEnd);
+  if (label.contains('\n')) {
+    return null;
+  }
+  if (labelEnd + 1 >= text.length || text[labelEnd + 1] != '(') {
+    return null;
+  }
+
+  final urlEnd = text.indexOf(')', labelEnd + 2);
+  if (urlEnd <= labelEnd + 2) {
+    return null;
+  }
+  final raw = text.substring(labelEnd + 2, urlEnd).trim();
+  if (raw.isEmpty || raw.contains(RegExp(r'\s'))) {
+    return null;
+  }
+
+  final url = Uri.tryParse(raw);
+  if (url == null || (url.scheme != 'http' && url.scheme != 'https')) {
+    return null;
+  }
+  return (label: label, url: url, end: urlEnd + 1);
+}
+
 bool _isSpace(String character) => character.trim().isEmpty;
 
-/// Affiche le contenu d'un message : prose et blocs de code copiables.
-class MessageMarkdown extends StatelessWidget {
+/// Affiche le contenu d'un message : titres, listes, liens, prose et blocs de
+/// code copiables.
+class MessageMarkdown extends StatefulWidget {
   const MessageMarkdown({
     super.key,
     required this.content,
     required this.textStyle,
+    this.openLink = openExternalLink,
   });
 
   final String content;
   final TextStyle textStyle;
 
+  /// Ouverture d'un lien, remplaçable pour ne pas dépendre du navigateur en
+  /// test. Rend `false` si le lien n'a pas pu être ouvert.
+  final Future<bool> Function(Uri url) openLink;
+
+  @override
+  State<MessageMarkdown> createState() => _MessageMarkdownState();
+}
+
+class _MessageMarkdownState extends State<MessageMarkdown> {
+  /// Détecteurs d'appui des liens du rendu courant.
+  ///
+  /// Ils vivent aussi longtemps que les fragments qui les portent : le message
+  /// étant reconstruit à chaque jeton pendant le streaming, ceux du rendu
+  /// précédent sont libérés une fois la frame passée.
+  List<GestureRecognizer> _recognizers = <GestureRecognizer>[];
+
+  @override
+  void dispose() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _open(Uri url) async {
+    final opened = await widget.openLink(url);
+    if (opened || !mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Lien impossible à ouvrir.')),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fox = context.fox;
-    final codeStyle = textStyle.copyWith(
+    final base = widget.textStyle;
+    final baseSize = base.fontSize ?? 16;
+    final codeStyle = base.copyWith(
       fontFamily: 'monospace',
       fontFamilyFallback: const <String>['Roboto Mono', 'Courier New'],
-      fontSize: (textStyle.fontSize ?? 16) - 2,
+      fontSize: baseSize - 2,
       color: fox.accentText,
+    );
+    final linkStyle = TextStyle(
+      color: fox.accentText,
+      decoration: TextDecoration.underline,
+      decorationColor: fox.accentText,
+    );
+
+    final previous = _recognizers;
+    final recognizers = <GestureRecognizer>[];
+    _recognizers = recognizers;
+    if (previous.isNotEmpty) {
+      // Libérés après la frame : les fragments qu'ils portent sont encore à
+      // l'écran le temps que celle-ci se termine.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final recognizer in previous) {
+          recognizer.dispose();
+        }
+      });
+    }
+
+    List<InlineSpan> spansOf(String text) => buildInlineSpans(
+      text,
+      codeStyle: codeStyle,
+      linkStyle: linkStyle,
+      onLinkTap: (url) => unawaited(_open(url)),
+      recognizers: recognizers,
     );
 
     final widgets = <Widget>[];
-    for (final segment in parseMessageSegments(content)) {
+    var previousWasListItem = false;
+
+    void add(Widget child, {required double gapBefore}) {
+      if (widgets.isNotEmpty) {
+        widgets.add(SizedBox(height: gapBefore));
+      }
+      widgets.add(child);
+    }
+
+    for (final segment in parseMessageSegments(widget.content)) {
       switch (segment) {
         case MessageText(:final text):
-          widgets.add(
-            Text.rich(
-              TextSpan(children: buildInlineSpans(text, codeStyle: codeStyle)),
-              style: textStyle,
-            ),
-          );
+          for (final block in parseTextBlocks(text)) {
+            switch (block) {
+              case ParagraphBlock(:final text):
+                add(
+                  Text.rich(TextSpan(children: spansOf(text)), style: base),
+                  gapBefore: 10,
+                );
+                previousWasListItem = false;
+              case HeadingBlock(:final text, :final level):
+                add(
+                  Text.rich(
+                    TextSpan(children: spansOf(text)),
+                    style: base.copyWith(
+                      fontSize:
+                          baseSize +
+                          switch (level) {
+                            1 => 6.0,
+                            2 => 4.0,
+                            3 => 2.0,
+                            _ => 1.0,
+                          },
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                  ),
+                  gapBefore: 14,
+                );
+                previousWasListItem = false;
+              case ListItemBlock(:final text, :final bullet, :final depth):
+                add(
+                  Padding(
+                    padding: EdgeInsets.only(left: depth * 16.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        SizedBox(
+                          width: 24,
+                          child: Text(
+                            bullet,
+                            style: base.copyWith(color: fox.textSecondary),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(children: spansOf(text)),
+                            style: base,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  gapBefore: previousWasListItem ? 4 : 10,
+                );
+                previousWasListItem = true;
+              case DividerBlock():
+                add(
+                  Divider(height: 1, thickness: 1, color: fox.border),
+                  gapBefore: 14,
+                );
+                previousWasListItem = false;
+            }
+          }
         case MessageCode(:final code, :final language, :final isComplete):
-          widgets.add(
+          add(
             CodeBlock(code: code, language: language, isComplete: isComplete),
+            gapBefore: 12,
           );
+          previousWasListItem = false;
       }
     }
 
@@ -326,12 +702,7 @@ class MessageMarkdown extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        for (var i = 0; i < widgets.length; i += 1) ...<Widget>[
-          if (i > 0) const SizedBox(height: 12),
-          widgets[i],
-        ],
-      ],
+      children: widgets,
     );
   }
 }

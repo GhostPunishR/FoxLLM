@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -197,6 +198,122 @@ void main() {
     });
   });
 
+  group('parseTextBlocks', () {
+    test('reconnaît les titres et leur niveau', () {
+      expect(parseTextBlocks('# Grand\n### Petit'), <MessageBlock>[
+        const HeadingBlock(text: 'Grand', level: 1),
+        const HeadingBlock(text: 'Petit', level: 3),
+      ]);
+    });
+
+    test('un dièse sans espace n’est pas un titre', () {
+      expect(parseTextBlocks('#1 du classement'), <MessageBlock>[
+        const ParagraphBlock('#1 du classement'),
+      ]);
+    });
+
+    test('reconnaît les puces, quel que soit le marqueur', () {
+      expect(parseTextBlocks('- un\n* deux\n+ trois'), <MessageBlock>[
+        const ListItemBlock(text: 'un', bullet: '•'),
+        const ListItemBlock(text: 'deux', bullet: '•'),
+        const ListItemBlock(text: 'trois', bullet: '•'),
+      ]);
+    });
+
+    test('garde les numéros d’une liste ordonnée', () {
+      expect(parseTextBlocks('1. un\n2) deux'), <MessageBlock>[
+        const ListItemBlock(text: 'un', bullet: '1.'),
+        const ListItemBlock(text: 'deux', bullet: '2.'),
+      ]);
+    });
+
+    test('déduit l’imbrication de l’indentation', () {
+      final blocks = parseTextBlocks('- parent\n  - enfant\n    - petit');
+      expect(blocks.cast<ListItemBlock>().map((b) => b.depth), <int>[0, 1, 2]);
+    });
+
+    test('un astérisque collé au mot reste une mise en valeur', () {
+      expect(parseTextBlocks('*italique* en début de ligne'), <MessageBlock>[
+        const ParagraphBlock('*italique* en début de ligne'),
+      ]);
+    });
+
+    test('reconnaît un trait de séparation', () {
+      expect(parseTextBlocks('avant\n\n---\n\naprès'), <MessageBlock>[
+        const ParagraphBlock('avant'),
+        const DividerBlock(),
+        const ParagraphBlock('après'),
+      ]);
+    });
+
+    test('les lignes vides séparent les paragraphes', () {
+      expect(parseTextBlocks('un\ndeux\n\ntrois'), <MessageBlock>[
+        const ParagraphBlock('un\ndeux'),
+        const ParagraphBlock('trois'),
+      ]);
+    });
+
+    test('un texte ordinaire tient en un seul paragraphe', () {
+      expect(parseTextBlocks('Bonjour tout le monde'), <MessageBlock>[
+        const ParagraphBlock('Bonjour tout le monde'),
+      ]);
+    });
+  });
+
+  group('liens', () {
+    test('affiche le libellé et retire la syntaxe', () {
+      final spans = buildInlineSpans(
+        'Voir [le site](https://example.com) pour la suite.',
+        codeStyle: const TextStyle(),
+        linkStyle: const TextStyle(decoration: TextDecoration.underline),
+      );
+
+      expect(
+        spans.map((s) => s.toPlainText()).join(),
+        'Voir le site pour la suite.',
+      );
+      expect(
+        (spans[1] as TextSpan).style?.decoration,
+        TextDecoration.underline,
+      );
+    });
+
+    test('l’appui remonte l’adresse', () {
+      Uri? opened;
+      final recognizers = <GestureRecognizer>[];
+      final spans = buildInlineSpans(
+        '[doc](https://example.com/a)',
+        codeStyle: const TextStyle(),
+        onLinkTap: (url) => opened = url,
+        recognizers: recognizers,
+      );
+      addTearDown(() {
+        for (final recognizer in recognizers) {
+          recognizer.dispose();
+        }
+      });
+
+      expect(recognizers, hasLength(1));
+      final recognizer =
+          (spans.single as TextSpan).recognizer! as TapGestureRecognizer;
+      recognizer.onTap!();
+      expect(opened, Uri.parse('https://example.com/a'));
+    });
+
+    test('un schéma autre que http reste du texte', () {
+      // L'application refuserait de l'ouvrir : autant l'afficher tel quel.
+      const text = 'Essaie [ceci](javascript:alert(1)) pour voir.';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+      expect(spans.map((s) => s.toPlainText()).join(), text);
+    });
+
+    test('une forme incomplète reste du texte', () {
+      const text = 'Un [crochet] seul et [autre](sans-schema).';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+      expect(spans.map((s) => s.toPlainText()).join(), text);
+    });
+  });
+
   group('MessageMarkdown', () {
     testWidgets('affiche le code en bloc et masque les délimiteurs', (
       tester,
@@ -246,6 +363,80 @@ void main() {
 
       expect(find.textContaining('**'), findsNothing);
       expect(find.text('Voici la réponse attendue.'), findsOneWidget);
+    });
+
+    testWidgets('rend titres, listes et liens sans leurs marques', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        '## Trois étapes\n'
+        '\n'
+        '1. Ouvrir [le site](https://example.com)\n'
+        '2. Lire la **doc**\n'
+        '\n'
+        '---\n'
+        '\n'
+        'Voilà.',
+      );
+
+      expect(find.textContaining('##'), findsNothing);
+      expect(find.textContaining('](http'), findsNothing);
+      expect(find.text('Trois étapes'), findsOneWidget);
+      expect(find.text('1.'), findsOneWidget);
+      expect(find.text('2.'), findsOneWidget);
+      expect(find.text('Ouvrir le site'), findsOneWidget);
+      expect(find.text('Lire la doc'), findsOneWidget);
+      expect(find.byType(Divider), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('l’appui sur un lien l’ouvre à l’extérieur', (tester) async {
+      Uri? opened;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: MessageMarkdown(
+                content: 'Voir [le site](https://example.com).',
+                textStyle: const TextStyle(fontSize: 16),
+                openLink: (url) async {
+                  opened = url;
+                  return true;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tapOnText(find.textRange.ofSubstring('le site'));
+      await tester.pumpAndSettle();
+
+      expect(opened, Uri.parse('https://example.com'));
+    });
+
+    testWidgets('un lien qui ne s’ouvre pas le dit', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: MessageMarkdown(
+                content: '[lien](https://example.com)',
+                textStyle: const TextStyle(fontSize: 16),
+                openLink: (url) async => false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tapOnText(find.textRange.ofSubstring('lien'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lien impossible à ouvrir.'), findsOneWidget);
     });
 
     testWidgets('un message sans code reste un simple texte', (tester) async {
