@@ -16,9 +16,15 @@ concurrency:
 
 jobs:
   build:
-    name: Android Debug APK
+    name: Android ${{ matrix.mode }} APK
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        # Le mode release est celui que verront les utilisateurs : il compile en
+        # AOT et démarre nettement plus vite que le debug, qui tourne en JIT.
+        mode: [debug, release]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,27 +45,28 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Build arm64 debug APK
-        run: flutter build apk --debug --target-platform android-arm64
+      - name: Build arm64 ${{ matrix.mode }} APK
+        run: flutter build apk --${{ matrix.mode }} --target-platform android-arm64
 
       - name: Verify APK
-        run: test -f build/app/outputs/flutter-apk/app-debug.apk
+        run: test -f build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
 
       - name: Verify llama.cpp native engine is packaged
         shell: bash
         run: |
-          unzip -l build/app/outputs/flutter-apk/app-debug.apk | tee /tmp/apk-files.txt
+          apk=build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
+          unzip -l "$apk" | tee /tmp/apk-files.txt
           grep -F 'lib/arm64-v8a/libfoxgpt_native.so' /tmp/apk-files.txt
-          unzip -p build/app/outputs/flutter-apk/app-debug.apk \
+          unzip -p "$apk" \
             lib/arm64-v8a/libfoxgpt_native.so > /tmp/libfoxgpt_native.so
           strings /tmp/libfoxgpt_native.so | grep -F 'foxgpt-native/0.3.0+llama-b10903'
           nm -D --defined-only /tmp/libfoxgpt_native.so | grep -F 'foxgpt_engine_generate_stream'
           nm -D --defined-only /tmp/libfoxgpt_native.so | grep -F 'foxgpt_engine_reset_stop'
 
-      - name: Upload debug APK
+      - name: Upload ${{ matrix.mode }} APK
         uses: actions/upload-artifact@v4
         with:
-          name: foxgpt-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: foxgpt-${{ matrix.mode }}-apk
+          path: build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
           if-no-files-found: error
           retention-days: 14
