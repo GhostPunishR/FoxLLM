@@ -36,7 +36,17 @@ Flutter / Dart
 
 Le code applicatif Flutter ne crée jamais `FoxLlmNativeEngine` directement : l'accès local passe par `LocalLlmBackend` puis `FoxLlmNativeWorker`, afin de garder les appels bloquants hors de l'isolate UI.
 
-La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+## Site
+
+Le site public de FoxLLM vit dans [`docs/`](docs/) : présentation, schéma des
+deux trajets de données, conditions d'utilisation et politique de
+confidentialité. Il est publiable tel quel par GitHub Pages (branche `main`,
+dossier `/docs`), ce qui donne aussi une adresse publique pour la politique de
+confidentialité demandée par les magasins d'applications.
+
+Les textes légaux des pages `conditions.html` et `confidentialite.html` sont
+ceux de `lib/features/settings/legal_documents.dart` ; un test vérifie que les
+deux versions restent identiques mot pour mot.
 
 ## État actuel
 

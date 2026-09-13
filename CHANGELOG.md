@@ -4,8 +4,32 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [Non publié]
 
+### Ajouts
+
+- site public dans `docs/`, prêt à être publié par GitHub Pages : page
+  d'accueil, conditions d'utilisation et politique de confidentialité. Le site
+  reprend la palette de l'application et suit lui aussi le thème du visiteur,
+  clair ou sombre, avec une bascule manuelle ;
+- la page d'accueil montre les deux trajets de données — modèle local, où rien
+  ne quitte l'appareil, et API personnelle, où la requête va directement au
+  fournisseur —, un registre de ce que l'application manipule et de l'endroit
+  où cela atterrit, les fournisseurs pris en charge, les étapes d'installation
+  et la licence ;
+- la politique de confidentialité obtient ainsi une adresse publique, telle que
+  la demandent les magasins d'applications ;
+- un test vérifie que `conditions.html` et `confidentialite.html` reprennent mot
+  pour mot les textes de `legal_documents.dart`, que les liens internes du site
+  pointent vers des fichiers existants, et que la version annoncée est celle de
+  l'application. La suite passe de 216 à 221 cas.
+
 ### Modifications
 
+- `docs/ARCHITECTURE.md` est supprimé : le site le remplace pour le lecteur, et
+  le README garde le schéma des couches et l'invariant d'accès au moteur natif.
+  Les points d'implémentation qui expliquent le comportement visible — isolate
+  worker, arrêt par drapeau atomique, décodage UTF-8 incrémental, import GGUF
+  par flux, socle HTTP partagé — sont repris dans la section « Sous le capot »
+  du site ;
 - l'application s'appelle désormais **FoxLLM**. « GPT » n'est pas une marque
   enregistrée — l'office américain a refusé le dépôt, jugeant le sigle
   descriptif — mais les règles de marque d'OpenAI demandent de ne pas

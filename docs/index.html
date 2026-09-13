@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FoxLLM — chat IA local pour Android</title>
+    <meta
+      name="description"
+      content="FoxLLM exécute des modèles GGUF directement sur le téléphone, ou parle à ton fournisseur d'API avec ta propre clé. Sans serveur, sans compte, sous licence AGPL v3."
+    />
+    <link rel="icon" href="fox_logo.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FoxLLM — chat IA local pour Android" />
+    <meta
+      property="og:description"
+      content="Modèles GGUF exécutés sur le téléphone, ou ta propre clé API. Aucun serveur FoxLLM sur le trajet."
+    />
+    <meta property="og:image" content="fox_logo.png" />
+    <script>
+      /* Appliqué avant le premier rendu pour éviter un clignotement de thème. */
+      (function () {
+        try {
+          var saved = localStorage.getItem('foxllm-theme');
+          if (saved === 'light' || saved === 'dark') {
+            document.documentElement.setAttribute('data-theme', saved);
+          }
+        } catch (error) {}
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap"
+    />
+    <link rel="stylesheet" href="site.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="./">
+        <img src="fox_logo.png" alt="" width="30" height="30" />
+        FoxLLM
+      </a>
+      <nav class="topnav" aria-label="Sections">
+        <a href="#fonctionnement">Fonctionnement</a>
+        <a href="#fonctions">Fonctions</a>
+        <a href="#technique">Sous le capot</a>
+        <a href="#confidentialite">Confidentialité</a>
+        <a href="#installer">Installer</a>
+        <a href="#licence">Licence</a>
+        <a href="https://github.com/GhostPunishR/FoxLLM">Code source</a>
+        <button class="theme-toggle" id="theme-toggle" type="button">
+          <span data-theme-label>Sombre</span>
+        </button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="band band--first">
+        <div class="wrap hero">
+          <div>
+            <p class="eyebrow">Android · logiciel libre</p>
+            <h1>
+              Une IA qui reste
+              <span class="hero__claim">dans ton téléphone</span>.
+            </h1>
+            <p class="lede">
+              FoxLLM exécute des modèles GGUF sur l'appareil avec
+              <code>llama.cpp</code>, ou contacte directement le fournisseur de
+              ton choix avec une clé API que tu fournis toi-même. Il n'y a pas
+              de serveur FoxLLM, donc pas de compte, pas de file d'attente et
+              rien à nous confier.
+            </p>
+            <div class="cta-row">
+              <a
+                class="button button--solid"
+                href="https://github.com/GhostPunishR/FoxLLM/releases"
+                >Télécharger l'APK</a
+              >
+              <a class="button button--ghost" href="#fonctionnement"
+                >Comment ça marche</a
+              >
+            </div>
+            <dl class="specsheet">
+              <div>
+                <dt>Version</dt>
+                <dd class="spec__value">0.1.2</dd>
+              </div>
+              <div>
+                <dt>Cible</dt>
+                <dd class="spec__value">Android 9+ · arm64</dd>
+              </div>
+              <div>
+                <dt>Moteur local</dt>
+                <dd class="spec__value">llama.cpp b10903</dd>
+              </div>
+              <div>
+                <dt>Licence</dt>
+                <dd class="spec__value">AGPL-3.0-only</dd>
+              </div>
+            </dl>
+          </div>
+          <img
+            class="hero__mark"
+            src="fox_logo.png"
+            alt="Logo de FoxLLM : une tête de renard orange"
+            width="576"
+            height="576"
+          />
+        </div>
+      </section>
+
+      <section class="band band--raised" id="fonctionnement">
+        <div class="wrap">
+          <p class="eyebrow">Fonctionnement</p>
+          <h2>Deux moteurs, deux trajets</h2>
+          <p class="lede">
+            Le même écran de chat parle aux deux. La seule différence est ce qui
+            quitte l'appareil, et elle est visible avant d'écrire le premier
+            message.
+          </p>
+
+          <div class="flows">
+            <article class="flow">
+              <h3>Modèle local</h3>
+              <p>
+                Un fichier <code>.gguf</code> importé dans l'espace privé de
+                l'application. La génération se fait sur le processeur du
+                téléphone, dans un isolate dédié pour que l'interface reste
+                fluide.
+              </p>
+              <svg viewBox="0 0 320 130" role="img" aria-label="Le chat, llama.cpp et le modèle GGUF sont tous sur l'appareil ; aucune connexion réseau n'est utilisée.">
+                <rect class="svg-fence" x="6" y="28" width="308" height="90" rx="14" />
+                <text class="svg-note" x="18" y="45">appareil</text>
+                <rect class="svg-box svg-box--accent" x="14" y="54" width="81" height="34" rx="9" />
+                <text class="svg-label" x="54" y="75" text-anchor="middle">chat</text>
+                <path class="svg-arrow" d="M99 71 H112" />
+                <polygon class="svg-arrow-head" points="112,67 119,71 112,75" />
+                <rect class="svg-box" x="119" y="54" width="81" height="34" rx="9" />
+                <text class="svg-label" x="159" y="75" text-anchor="middle">llama.cpp</text>
+                <path class="svg-arrow" d="M204 71 H217" />
+                <polygon class="svg-arrow-head" points="217,67 224,71 217,75" />
+                <rect class="svg-box" x="224" y="54" width="81" height="34" rx="9" />
+                <text class="svg-label" x="264" y="75" text-anchor="middle">GGUF</text>
+                <text class="svg-note" x="160" y="109" text-anchor="middle">
+                  aucune connexion réseau
+                </text>
+              </svg>
+            </article>
+
+            <article class="flow">
+              <h3>API personnelle (BYOK)</h3>
+              <p>
+                Ta clé, ton fournisseur, ta facture. La requête part du
+                téléphone vers le fournisseur, en HTTPS, sans relais
+                intermédiaire.
+              </p>
+              <svg viewBox="0 0 320 130" role="img" aria-label="Le téléphone contacte directement le fournisseur d'API en HTTPS ; aucun serveur FoxLLM n'est sur le trajet.">
+                <rect class="svg-box svg-box--accent" x="14" y="54" width="110" height="34" rx="9" />
+                <text class="svg-label" x="69" y="75" text-anchor="middle">FoxLLM</text>
+                <text class="svg-note" x="160" y="62" text-anchor="middle">HTTPS · ta clé</text>
+                <path class="svg-arrow" d="M128 71 H182" />
+                <polygon class="svg-arrow-head" points="182,67 189,71 182,75" />
+                <rect class="svg-box" x="194" y="54" width="110" height="34" rx="9" />
+                <text class="svg-label" x="249" y="75" text-anchor="middle">fournisseur</text>
+                <text class="svg-note" x="160" y="109" text-anchor="middle">
+                  pas de serveur FoxLLM entre les deux
+                </text>
+              </svg>
+            </article>
+          </div>
+
+          <div class="providers">
+            <span class="provider">OpenAI <span>· API Responses</span></span>
+            <span class="provider">Google Gemini</span>
+            <span class="provider">Groq</span>
+            <span class="provider">Mistral AI</span>
+            <span class="provider">OpenRouter</span>
+            <span class="provider">xAI</span>
+            <span class="provider">Personnalisé <span>· OpenAI-compatible</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="fonctions">
+        <div class="wrap">
+          <p class="eyebrow">Dans l'application</p>
+          <h2>Ce que tu peux faire</h2>
+
+          <div class="features">
+            <article class="feature">
+              <span class="feature__tag">Local</span>
+              <h3>Modèles GGUF importés</h3>
+              <p>
+                Import par flux dans le stockage privé, avec progression et
+                reprise propre en cas d'échec. Description, taille et fenêtre de
+                contexte du modèle sont affichées, et l'arrêt d'une génération
+                est immédiat.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">BYOK</span>
+              <h3>Ta clé, ton fournisseur</h3>
+              <p>
+                Sept destinations, dont toute API OpenAI-compatible que tu
+                renseignes à la main. La clé est chiffrée par le stockage
+                sécurisé du système, ou gardée en mémoire pour la seule session.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Lecture</span>
+              <h3>Markdown rendu, pas affiché</h3>
+              <p>
+                Titres, listes, gras, italique et liens cliquables. Les blocs de
+                code sont annotés par langage, colorés et copiables d'un geste.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Pièces jointes</span>
+              <h3>Fichier, galerie, appareil photo</h3>
+              <p>
+                Les pièces jointes apparaissent comme telles dans le fil. Les
+                images partent vers les modèles multimodaux au format attendu
+                par le fournisseur, OpenAI ou Gemini.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Voix</span>
+              <h3>Dictée maintenue au doigt</h3>
+              <p>
+                Le texte reconnu arrive dans le champ de saisie et reste
+                modifiable avant l'envoi. Le micro n'est demandé qu'à la
+                première dictée, jamais au lancement.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Modes</span>
+              <h3>Réflexion et Recherche</h3>
+              <p>
+                Réflexion élargit la marge de génération et demande un
+                raisonnement, sur tous les moteurs. Recherche active l'outil web
+                intégré d'OpenAI ou de Gemini, quand le fournisseur le propose.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Personnalisation</span>
+              <h3>Une consigne permanente</h3>
+              <p>
+                Le ton et le comportement attendus s'écrivent une fois dans les
+                paramètres, puis accompagnent chaque message, que le moteur soit
+                local ou distant.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Historique</span>
+              <h3>Conversations conservées</h3>
+              <p>
+                Le fil reste là au lancement suivant, avec recherche et
+                regroupement par période dans le menu latéral. Renommer ou
+                supprimer une conversation s'y fait directement.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Apparence</span>
+              <h3>Deux déclinaisons renard</h3>
+              <p>
+                Un thème clair par défaut et un thème sombre, tous deux teintés
+                du même orange. Le choix va jusqu'à la fenêtre de lancement
+                Android : plus d'écran noir avant le chat.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band band--raised" id="technique">
+        <div class="wrap">
+          <p class="eyebrow">Sous le capot</p>
+          <h2>Comment c'est construit</h2>
+          <p class="lede">
+            Flutter et Dart pour l'interface, C++ pour l'inférence, une ABI C
+            stable entre les deux. Les détails qui expliquent le comportement
+            visible à l'usage&nbsp;:
+          </p>
+
+          <div class="features">
+            <article class="feature">
+              <h3>L'inférence n'habite pas l'interface</h3>
+              <p>
+                Le chargement d'un GGUF et la boucle bloquante de
+                <code>llama.cpp</code> vivent dans un isolate worker dédié.
+                L'isolate Flutter garde ses animations et sa saisie, quoi que
+                fasse le moteur.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Un arrêt qui n'attend pas</h3>
+              <p>
+                Stop n'écrit pas dans la file du worker, qui peut être bloquée
+                dans l'appel natif : il positionne un drapeau atomique que la
+                boucle C++ relit entre deux décodages. La génération cesse tout
+                de suite.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Des tokens sans caractères cassés</h3>
+              <p>
+                Chaque token remonte du C++ par callback, puis franchit
+                l'isolate par port. Le décodage UTF-8 est incrémental : un
+                accent ou un emoji étalé sur deux tokens s'affiche entier.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Un import qui ne sature pas la mémoire</h3>
+              <p>
+                Le <code>.gguf</code> est copié par flux dans un fichier
+                <code>.part</code>, chunk après chunk et avec attente d'écriture,
+                puis renommé seulement une fois complet. Un import interrompu ne
+                laisse pas de modèle à moitié valide.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Un seul socle HTTP</h3>
+              <p>
+                Lecture de la clé, flux SSE, erreurs et annulation sont écrits
+                une fois. Un fournisseur ne décrit que sa requête et la façon
+                d'extraire le texte d'un évènement.
+              </p>
+            </article>
+            <article class="feature">
+              <h3>Vérifié à chaque commit</h3>
+              <p>
+                Format, analyse Dart, tests Flutter, compilation C++, smoke test
+                FFI et construction de l'APK tournent en intégration continue,
+                qui vérifie aussi que le moteur et ses symboles de streaming
+                sont bien dans le paquet.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="confidentialite">
+        <div class="wrap">
+          <p class="eyebrow">Confidentialité</p>
+          <h2>Où va chaque chose</h2>
+          <p class="lede">
+            FoxLLM n'a pas de serveur, donc rien ne peut lui être envoyé. Voici
+            la liste complète de ce que l'application manipule, et où cela
+            atterrit.
+          </p>
+
+          <div class="ledger">
+            <div class="ledger__row">
+              <span class="ledger__what">Conversations</span>
+              <span class="ledger__where">Stockage privé de l'application</span>
+              <span class="verdict verdict--stays">reste sur l'appareil</span>
+            </div>
+            <div class="ledger__row">
+              <span class="ledger__what">Clé API</span>
+              <span class="ledger__where"
+                >Stockage sécurisé du système, ou mémoire de la session</span
+              >
+              <span class="verdict verdict--stays">reste sur l'appareil</span>
+            </div>
+            <div class="ledger__row">
+              <span class="ledger__what">Consigne de personnalisation</span>
+              <span class="ledger__where">Stockage sécurisé du système</span>
+              <span class="verdict verdict--stays">reste sur l'appareil</span>
+            </div>
+            <div class="ledger__row">
+              <span class="ledger__what">Modèles GGUF importés</span>
+              <span class="ledger__where"
+                >Dossier privé, inaccessible aux autres applications</span
+              >
+              <span class="verdict verdict--stays">reste sur l'appareil</span>
+            </div>
+            <div class="ledger__row">
+              <span class="ledger__what">Statistiques d'usage</span>
+              <span class="ledger__where"
+                >Aucun outil de suivi ni de rapport d'incident embarqué</span
+              >
+              <span class="verdict verdict--stays">n'est pas collecté</span>
+            </div>
+            <div class="ledger__row">
+              <span class="ledger__what">Messages, en mode API personnelle</span>
+              <span class="ledger__where"
+                >Directement au fournisseur que tu as configuré</span
+              >
+              <span class="verdict verdict--leaves">part vers le fournisseur</span>
+            </div>
+            <div class="ledger__row">
+              <span class="ledger__what">Audio de la dictée</span>
+              <span class="ledger__where"
+                >Service de reconnaissance vocale d'Android, jamais par
+                FoxLLM</span
+              >
+              <span class="verdict verdict--leaves">dépend d'Android</span>
+            </div>
+          </div>
+
+          <p class="lede" style="margin-top: 26px">
+            Le détail, section par section, est dans la
+            <a href="confidentialite.html">politique de confidentialité</a> —
+            le même texte que celui affiché dans l'application.
+          </p>
+        </div>
+      </section>
+
+      <section class="band band--raised" id="installer">
+        <div class="wrap">
+          <p class="eyebrow">Installation</p>
+          <h2>Quatre étapes</h2>
+
+          <ol class="steps">
+            <li>
+              <div>
+                <strong>Récupérer l'APK</strong>
+                <p>
+                  Depuis la page
+                  <a href="https://github.com/GhostPunishR/FoxLLM/releases"
+                    >Releases</a
+                  >
+                  du dépôt, ou parmi les artefacts produits par l'intégration
+                  continue sur une branche donnée.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Installer sur un Android arm64</strong>
+                <p>
+                  Android 9 (API 28) ou plus récent. L'installation depuis un
+                  fichier demande d'autoriser les sources inconnues pour
+                  l'application qui ouvre l'APK.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Choisir un moteur</strong>
+                <p>
+                  Paramètres → <em>Modèles locaux</em> pour importer un
+                  <code>.gguf</code>, ou Paramètres →
+                  <em>API personnelle</em> pour coller une clé. Les deux peuvent
+                  coexister.
+                </p>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Écrire</strong>
+                <p>
+                  Rien d'autre : pas de compte à créer, pas d'inscription, pas
+                  de connexion requise en mode local.
+                </p>
+              </div>
+            </li>
+          </ol>
+
+          <p class="lede" style="margin-top: 30px">
+            Depuis les sources, avec le SDK Flutter et le NDK Android installés :
+            <code>flutter pub get</code> puis
+            <code>flutter build apk --release</code>. Le moteur
+            <code>llama.cpp</code> est compilé et lié statiquement par le build
+            hook du package natif ; sur les autres architectures, un stub léger
+            prend sa place pour que les tests et le mode API restent
+            utilisables.
+          </p>
+        </div>
+      </section>
+
+      <section class="band" id="licence">
+        <div class="wrap">
+          <p class="eyebrow">Licence</p>
+          <h2>Libre, et vérifiable</h2>
+          <div class="stack spine" style="margin-top: 18px">
+            <p class="lede">
+              FoxLLM est distribué sous
+              <strong>GNU Affero General Public License version 3</strong>, à
+              l'exclusion de toute version ultérieure. Chaque fichier source
+              porte la notice correspondante sous forme d'identifiant SPDX
+              <code>AGPL-3.0-only</code>.
+            </p>
+            <p class="lede">
+              L'AGPL demande que celui qui reçoit le programme puisse en obtenir
+              le code : l'adresse du dépôt est donc affichée dans
+              l'application elle-même, dans Paramètres → À propos → Licence,
+              à côté du texte intégral. Les bibliothèques tierces gardent leurs
+              licences respectives, rassemblées dans le même écran.
+            </p>
+            <p class="lede">Copyright © 2026 GhostPunishR.</p>
+          </div>
+          <div class="cta-row">
+            <a
+              class="button button--solid"
+              href="https://github.com/GhostPunishR/FoxLLM"
+              >Voir le code source</a
+            >
+            <a
+              class="button button--ghost"
+              href="https://github.com/GhostPunishR/FoxLLM/blob/main/LICENSE"
+              >Lire la licence</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="foot__inner">
+        <span>FoxLLM 0.1.2 · Copyright © 2026 GhostPunishR · AGPL-3.0-only</span>
+        <nav aria-label="Pages légales">
+          <a href="conditions.html">Conditions d'utilisation</a>
+          <a href="confidentialite.html">Confidentialité</a>
+          <a href="https://github.com/GhostPunishR/FoxLLM">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script src="theme.js"></script>
+  </body>
+</html>
