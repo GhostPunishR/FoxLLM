@@ -6,13 +6,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/chat_message.dart';
-import 'package:foxgpt/core/llm/generation_settings.dart';
-import 'package:foxgpt/core/llm/openai_responses_backend.dart';
-import 'package:foxgpt/core/llm/personal_api_provider.dart';
-import 'package:foxgpt/core/llm/personal_api_settings.dart';
-import 'package:foxgpt/core/llm/provider_config.dart';
-import 'package:foxgpt/core/security/api_key_store.dart';
+import 'package:foxllm/core/llm/chat_message.dart';
+import 'package:foxllm/core/llm/generation_settings.dart';
+import 'package:foxllm/core/llm/openai_responses_backend.dart';
+import 'package:foxllm/core/llm/personal_api_provider.dart';
+import 'package:foxllm/core/llm/personal_api_settings.dart';
+import 'package:foxllm/core/llm/provider_config.dart';
+import 'package:foxllm/core/security/api_key_store.dart';
 import 'package:http/http.dart' as http;
 
 const _provider = ProviderConfig(

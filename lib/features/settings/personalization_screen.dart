@@ -97,7 +97,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 36),
         children: <Widget>[
           Text(
-            'Décris comment FoxGPT doit te répondre : ton, longueur, langue, '
+            'Décris comment FoxLLM doit te répondre : ton, longueur, langue, '
             'rôle à tenir. Ces consignes accompagnent chaque message, dans '
             'toutes les conversations.',
             style: TextStyle(

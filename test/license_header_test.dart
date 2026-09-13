@@ -5,14 +5,14 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Dossiers dont FoxGPT écrit lui-même le contenu.
+/// Dossiers dont FoxLLM écrit lui-même le contenu.
 const _ownedRoots = <String, List<String>>{
   'lib': <String>['.dart'],
   'test': <String>['.dart'],
-  'packages/foxgpt_native/lib': <String>['.dart'],
-  'packages/foxgpt_native/tool': <String>['.dart'],
-  'packages/foxgpt_native/hook': <String>['.dart'],
-  'packages/foxgpt_native/src': <String>['.cpp', '.h'],
+  'packages/foxllm_native/lib': <String>['.dart'],
+  'packages/foxllm_native/tool': <String>['.dart'],
+  'packages/foxllm_native/hook': <String>['.dart'],
+  'packages/foxllm_native/src': <String>['.cpp', '.h'],
   'android/app/src/main/kotlin': <String>['.kt'],
 };
 
@@ -51,7 +51,7 @@ void main() {
   test('le texte de la licence reste celui de la FSF', () {
     // La ligne de l'annexe est un modèle à recopier dans les fichiers du
     // programme, pas un champ à remplir : la remplacer modifierait le texte de
-    // la licence, et la notice de FoxGPT vit dans ses propres fichiers.
+    // la licence, et la notice de FoxLLM vit dans ses propres fichiers.
     final license = File('LICENSE').readAsStringSync();
 
     expect(license, contains('Copyright (C) 2007 Free Software Foundation'));

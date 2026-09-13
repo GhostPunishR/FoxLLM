@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- À partir d'Android 12, le système impose sa propre fenêtre de lancement.
-         On lui donne le fond de la déclinaison courante et le renard FoxGPT.
+         On lui donne le fond de la déclinaison courante et le renard FoxLLM.
 
-         `windowSplashScreenBackground` pointe sur `@color/foxgpt_background`,
+         `windowSplashScreenBackground` pointe sur `@color/foxllm_background`,
          redéfini dans values-night : le splash suit donc le mode déclaré par
          `UiModeManager.setApplicationNightMode` (voir MainActivity), au lieu
          d'être figé sur une teinte.
@@ -17,11 +17,11 @@
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowFullscreen">true</item>
-        <item name="android:windowSplashScreenBackground">@color/foxgpt_background</item>
+        <item name="android:windowSplashScreenBackground">@color/foxllm_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/fox_splash_logo</item>
         <item name="android:windowSplashScreenAnimationDuration">0</item>
-        <item name="android:statusBarColor">@color/foxgpt_background</item>
-        <item name="android:navigationBarColor">@color/foxgpt_background</item>
+        <item name="android:statusBarColor">@color/foxllm_background</item>
+        <item name="android:navigationBarColor">@color/foxllm_background</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>

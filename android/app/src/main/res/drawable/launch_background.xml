@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Fenêtre de lancement pour Android 11 et antérieur : le fond du chat, avec
-     le renard FoxGPT centré. Le logo est transparent autour du tracé, donc ses
+     le renard FoxLLM centré. Le logo est transparent autour du tracé, donc ses
      séparations internes (museau, rayures, œil) prennent la couleur du fond. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/foxgpt_background" />
+    <item android:drawable="@color/foxllm_background" />
     <item
         android:width="160dp"
         android:height="160dp"

@@ -125,7 +125,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const _SettingsSectionTitle('FoxGPT'),
+          const _SettingsSectionTitle('FoxLLM'),
           const SizedBox(height: 8),
           _SettingsCard(
             children: <Widget>[

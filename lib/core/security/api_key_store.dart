@@ -13,7 +13,7 @@ class ApiKeyStore {
   final Map<String, String> _sessionKeys = <String, String>{};
 
   String _storageKey(String providerId) =>
-      'foxgpt.provider.$providerId.api_key';
+      'foxllm.provider.$providerId.api_key';
 
   Future<void> save({
     required String providerId,

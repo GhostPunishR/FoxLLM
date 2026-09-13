@@ -34,8 +34,8 @@ jobs:
           dart format
           lib
           test
-          packages/foxgpt_native/lib
-          packages/foxgpt_native/hook
-          packages/foxgpt_native/tool
+          packages/foxllm_native/lib
+          packages/foxllm_native/hook
+          packages/foxllm_native/tool
       - name: Verify no formatting changes
         run: git diff --exit-code

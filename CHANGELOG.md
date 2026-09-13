@@ -1,12 +1,30 @@
 # Changelog
 
-Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
+Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
+
+## [Non publié]
+
+### Modifications
+
+- l'application s'appelle désormais **FoxLLM**. « GPT » n'est pas une marque
+  enregistrée — l'office américain a refusé le dépôt, jugeant le sigle
+  descriptif — mais les règles de marque d'OpenAI demandent de ne pas
+  l'employer dans le nom d'un produit tiers, et les magasins d'applications
+  ont déjà fait retirer des applications pour ce motif. Le renommage a lieu
+  avant toute publication : l'`applicationId` Android est figé dès la première
+  mise en ligne, et en changer ensuite créerait une application distincte, sans
+  mise à jour possible pour ceux qui auraient installé la précédente ;
+- le renommage couvre le nom visible, l'identifiant Android
+  (`com.ghostpunishr.foxllm`), les deux paquets Dart, la bibliothèque native
+  (`libfoxllm_native.so`) et ses symboles C, les classes, les clés de stockage
+  et la documentation. Les noms bâtis sur le renard seul — palette, thèmes,
+  logo — sont inchangés : seul le sigle devait partir.
 
 ## [0.1.2] - 2026-09-13
 
 Les quatre actions du composer deviennent réelles — pièces jointes, réflexion,
 recherche web et dictée —, les réponses s'affichent en Markdown complet, et
-FoxGPT déclare sa licence. La suite de tests passe de 120 à 216 cas.
+FoxLLM déclare sa licence. La suite de tests passe de 120 à 216 cas.
 
 ### Composer
 
@@ -66,7 +84,7 @@ FoxGPT déclare sa licence. La suite de tests passe de 120 à 216 cas.
   donne déjà. Le nom est lu depuis le chemin mémorisé : interroger le moteur
   l'aurait construit, isolate et bibliothèque native compris, pour un
   sous-titre ;
-- FoxGPT déclare sa licence : le texte intégral de la GNU Affero General Public
+- FoxLLM déclare sa licence : le texte intégral de la GNU Affero General Public
   License v3 est consultable dans À propos, chaque fichier source porte la
   notice sous forme d'identifiant SPDX (`AGPL-3.0-only`), et le README la
   notice de copyright complète. Le fichier `LICENSE` est celui de la FSF mot
@@ -75,7 +93,7 @@ FoxGPT déclare sa licence. La suite de tests passe de 120 à 216 cas.
 - À propos donne aussi l'adresse du code source et la page des licences
   tierces : l'AGPL demande que celui qui reçoit le programme puisse obtenir son
   code, encore faut-il qu'il sache où ;
-- la politique de confidentialité couvre la dictée : FoxGPT ne transporte aucun
+- la politique de confidentialité couvre la dictée : FoxLLM ne transporte aucun
   son, mais le service de reconnaissance d'Android peut traiter l'audio sur
   l'appareil ou l'envoyer à ses propres serveurs selon les paquets de langue
   installés.
@@ -111,11 +129,11 @@ tests passe de 29 à 120 cas.
   chat. Cet écran n'effectuait aucun préchargement et ajoutait 700 ms d'attente
   purement décorative ;
 - le moteur local n'est plus chargé au lancement : l'isolate worker et
-  `libfoxgpt_native.so`, qui embarque `llama.cpp`, étaient créés avant le
+  `libfoxllm_native.so`, qui embarque `llama.cpp`, étaient créés avant le
   premier frame et retardaient d'autant l'apparition de l'interface. Ils sont
   désormais construits à la première utilisation réelle (envoi d'un message,
   ouverture des modèles locaux) ;
-- la fenêtre de lancement Android porte le logo FoxGPT sur le fond de la
+- la fenêtre de lancement Android porte le logo FoxLLM sur le fond de la
   déclinaison choisie, au lieu d'une couleur figée. Android la dessine avant
   que le processus démarre et ne peut donc pas lire une préférence Flutter :
   l'application déclare son mode au système via
@@ -129,7 +147,7 @@ tests passe de 29 à 120 cas.
 
 ### Interface du chat
 
-- nouveau logo FoxGPT, partagé par l'écran de lancement, le chat et l'icône
+- nouveau logo FoxLLM, partagé par l'écran de lancement, le chat et l'icône
   Android. Le tracé précédent du chat était polygonal ; le nouveau est fourni
   en 1x, 2x et 3x pour rester net aux petites tailles ;
 - les boutons du haut forment une barre opaque : le fil de messages s'arrête
@@ -158,16 +176,16 @@ tests passe de 29 à 120 cas.
   et « Sombre renard », avec aperçu et choix conservé entre deux lancements. La
   déclinaison claire ouvre la liste et s'applique par défaut. Les écrans lisent
   une palette centralisée (`FoxPalette`) au lieu de couleurs codées en dur, et
-  les puces d'outils du chat passent du bleu Material à l'orange FoxGPT ;
+  les puces d'outils du chat passent du bleu Material à l'orange FoxLLM ;
 - nouvelle entrée Personnalisation, à la place de « Confidentialité » qui
-  n'était qu'un libellé inerte : l'utilisateur y décrit comment FoxGPT doit
+  n'était qu'un libellé inerte : l'utilisateur y décrit comment FoxLLM doit
   répondre — ton, longueur, langue, rôle à tenir — avec des modèles prêts à
   l'emploi. Ces consignes ouvrent chaque requête en message système, aussi bien
   vers le moteur local que vers une API personnelle, et ne sont pas figées dans
   les conversations enregistrées ;
 - l'entrée « À propos » ouvre un écran donnant accès aux conditions
   d'utilisation et à la politique de confidentialité ;
-- suppression du pied de page des Paramètres (le libellé « FoxGPT » et son
+- suppression du pied de page des Paramètres (le libellé « FoxLLM » et son
   trait orange).
 
 ### Corrections
@@ -179,7 +197,7 @@ tests passe de 29 à 120 cas.
   étant lus de façon asynchrone, il arrivait toujours trop tard ;
 - les écrans « Modèles locaux » et « API personnelle » ignoraient le thème
   choisi : leurs cartes et libellés suivent les rôles Material, qui n'étaient
-  pas dérivés de la palette FoxGPT ;
+  pas dérivés de la palette FoxLLM ;
 - une lecture lente du stockage revenait par-dessus un choix fait entre-temps :
   un thème sélectionné juste après le lancement pouvait repasser tout seul à
   l'ancien, et les instructions de personnalisation subissaient le même sort ;
@@ -241,11 +259,11 @@ tests passe de 29 à 120 cas.
 
 ## [0.1.0] - 2026-09-12
 
-Première version fonctionnelle de FoxGPT pour Android, avec exécution locale de modèles GGUF et prise en charge d'API personnelles BYOK.
+Première version fonctionnelle de FoxLLM pour Android, avec exécution locale de modèles GGUF et prise en charge d'API personnelles BYOK.
 
 ### Interface et expérience utilisateur
 
-- écran de chat FoxGPT utilisé comme écran d'accueil principal ;
+- écran de chat FoxLLM utilisé comme écran d'accueil principal ;
 - interface plein écran immersive sur Android ;
 - composer responsive avec actions Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - streaming des réponses directement dans le chat ;
@@ -259,13 +277,13 @@ Première version fonctionnelle de FoxGPT pour Android, avec exécution locale d
 - bouton Paramètres placé en bas du menu latéral ;
 - écran Paramètres dédié avec accès aux modèles locaux et à l'API personnelle.
 
-### Identité visuelle FoxGPT
+### Identité visuelle FoxLLM
 
-- nouveau logo renard orange dérivé directement de l'image de référence FoxGPT ;
+- nouveau logo renard orange dérivé directement de l'image de référence FoxLLM ;
 - logo vectoriel commun utilisé dans le chat, le splash et les ressources Android ;
 - icône APK sur fond blanc ;
 - icône adaptive et icône ronde Android ;
-- splash natif Android blanc avec le renard FoxGPT ;
+- splash natif Android blanc avec le renard FoxLLM ;
 - splash Flutter avec le même branding et une barre de chargement orange ;
 - transition du splash vers le chat sans flash blanc parasite.
 
@@ -274,13 +292,13 @@ Première version fonctionnelle de FoxGPT pour Android, avec exécution locale d
 - intégration réelle de `llama.cpp` pour Android arm64 ;
 - version `llama.cpp` b10903 épinglée au commit `481c65f091f74c5e7089dd0a3a1cc6b50cced31e` ;
 - cible Android arm64 / API 28+ ;
-- package FFI `foxgpt_native` avec ABI C stable ;
+- package FFI `foxllm_native` avec ABI C stable ;
 - contrat Dart commun `LlmBackend` pour les backends locaux et distants ;
 - backend local `LocalLlmBackend` ;
 - exécution des appels natifs bloquants dans un isolate worker longue durée ;
 - chargement et déchargement réels de modèles GGUF ;
 - sélection d'un fichier `.gguf` avec le picker système Android ;
-- import des modèles dans le stockage privé de FoxGPT avec progression ;
+- import des modèles dans le stockage privé de FoxLLM avec progression ;
 - import sécurisé via fichier temporaire `.part` ;
 - bibliothèque persistante des modèles importés ;
 - gestion des doublons et suppression des modèles ;
@@ -301,7 +319,7 @@ Première version fonctionnelle de FoxGPT pour Android, avec exécution locale d
 - parcours simplifié : Fournisseur → Clé API → Modèles disponibles → Choix du modèle → Test → Utiliser dans le chat ;
 - aucune obligation de saisir manuellement une Base URL pour les fournisseurs intégrés ;
 - récupération automatique des modèles disponibles avec la clé API quand le fournisseur le permet ;
-- choix du modèle laissé à l'utilisateur, sans modèle imposé ou hardcodé par FoxGPT ;
+- choix du modèle laissé à l'utilisateur, sans modèle imposé ou hardcodé par FoxLLM ;
 - saisie manuelle de l'identifiant du modèle disponible en secours ;
 - mode Personnalisé pour les API compatibles OpenAI avec Base URL manuelle ;
 - activation ou désactivation de l'API personnelle pour le chat ;
@@ -332,8 +350,8 @@ Première version fonctionnelle de FoxGPT pour Android, avec exécution locale d
 
 ### Sécurité des clés API
 
-- aucune clé API hardcodée dans FoxGPT ;
-- aucune clé envoyée vers un serveur FoxGPT ;
+- aucune clé API hardcodée dans FoxLLM ;
+- aucune clé envoyée vers un serveur FoxLLM ;
 - communication directe téléphone → fournisseur ;
 - stockage sécurisé des clés sur l'appareil via `flutter_secure_storage` ;
 - option session uniquement pour ne pas persister la clé ;

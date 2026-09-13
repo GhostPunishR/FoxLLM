@@ -1,7 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
-@DefaultAsset('package:foxgpt_native/foxgpt_native.dart')
+@DefaultAsset('package:foxllm_native/foxllm_native.dart')
 library;
 
 import 'dart:async';
@@ -15,40 +15,40 @@ import 'package:ffi/ffi.dart';
 typedef _TokenCallbackNative =
     Void Function(Pointer<Uint8>, Int32, Pointer<Void>);
 
-@Native<Pointer<Void> Function()>(symbol: 'foxgpt_engine_create')
+@Native<Pointer<Void> Function()>(symbol: 'foxllm_engine_create')
 external Pointer<Void> _engineCreate();
 
-@Native<Void Function(Pointer<Void>)>(symbol: 'foxgpt_engine_destroy')
+@Native<Void Function(Pointer<Void>)>(symbol: 'foxllm_engine_destroy')
 external void _engineDestroy(Pointer<Void> engine);
 
 @Native<Int32 Function(Pointer<Void>, Pointer<Utf8>)>(
-  symbol: 'foxgpt_engine_load_model',
+  symbol: 'foxllm_engine_load_model',
 )
 external int _engineLoadModel(Pointer<Void> engine, Pointer<Utf8> modelPath);
 
-@Native<Void Function(Pointer<Void>)>(symbol: 'foxgpt_engine_unload_model')
+@Native<Void Function(Pointer<Void>)>(symbol: 'foxllm_engine_unload_model')
 external void _engineUnloadModel(Pointer<Void> engine);
 
-@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxgpt_engine_is_model_loaded')
+@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxllm_engine_is_model_loaded')
 external int _engineIsModelLoaded(Pointer<Void> engine);
 
 @Native<Pointer<Utf8> Function(Pointer<Void>)>(
-  symbol: 'foxgpt_engine_model_description',
+  symbol: 'foxllm_engine_model_description',
 )
 external Pointer<Utf8> _engineModelDescription(Pointer<Void> engine);
 
 @Native<Uint64 Function(Pointer<Void>)>(
-  symbol: 'foxgpt_engine_model_size_bytes',
+  symbol: 'foxllm_engine_model_size_bytes',
 )
 external int _engineModelSizeBytes(Pointer<Void> engine);
 
 @Native<Int32 Function(Pointer<Void>)>(
-  symbol: 'foxgpt_engine_model_context_size',
+  symbol: 'foxllm_engine_model_context_size',
 )
 external int _engineModelContextSize(Pointer<Void> engine);
 
 @Native<Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>)>(
-  symbol: 'foxgpt_engine_generate',
+  symbol: 'foxllm_engine_generate',
 )
 external Pointer<Utf8> _engineGenerate(
   Pointer<Void> engine,
@@ -65,7 +65,7 @@ external Pointer<Utf8> _engineGenerate(
     Pointer<NativeFunction<_TokenCallbackNative>>,
     Pointer<Void>,
   )
->(symbol: 'foxgpt_engine_generate_stream')
+>(symbol: 'foxllm_engine_generate_stream')
 external int _engineGenerateStream(
   Pointer<Void> engine,
   Pointer<Utf8> prompt,
@@ -76,25 +76,25 @@ external int _engineGenerateStream(
   Pointer<Void> userData,
 );
 
-@Native<Void Function(Pointer<Void>)>(symbol: 'foxgpt_engine_reset_stop')
+@Native<Void Function(Pointer<Void>)>(symbol: 'foxllm_engine_reset_stop')
 external void _engineResetStop(Pointer<Void> engine);
 
-@Native<Void Function(Pointer<Void>)>(symbol: 'foxgpt_engine_stop')
+@Native<Void Function(Pointer<Void>)>(symbol: 'foxllm_engine_stop')
 external void _engineStop(Pointer<Void> engine);
 
 @Native<Pointer<Utf8> Function(Pointer<Void>)>(
-  symbol: 'foxgpt_engine_last_error',
+  symbol: 'foxllm_engine_last_error',
 )
 external Pointer<Utf8> _engineLastError(Pointer<Void> engine);
 
-@Native<Pointer<Utf8> Function()>(symbol: 'foxgpt_native_version')
+@Native<Pointer<Utf8> Function()>(symbol: 'foxllm_native_version')
 external Pointer<Utf8> _nativeVersion();
 
-@Native<Void Function(Pointer<Utf8>)>(symbol: 'foxgpt_string_free')
+@Native<Void Function(Pointer<Utf8>)>(symbol: 'foxllm_string_free')
 external void _stringFree(Pointer<Utf8> value);
 
-class FoxGptModelInfo {
-  const FoxGptModelInfo({
+class FoxLlmModelInfo {
+  const FoxLlmModelInfo({
     required this.description,
     required this.sizeBytes,
     required this.contextSize,
@@ -105,8 +105,8 @@ class FoxGptModelInfo {
   final int contextSize;
 }
 
-class FoxGptGenerationStats {
-  const FoxGptGenerationStats({
+class FoxLlmGenerationStats {
+  const FoxLlmGenerationStats({
     required this.generatedTokens,
     required this.elapsed,
   });
@@ -124,10 +124,10 @@ class FoxGptGenerationStats {
   }
 }
 
-class FoxGptNativeEngine {
-  FoxGptNativeEngine() : _handle = _engineCreate() {
+class FoxLlmNativeEngine {
+  FoxLlmNativeEngine() : _handle = _engineCreate() {
     if (_handle == nullptr) {
-      throw StateError('Unable to create FoxGPT native engine.');
+      throw StateError('Unable to create FoxLLM native engine.');
     }
   }
 
@@ -144,13 +144,13 @@ class FoxGptNativeEngine {
     return _engineIsModelLoaded(_handle) == 1;
   }
 
-  FoxGptModelInfo? get modelInfo {
+  FoxLlmModelInfo? get modelInfo {
     _ensureAlive();
     if (!isModelLoaded) {
       return null;
     }
 
-    return FoxGptModelInfo(
+    return FoxLlmModelInfo(
       description: _engineModelDescription(_handle).toDartString(),
       sizeBytes: _engineModelSizeBytes(_handle),
       contextSize: _engineModelContextSize(_handle),
@@ -259,13 +259,13 @@ class FoxGptNativeEngine {
 
   void _ensureAlive() {
     if (isDisposed) {
-      throw StateError('FoxGPT native engine is disposed.');
+      throw StateError('FoxLLM native engine is disposed.');
     }
   }
 }
 
-class FoxGptNativeWorker {
-  FoxGptNativeWorker._();
+class FoxLlmNativeWorker {
+  FoxLlmNativeWorker._();
 
   final Completer<void> _ready = Completer<void>();
   final Map<int, Completer<Object?>> _pending = <int, Completer<Object?>>{};
@@ -290,11 +290,11 @@ class FoxGptNativeWorker {
   bool _disposed = false;
   Object? _failure;
   String _version = '';
-  FoxGptModelInfo? _modelInfo;
-  FoxGptGenerationStats? _lastGenerationStats;
+  FoxLlmModelInfo? _modelInfo;
+  FoxLlmGenerationStats? _lastGenerationStats;
 
-  static Future<FoxGptNativeWorker> start() async {
-    final worker = FoxGptNativeWorker._();
+  static Future<FoxLlmNativeWorker> start() async {
+    final worker = FoxLlmNativeWorker._();
     worker._eventsPort = ReceivePort();
     worker._errorsPort = ReceivePort();
     worker._exitPort = ReceivePort();
@@ -305,12 +305,12 @@ class FoxGptNativeWorker {
 
     try {
       worker._isolate = await Isolate.spawn<SendPort>(
-        _foxGptNativeWorkerMain,
+        _foxLlmNativeWorkerMain,
         worker._eventsPort.sendPort,
         onError: worker._errorsPort.sendPort,
         onExit: worker._exitPort.sendPort,
         errorsAreFatal: true,
-        debugName: 'FoxGPT native inference',
+        debugName: 'FoxLLM native inference',
       );
       await worker._ready.future.timeout(const Duration(seconds: 15));
       return worker;
@@ -331,12 +331,12 @@ class FoxGptNativeWorker {
     return _modelInfo != null;
   }
 
-  FoxGptModelInfo? get modelInfo {
+  FoxLlmModelInfo? get modelInfo {
     _ensureUsable();
     return _modelInfo;
   }
 
-  FoxGptGenerationStats? get lastGenerationStats {
+  FoxLlmGenerationStats? get lastGenerationStats {
     _ensureUsable();
     return _lastGenerationStats;
   }
@@ -370,7 +370,7 @@ class FoxGptNativeWorker {
         final commands = _commands;
         if (_disposed || _disposing || _failure != null || commands == null) {
           bytesController.addError(
-            StateError('FoxGPT native worker is unavailable.'),
+            StateError('FoxLLM native worker is unavailable.'),
           );
           unawaited(bytesController.close());
           return;
@@ -467,7 +467,7 @@ class FoxGptNativeWorker {
   ]) {
     final commands = _commands;
     if (commands == null) {
-      throw StateError('FoxGPT native worker is not ready.');
+      throw StateError('FoxLLM native worker is not ready.');
     }
 
     final requestId = _nextRequestId++;
@@ -523,7 +523,7 @@ class FoxGptNativeWorker {
           controller.add(bytes);
         }
       case 'generationDone':
-        _lastGenerationStats = FoxGptGenerationStats(
+        _lastGenerationStats = FoxLlmGenerationStats(
           generatedTokens: message['tokens']! as int,
           elapsed: Duration(microseconds: message['elapsedMicros']! as int),
         );
@@ -557,12 +557,12 @@ class FoxGptNativeWorker {
     final description = message is List<dynamic> && message.isNotEmpty
         ? message.first.toString()
         : message.toString();
-    _failAll(StateError('FoxGPT native worker failed: $description'));
+    _failAll(StateError('FoxLLM native worker failed: $description'));
   }
 
   void _handleExit(dynamic _) {
     if (!_disposed) {
-      _failAll(StateError('FoxGPT native worker exited unexpectedly.'));
+      _failAll(StateError('FoxLLM native worker exited unexpectedly.'));
     }
   }
 
@@ -612,11 +612,11 @@ class FoxGptNativeWorker {
 
   void _ensureUsable() {
     if (_disposed || _disposing) {
-      throw StateError('FoxGPT native worker is disposed.');
+      throw StateError('FoxLLM native worker is disposed.');
     }
     final failure = _failure;
     if (failure != null) {
-      throw StateError('FoxGPT native worker is unavailable: $failure');
+      throw StateError('FoxLLM native worker is unavailable: $failure');
     }
   }
 
@@ -627,9 +627,9 @@ class FoxGptNativeWorker {
   }
 }
 
-void _foxGptNativeWorkerMain(SendPort events) {
+void _foxLlmNativeWorkerMain(SendPort events) {
   final commands = ReceivePort();
-  final engine = FoxGptNativeEngine();
+  final engine = FoxLlmNativeEngine();
 
   events.send(<String, Object?>{
     'type': 'ready',
@@ -718,7 +718,7 @@ void _foxGptNativeWorkerMain(SendPort events) {
   });
 }
 
-Map<String, Object?>? _encodeModelInfo(FoxGptModelInfo? info) {
+Map<String, Object?>? _encodeModelInfo(FoxLlmModelInfo? info) {
   if (info == null) {
     return null;
   }
@@ -729,11 +729,11 @@ Map<String, Object?>? _encodeModelInfo(FoxGptModelInfo? info) {
   };
 }
 
-FoxGptModelInfo? _decodeModelInfo(Object? value) {
+FoxLlmModelInfo? _decodeModelInfo(Object? value) {
   if (value is! Map<Object?, Object?>) {
     return null;
   }
-  return FoxGptModelInfo(
+  return FoxLlmModelInfo(
     description: value['description']! as String,
     sizeBytes: value['sizeBytes']! as int,
     contextSize: value['contextSize']! as int,

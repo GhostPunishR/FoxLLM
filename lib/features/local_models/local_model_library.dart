@@ -152,7 +152,7 @@ class LocalModelLibrary {
             ).absolute.path ||
         !_isGguf(candidate.path)) {
       throw StateError(
-        'Refus de supprimer un fichier hors de la bibliothèque FoxGPT.',
+        'Refus de supprimer un fichier hors de la bibliothèque FoxLLM.',
       );
     }
 

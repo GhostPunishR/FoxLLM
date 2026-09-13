@@ -15,7 +15,7 @@ class FoxThemeStore {
   FoxThemeStore({FlutterSecureStorage? storage})
     : _storage = storage ?? FlutterSecureStorage();
 
-  static const _key = 'foxgpt.appearance.theme';
+  static const _key = 'foxllm.appearance.theme';
 
   final FlutterSecureStorage _storage;
 

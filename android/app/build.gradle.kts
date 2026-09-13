@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ghostpunishr.foxgpt"
+    namespace = "com.ghostpunishr.foxllm"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ghostpunishr.foxgpt"
+        applicationId = "com.ghostpunishr.foxllm"
         // llama.cpp's supported Android NDK configuration uses API 28 as the baseline.
         minSdk = 28
         targetSdk = flutter.targetSdkVersion

@@ -6,10 +6,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/theme/fox_theme.dart';
-import 'package:foxgpt/features/settings/about_screen.dart';
-import 'package:foxgpt/features/settings/legal_documents.dart';
-import 'package:foxgpt/features/settings/license_screen.dart';
+import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/features/settings/about_screen.dart';
+import 'package:foxllm/features/settings/legal_documents.dart';
+import 'package:foxllm/features/settings/license_screen.dart';
 
 void main() {
   group('fichier LICENSE', () {
@@ -75,7 +75,7 @@ void main() {
 
   group('signature de la licence', () {
     test('la notice porte l’année et le titulaire', () {
-      expect(foxGptCopyright, 'Copyright © 2026 GhostPunishR');
+      expect(foxLlmCopyright, 'Copyright © 2026 GhostPunishR');
     });
 
     test('chaque fichier source porte la même notice que « À propos »', () {
@@ -83,7 +83,7 @@ void main() {
       // titulaire : deux formulations qui divergent sèment le doute sur qui
       // détient les droits.
       final source = File('lib/main.dart').readAsStringSync();
-      expect(source, contains('// $foxGptCopyright'));
+      expect(source, contains('// $foxLlmCopyright'));
     });
 
     testWidgets('l’écran Licence affiche la notice avant le texte', (
@@ -101,7 +101,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(foxGptCopyright), findsOneWidget);
+      expect(find.text(foxLlmCopyright), findsOneWidget);
     });
   });
 
@@ -117,10 +117,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(foxGptCopyright), findsOneWidget);
+      expect(find.text(foxLlmCopyright), findsOneWidget);
       expect(find.text('Code source'), findsOneWidget);
       // L'adresse est visible : l'AGPL demande que le code reste joignable.
-      expect(find.text('github.com/GhostPunishR/FoxGPT'), findsOneWidget);
+      expect(find.text('github.com/GhostPunishR/FoxLLM'), findsOneWidget);
     });
 
     testWidgets('propose la licence et les licences tierces', (tester) async {

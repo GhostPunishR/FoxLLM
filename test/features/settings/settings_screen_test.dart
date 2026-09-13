@@ -4,10 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/last_model_store.dart';
-import 'package:foxgpt/core/theme/fox_theme.dart';
-import 'package:foxgpt/features/local_models/local_model_file.dart';
-import 'package:foxgpt/features/settings/settings_screen.dart';
+import 'package:foxllm/core/llm/last_model_store.dart';
+import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/features/local_models/local_model_file.dart';
+import 'package:foxllm/features/settings/settings_screen.dart';
 
 void main() {
   group('localModelDisplayName', () {

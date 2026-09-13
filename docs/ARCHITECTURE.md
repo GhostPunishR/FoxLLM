@@ -1,8 +1,8 @@
-# Architecture FoxGPT
+# Architecture FoxLLM
 
 ## Objectif
 
-FoxGPT est un client LLM Android hybride :
+FoxLLM est un client LLM Android hybride :
 
 - **local** : modèles GGUF exécutés sur le téléphone par `llama.cpp` ;
 - **BYOK** : l'utilisateur fournit sa propre clé API et le téléphone contacte directement le fournisseur.
@@ -21,8 +21,8 @@ Flutter / Dart (isolate UI)
 │   ├── OpenAiCompatibleBackend
 │   └── GeminiBackend
 └── LocalLlmBackend
-    └── FoxGptNativeWorker (isolate dédié)
-        └── foxgpt_native
+    └── FoxLlmNativeWorker (isolate dédié)
+        └── foxllm_native
             └── C ABI stable + callback de tokens
                 └── C++
                     └── llama.cpp b10903
@@ -35,7 +35,7 @@ Tous les moteurs implémentent `LlmBackend` et exposent une génération sous fo
 
 Le backend local démarre un isolate worker longue durée qui possède le moteur natif. Le chargement GGUF et l'inférence bloquante de `llama.cpp` se déroulent exclusivement dans ce worker : l'isolate Flutter reste disponible pour les animations, les entrées utilisateur et le rendu.
 
-**Invariant d'architecture :** le code de l'application Flutter ne doit pas instancier `FoxGptNativeEngine` directement. L'UI et les contrôleurs applicatifs passent par `LocalLlmBackend`, qui délègue à `FoxGptNativeWorker`. Les appels directs au moteur restent réservés à l'implémentation du package natif et à ses smoke tests bas niveau.
+**Invariant d'architecture :** le code de l'application Flutter ne doit pas instancier `FoxLlmNativeEngine` directement. L'UI et les contrôleurs applicatifs passent par `LocalLlmBackend`, qui délègue à `FoxLlmNativeWorker`. Les appels directs au moteur restent réservés à l'implémentation du package natif et à ses smoke tests bas niveau.
 
 `LocalLlmBackend` est partagé à l'échelle de l'application via Riverpod afin que l'écran d'accueil, le gestionnaire de modèles et le futur écran de chat utilisent le même worker et le même modèle chargé.
 
@@ -45,7 +45,7 @@ Pendant l'inférence, le C++ appelle un callback FFI pour chaque token. Le worke
 
 ## Bibliothèque de modèles GGUF
 
-Le picker système sert uniquement à sélectionner la source. FoxGPT ne conserve pas un chemin temporaire fourni par le picker : le contenu du `.gguf` est copié par flux dans le dossier privé `models` sous le répertoire Application Support de l'application.
+Le picker système sert uniquement à sélectionner la source. FoxLLM ne conserve pas un chemin temporaire fourni par le picker : le contenu du `.gguf` est copié par flux dans le dossier privé `models` sous le répertoire Application Support de l'application.
 
 L'import écrit d'abord dans un fichier `.part-*`. Chaque chunk est écrit avec `RandomAccessFile.writeFrom()` et attendu avant de lire le suivant, ce qui applique une backpressure réelle et évite d'accumuler en mémoire plusieurs gigaoctets lorsque le stockage est plus lent que la source.
 
@@ -84,9 +84,9 @@ Une réponse HTTP non 2xx lève toujours `PersonalApiHttpException`, que
 
 ## Moteur natif
 
-Le package `packages/foxgpt_native` conserve une ABI C (`extern "C"`) stable devant l'implémentation C++.
+Le package `packages/foxllm_native` conserve une ABI C (`extern "C"`) stable devant l'implémentation C++.
 
-Sur Android arm64, le build hook utilise CMake et lie statiquement `llama.cpp` b10903 (commit `481c65f091f74c5e7089dd0a3a1cc6b50cced31e`) dans `libfoxgpt_native.so`. Les options Android désactivent `GGML_NATIVE`, OpenMP, llamafile et OpenSSL afin de rester compatibles avec la chaîne NDK. Le baseline Android de FoxGPT est API 28.
+Sur Android arm64, le build hook utilise CMake et lie statiquement `llama.cpp` b10903 (commit `481c65f091f74c5e7089dd0a3a1cc6b50cced31e`) dans `libfoxllm_native.so`. Les options Android désactivent `GGML_NATIVE`, OpenMP, llamafile et OpenSSL afin de rester compatibles avec la chaîne NDK. Le baseline Android de FoxLLM est API 28.
 
 Sur les autres architectures, le build hook conserve un stub léger. Cela permet aux tests FFI et au mode API de continuer à fonctionner sans compiler `llama.cpp` partout.
 

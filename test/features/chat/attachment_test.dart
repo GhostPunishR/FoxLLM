@@ -8,18 +8,18 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/chat_attachment.dart';
-import 'package:foxgpt/core/llm/chat_message.dart';
-import 'package:foxgpt/core/llm/local_backend_provider.dart';
-import 'package:foxgpt/core/llm/generation_settings.dart';
-import 'package:foxgpt/core/llm/local_llm_backend.dart';
-import 'package:foxgpt/features/chat/attachment_picker.dart';
-import 'package:foxgpt/features/chat/attachment_resolver.dart';
-import 'package:foxgpt/features/chat/attachment_store.dart';
-import 'package:foxgpt/features/chat/chat_conversation.dart';
-import 'package:foxgpt/features/chat/chat_screen.dart';
-import 'package:foxgpt/features/chat/conversation_store.dart';
-import 'package:foxgpt_native/foxgpt_native.dart';
+import 'package:foxllm/core/llm/chat_attachment.dart';
+import 'package:foxllm/core/llm/chat_message.dart';
+import 'package:foxllm/core/llm/local_backend_provider.dart';
+import 'package:foxllm/core/llm/generation_settings.dart';
+import 'package:foxllm/core/llm/local_llm_backend.dart';
+import 'package:foxllm/features/chat/attachment_picker.dart';
+import 'package:foxllm/features/chat/attachment_resolver.dart';
+import 'package:foxllm/features/chat/attachment_store.dart';
+import 'package:foxllm/features/chat/chat_conversation.dart';
+import 'package:foxllm/features/chat/chat_screen.dart';
+import 'package:foxllm/features/chat/conversation_store.dart';
+import 'package:foxllm_native/foxllm_native.dart';
 
 void main() {
   group('ChatAttachment', () {
@@ -400,7 +400,7 @@ PickedAttachment _picked(String name) => PickedAttachment(
 
 ChatAttachment _attachment({
   String name = 'photo.png',
-  String path = '/tmp/foxgpt/photo.png',
+  String path = '/tmp/foxllm/photo.png',
   String mimeType = 'image/png',
   int sizeBytes = 42,
 }) => ChatAttachment(
@@ -411,7 +411,7 @@ ChatAttachment _attachment({
 );
 
 Directory _tempRoot() {
-  final directory = Directory.systemTemp.createTempSync('foxgpt_attachments');
+  final directory = Directory.systemTemp.createTempSync('foxllm_attachments');
   addTearDown(() {
     if (directory.existsSync()) {
       directory.deleteSync(recursive: true);
@@ -536,10 +536,10 @@ class _IdleBackend implements LocalLlmBackend {
   Future<bool> get isModelLoaded async => true;
 
   @override
-  Future<FoxGptModelInfo?> get modelInfo async => null;
+  Future<FoxLlmModelInfo?> get modelInfo async => null;
 
   @override
-  Future<FoxGptGenerationStats?> get lastGenerationStats async => null;
+  Future<FoxLlmGenerationStats?> get lastGenerationStats async => null;
 
   @override
   Future<void> loadModel(String path) async {}

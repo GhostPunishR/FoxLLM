@@ -6,9 +6,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/features/settings/about_screen.dart';
-import 'package:foxgpt/features/settings/legal_documents.dart';
-import 'package:foxgpt/features/settings/settings_screen.dart';
+import 'package:foxllm/features/settings/about_screen.dart';
+import 'package:foxllm/features/settings/legal_documents.dart';
+import 'package:foxllm/features/settings/settings_screen.dart';
 
 void main() {
   testWidgets('les Paramètres ouvrent À propos et n’affichent plus le pied de '
@@ -20,8 +20,8 @@ void main() {
     );
     await tester.pump();
 
-    // Le libellé « FoxGPT » ne subsiste que comme titre de section.
-    expect(find.text('FoxGPT'), findsOneWidget);
+    // Le libellé « FoxLLM » ne subsiste que comme titre de section.
+    expect(find.text('FoxLLM'), findsOneWidget);
     expect(find.text('À propos'), findsOneWidget);
 
     await tester.tap(find.text('À propos'));
@@ -30,7 +30,7 @@ void main() {
     expect(find.byType(AboutScreen), findsOneWidget);
     expect(find.text('Conditions d’utilisation'), findsOneWidget);
     expect(find.text('Politique de confidentialité'), findsOneWidget);
-    expect(find.text('Version $foxGptVersion'), findsOneWidget);
+    expect(find.text('Version $foxLlmVersion'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -96,7 +96,7 @@ void main() {
     }
   });
 
-  test('foxGptVersion reste en phase avec pubspec.yaml', () {
+  test('foxLlmVersion reste en phase avec pubspec.yaml', () {
     // L'écran À propos affiche cette constante : sans ce garde, elle pourrait
     // diverger silencieusement de la version réellement publiée.
     final pubspec = File('pubspec.yaml').readAsStringSync();
@@ -106,7 +106,7 @@ void main() {
     ).firstMatch(pubspec);
 
     expect(match, isNotNull, reason: 'version absente de pubspec.yaml');
-    expect(foxGptVersion, match!.group(1));
+    expect(foxLlmVersion, match!.group(1));
   });
 }
 

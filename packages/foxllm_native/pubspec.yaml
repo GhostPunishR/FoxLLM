@@ -1,5 +1,5 @@
-name: foxgpt_native
-description: Native C++ engine bridge for FoxGPT.
+name: foxllm_native
+description: Native C++ engine bridge for FoxLLM.
 publish_to: none
 version: 0.3.0
 

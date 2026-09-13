@@ -1,14 +1,14 @@
-# FoxGPT
+# FoxLLM
 
-[![Dart Format](https://github.com/GhostPunishR/FoxGPT/actions/workflows/format.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/format.yml)
-[![Flutter Analyze](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-analyze.yml)
-[![Flutter Tests](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-tests.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/flutter-tests.yml)
-[![Native Dart Analyze](https://github.com/GhostPunishR/FoxGPT/actions/workflows/native-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/native-analyze.yml)
-[![C++ Compile](https://github.com/GhostPunishR/FoxGPT/actions/workflows/cpp.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/cpp.yml)
-[![FFI Smoke](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ffi-smoke.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/ffi-smoke.yml)
-[![Android Build](https://github.com/GhostPunishR/FoxGPT/actions/workflows/android-build.yml/badge.svg)](https://github.com/GhostPunishR/FoxGPT/actions/workflows/android-build.yml)
+[![Dart Format](https://github.com/GhostPunishR/FoxLLM/actions/workflows/format.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/format.yml)
+[![Flutter Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-analyze.yml)
+[![Flutter Tests](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-tests.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/flutter-tests.yml)
+[![Native Dart Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml)
+[![C++ Compile](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml)
+[![FFI Smoke](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml)
+[![Android Build](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml)
 
-FoxGPT est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
+FoxLLM est un client LLM Android hybride construit avec **Flutter/Dart + C++**.
 
 ## Vision
 
@@ -25,7 +25,7 @@ Flutter / Dart
 ├── LlmBackend
 │   ├── LocalLlmBackend
 │   │   └── worker isolate
-│   │       └── foxgpt_native
+│   │       └── foxllm_native
 │   │           └── C ABI / callbacks
 │   │               └── C++ / llama.cpp / GGUF
 │   └── OpenAiCompatibleBackend
@@ -34,7 +34,7 @@ Flutter / Dart
 └── stockage sécurisé des clés
 ```
 
-Le code applicatif Flutter ne crée jamais `FoxGptNativeEngine` directement : l'accès local passe par `LocalLlmBackend` puis `FoxGptNativeWorker`, afin de garder les appels bloquants hors de l'isolate UI.
+Le code applicatif Flutter ne crée jamais `FoxLlmNativeEngine` directement : l'accès local passe par `LocalLlmBackend` puis `FoxLlmNativeWorker`, afin de garder les appels bloquants hors de l'isolate UI.
 
 La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
@@ -42,15 +42,15 @@ La documentation détaillée se trouve dans [`docs/ARCHITECTURE.md`](docs/ARCHIT
 
 Déjà présent :
 
-- écran de chat FoxGPT affiché dès le lancement, sans écran intermédiaire ;
+- écran de chat FoxLLM affiché dès le lancement, sans écran intermédiaire ;
 - logo renard orange unique, partagé par l'écran de lancement, le chat et l'icône Android ;
 - icône APK/adaptive icon sur fond blanc ;
-- fenêtre de lancement Android avec le renard FoxGPT sur le fond de la déclinaison choisie, sans rupture visuelle ;
+- fenêtre de lancement Android avec le renard FoxLLM sur le fond de la déclinaison choisie, sans rupture visuelle ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
 - renommage et suppression d'une conversation depuis le menu latéral ;
 - écran Paramètres avec accès aux modèles locaux — le modèle en place y est nommé —, à l'API personnelle, à l'apparence et à « À propos » ;
-- deux thèmes FoxGPT, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
+- deux thèmes FoxLLM, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
 - conditions d'utilisation, politique de confidentialité, licence AGPL v3 et licences tierces consultables dans l'application ;
 - réponses affichées en Markdown : titres, listes, gras, italique, liens
   cliquables, et blocs de code annotés, colorés et copiables ;
@@ -68,11 +68,11 @@ Déjà présent :
 - backend OpenAI-compatible avec streaming SSE et BYOK ;
 - backend OpenAI sur l'API Responses, pour ses outils intégrés ;
 - stockage sécurisé des clés API ou conservation en mémoire pour la session ;
-- package FFI `foxgpt_native` avec ABI C stable ;
+- package FFI `foxllm_native` avec ABI C stable ;
 - `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;
 - chargement/déchargement réel de modèles GGUF ;
 - sélection d'un fichier `.gguf` via le picker système ;
-- import par flux dans le stockage privé de FoxGPT avec progression et fichier temporaire `.part` ;
+- import par flux dans le stockage privé de FoxLLM avec progression et fichier temporaire `.part` ;
 - bibliothèque persistante des modèles importés, gestion des doublons et suppression ;
 - écran de gestion des modèles avec état chargé/déchargé et métadonnées ;
 - métadonnées du modèle : description, taille et contexte entraîné ;
@@ -96,7 +96,7 @@ La prochaine étape est de brancher la sélection Local/API directement dans le 
 
 Copyright © 2026 GhostPunishR
 
-FoxGPT est un logiciel libre : vous pouvez le redistribuer et le modifier selon
+FoxLLM est un logiciel libre : vous pouvez le redistribuer et le modifier selon
 les termes de la [GNU Affero General Public License, version 3](LICENSE), à
 l'exclusion de toute version ultérieure.
 

@@ -48,7 +48,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
             return _Message(
               text:
                   'Le texte de la licence n’a pas pu être lu. Il reste '
-                  'consultable dans le fichier LICENSE du dépôt FoxGPT.',
+                  'consultable dans le fichier LICENSE du dépôt FoxLLM.',
             );
           }
           final license = snapshot.data;
@@ -76,7 +76,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        foxGptCopyright,
+                        foxLlmCopyright,
                         style: TextStyle(
                           color: fox.textPrimary,
                           fontSize: 14,
@@ -85,7 +85,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'FoxGPT est distribué sous licence GNU Affero General '
+                        'FoxLLM est distribué sous licence GNU Affero General '
                         'Public License, version 3, à l’exclusion de toute '
                         'version ultérieure. Le texte officiel ci-dessous fait '
                         'foi.',

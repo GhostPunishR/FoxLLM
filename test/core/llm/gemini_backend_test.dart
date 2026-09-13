@@ -5,10 +5,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/chat_message.dart';
-import 'package:foxgpt/core/llm/gemini_backend.dart';
-import 'package:foxgpt/core/llm/provider_config.dart';
-import 'package:foxgpt/core/security/api_key_store.dart';
+import 'package:foxllm/core/llm/chat_message.dart';
+import 'package:foxllm/core/llm/gemini_backend.dart';
+import 'package:foxllm/core/llm/provider_config.dart';
+import 'package:foxllm/core/security/api_key_store.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -23,7 +23,7 @@ void main() {
     final chunks = await backend
         .generate(
           messages: const <ChatMessage>[
-            ChatMessage.system('Tu es FoxGPT.'),
+            ChatMessage.system('Tu es FoxLLM.'),
             ChatMessage.user('Bonjour'),
           ],
         )

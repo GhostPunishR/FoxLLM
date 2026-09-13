@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Déclinaison claire, appliquée par défaut. `@color/foxgpt_background` est
+    <!-- Déclinaison claire, appliquée par défaut. `@color/foxllm_background` est
          redéfini dans values-night : les deux jeux de styles ne diffèrent donc
          que par la luminosité des icônes système.
 
@@ -9,16 +9,16 @@
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowFullscreen">true</item>
-        <item name="android:statusBarColor">@color/foxgpt_background</item>
-        <item name="android:navigationBarColor">@color/foxgpt_background</item>
+        <item name="android:statusBarColor">@color/foxllm_background</item>
+        <item name="android:navigationBarColor">@color/foxllm_background</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">@color/foxgpt_background</item>
+        <item name="android:windowBackground">@color/foxllm_background</item>
         <item name="android:windowFullscreen">true</item>
-        <item name="android:statusBarColor">@color/foxgpt_background</item>
-        <item name="android:navigationBarColor">@color/foxgpt_background</item>
+        <item name="android:statusBarColor">@color/foxllm_background</item>
+        <item name="android:navigationBarColor">@color/foxllm_background</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>

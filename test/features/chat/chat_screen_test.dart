@@ -4,11 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/features/chat/chat_screen.dart';
-import 'package:foxgpt/features/chat/fox_mark.dart';
+import 'package:foxllm/features/chat/chat_screen.dart';
+import 'package:foxllm/features/chat/fox_mark.dart';
 
 void main() {
-  testWidgets('shows the FoxGPT chat home on launch', (tester) async {
+  testWidgets('shows the FoxLLM chat home on launch', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 

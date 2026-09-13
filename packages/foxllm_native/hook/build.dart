@@ -23,10 +23,10 @@ void main(List<String> args) async {
     if (!isAndroidArm64) {
       final builder = CBuilder.library(
         name: input.packageName,
-        assetName: 'foxgpt_native.dart',
+        assetName: 'foxllm_native.dart',
         language: Language.cpp,
         std: 'c++17',
-        sources: const <String>['src/foxgpt_native.cpp'],
+        sources: const <String>['src/foxllm_native.cpp'],
         includes: const <String>['src'],
       );
 
@@ -35,7 +35,7 @@ void main(List<String> args) async {
     }
 
     hierarchicalLoggingEnabled = true;
-    final logger = Logger('foxgpt_native.cmake')
+    final logger = Logger('foxllm_native.cmake')
       ..level = Level.ALL
       ..onRecord.listen((record) => stderr.writeln(record.message));
 
@@ -46,7 +46,7 @@ void main(List<String> args) async {
       defines: <String, String?>{
         'CMAKE_BUILD_TYPE': 'Release',
         'CMAKE_INSTALL_PREFIX': installDirectory.toFilePath(),
-        'FOXGPT_WITH_LLAMA_CPP': 'ON',
+        'FOXLLM_WITH_LLAMA_CPP': 'ON',
       },
       targets: const <String>['install'],
       parallelUseAllProcessors: true,
@@ -55,7 +55,7 @@ void main(List<String> args) async {
 
     await builder.run(input: input, output: output, logger: logger);
 
-    final library = installDirectory.resolve('lib/libfoxgpt_native.so');
+    final library = installDirectory.resolve('lib/libfoxllm_native.so');
     if (!File.fromUri(library).existsSync()) {
       throw StateError('CMake did not produce ${library.toFilePath()}.');
     }
@@ -63,7 +63,7 @@ void main(List<String> args) async {
     output.assets.code.add(
       CodeAsset(
         package: input.packageName,
-        name: 'foxgpt_native.dart',
+        name: 'foxllm_native.dart',
         linkMode: DynamicLoadingBundled(),
         file: library,
       ),
