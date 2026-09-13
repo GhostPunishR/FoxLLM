@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -8,6 +11,7 @@ import 'gemini_backend.dart';
 import 'generation_settings.dart';
 import 'llm_backend.dart';
 import 'openai_compatible_backend.dart';
+import 'openai_responses_backend.dart';
 import 'personal_api_provider.dart';
 import 'provider_config.dart';
 
@@ -136,6 +140,11 @@ LlmBackend createPersonalApiRemoteBackend({
         model: settings.model,
         keyStore: keyStore,
         apiKeyPersistence: settings.apiKeyPersistence,
+      );
+    case PersonalApiProtocol.openAiResponses:
+      return OpenAiResponsesBackend(
+        provider: settings.toProviderConfig(),
+        keyStore: keyStore,
       );
     case PersonalApiProtocol.openAiCompatible:
       return OpenAiCompatibleBackend(

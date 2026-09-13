@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 class LocalModelFile {
   const LocalModelFile({
     required this.fileName,
@@ -11,7 +14,17 @@ class LocalModelFile {
   final int sizeBytes;
   final DateTime modifiedAt;
 
-  String get displayName => fileName.toLowerCase().endsWith('.gguf')
+  String get displayName => localModelDisplayName(fileName);
+}
+
+/// Nom lisible d'un modèle, à partir de son chemin complet ou de son seul nom
+/// de fichier : l'extension `.gguf` n'apprend rien à qui lit un sous-titre.
+String localModelDisplayName(String pathOrFileName) {
+  final separator = pathOrFileName.lastIndexOf('/');
+  final fileName = separator == -1
+      ? pathOrFileName
+      : pathOrFileName.substring(separator + 1);
+  return fileName.toLowerCase().endsWith('.gguf')
       ? fileName.substring(0, fileName.length - 5)
       : fileName;
 }

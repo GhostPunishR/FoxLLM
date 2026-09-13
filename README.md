@@ -49,16 +49,24 @@ Déjà présent :
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
 - renommage et suppression d'une conversation depuis le menu latéral ;
-- écran Paramètres avec accès aux modèles locaux, à l'API personnelle, à l'apparence et à « À propos » ;
+- écran Paramètres avec accès aux modèles locaux — le modèle en place y est nommé —, à l'API personnelle, à l'apparence et à « À propos » ;
 - deux thèmes FoxGPT, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
-- conditions d'utilisation et politique de confidentialité consultables dans l'application ;
-- réponses affichées en Markdown, avec blocs de code annotés et copiables ;
-- pièce jointe texte ou code depuis le composer, insérée dans le message ;
+- conditions d'utilisation, politique de confidentialité, licence AGPL v3 et licences tierces consultables dans l'application ;
+- réponses affichées en Markdown : titres, listes, gras, italique, liens
+  cliquables, et blocs de code annotés, colorés et copiables ;
+- pièces jointes depuis le composer : fichier, photo de la galerie ou prise de vue,
+  affichées comme pièces jointes dans le fil ;
+- images envoyées aux API personnelles multimodales (format OpenAI ou Gemini) ;
 - personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
-- composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
+- composer responsive avec Réflexion et Rechercher activables, pièces jointes,
+  dictée vocale et Stop ;
+- dictée vocale maintenue au doigt, écrite dans le champ et modifiable avant envoi ;
+- mode Réflexion : consigne de raisonnement et marge de génération élargie, sur tous les moteurs ;
+- mode Recherche : outil de recherche web intégré d'OpenAI (API Responses) et de Google Gemini ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;
 - backend OpenAI-compatible avec streaming SSE et BYOK ;
+- backend OpenAI sur l'API Responses, pour ses outils intégrés ;
 - stockage sécurisé des clés API ou conservation en mémoire pour la session ;
 - package FFI `foxgpt_native` avec ABI C stable ;
 - `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;
@@ -83,3 +91,25 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 ## Prochain jalon
 
 La prochaine étape est de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
+
+## Licence
+
+Copyright © 2026 GhostPunishR
+
+FoxGPT est un logiciel libre : vous pouvez le redistribuer et le modifier selon
+les termes de la [GNU Affero General Public License, version 3](LICENSE), à
+l'exclusion de toute version ultérieure.
+
+Ce programme est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE
+GARANTIE, ni explicite ni implicite, y compris les garanties de
+commercialisation ou d'adaptation à un usage particulier. Voir la licence pour
+plus de détails.
+
+Chaque fichier source porte la notice correspondante sous forme d'identifiant
+SPDX (`AGPL-3.0-only`). Le texte intégral de la licence est aussi consultable
+dans l'application, dans Paramètres → À propos → Licence, avec l'adresse du
+dépôt : l'AGPL demande que celui qui reçoit le programme puisse en obtenir le
+code source.
+
+Les bibliothèques tierces gardent leurs licences respectives ; l'application les
+rassemble dans Paramètres → À propos → Licences tierces.

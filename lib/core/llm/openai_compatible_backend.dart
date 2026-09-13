@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;

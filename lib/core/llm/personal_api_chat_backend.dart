@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +53,13 @@ class PersonalApiChatBackend implements LocalLlmBackend {
   @override
   String get displayName =>
       'API personnelle · ${_settings.provider.displayName}';
+
+  /// Vrai si le fournisseur configuré sait consulter le web.
+  ///
+  /// Gemini et l'API Responses d'OpenAI ont chacun un outil de recherche
+  /// intégré ; les fournisseurs qui se contentent d'imiter
+  /// `chat/completions` n'en ont aucun.
+  bool get supportsWebSearch => _settings.provider.supportsWebSearch;
 
   @override
   String? get loadedModelPath =>

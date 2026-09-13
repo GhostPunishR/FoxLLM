@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -7,7 +10,16 @@ import 'provider_config.dart';
 
 export 'llm_http.dart' show PersonalApiHttpException;
 
-enum PersonalApiProtocol { openAiCompatible, gemini }
+/// Dialecte d'API parlé par un fournisseur.
+enum PersonalApiProtocol {
+  /// `chat/completions`, le format que la plupart des fournisseurs imitent.
+  openAiCompatible,
+
+  /// `responses`, le format d'OpenAI qui donne accès à ses outils intégrés.
+  openAiResponses,
+
+  gemini,
+}
 
 class PersonalApiProvider {
   const PersonalApiProvider({
@@ -26,6 +38,14 @@ class PersonalApiProvider {
   final String modelsPath;
   final bool custom;
 
+  /// Vrai si le fournisseur sait consulter le web de lui-même.
+  ///
+  /// Les API qui se contentent d'imiter `chat/completions` n'ont pas d'outil
+  /// de recherche dans ce format : leur proposer le mode Recherche
+  /// laisserait croire à une réponse sourcée qui ne le serait pas.
+  bool get supportsWebSearch =>
+      protocol != PersonalApiProtocol.openAiCompatible;
+
   String resolveBaseUrl(String customBaseUrl) {
     if (custom) {
       return customBaseUrl.trim();
@@ -37,7 +57,7 @@ class PersonalApiProvider {
 const openAiPersonalApiProvider = PersonalApiProvider(
   id: 'openai',
   displayName: 'OpenAI',
-  protocol: PersonalApiProtocol.openAiCompatible,
+  protocol: PersonalApiProtocol.openAiResponses,
   baseUrl: 'https://api.openai.com/v1',
 );
 

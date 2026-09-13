@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -54,8 +57,18 @@ class GeminiBackend extends HttpStreamingBackend {
         .map(
           (message) => <String, Object>{
             'role': message.role == ChatRole.assistant ? 'model' : 'user',
-            'parts': <Map<String, String>>[
-              <String, String>{'text': message.content},
+            'parts': <Map<String, Object>>[
+              if (message.content.isNotEmpty)
+                <String, Object>{'text': message.content},
+              // Gemini attend les images en ligne, encodées en base64, dans
+              // les mêmes « parts » que le texte.
+              for (final image in message.images)
+                <String, Object>{
+                  'inline_data': <String, String>{
+                    'mime_type': image.mimeType,
+                    'data': image.base64Data,
+                  },
+                },
             ],
           },
         )
@@ -63,6 +76,12 @@ class GeminiBackend extends HttpStreamingBackend {
 
     final body = <String, Object>{
       'contents': contents,
+      // Outil de recherche intégré de Gemini : le modèle interroge le web de
+      // lui-même quand la question le demande.
+      if (settings.webSearch)
+        'tools': <Map<String, Object>>[
+          <String, Object>{'google_search': <String, Object>{}},
+        ],
       'generationConfig': <String, Object>{
         'temperature': settings.temperature,
         'topP': settings.topP,

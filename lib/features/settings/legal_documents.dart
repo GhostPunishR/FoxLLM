@@ -1,9 +1,22 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/fox_palette.dart';
 
 /// Version de l'application, tenue en phase avec `pubspec.yaml` par un test.
-const foxGptVersion = '0.1.1';
+const foxGptVersion = '0.1.2';
+
+/// Titulaire des droits, affiché dans « À propos » et porté par chaque fichier
+/// source sous forme d'identifiant SPDX.
+const foxGptCopyright = 'Copyright © 2026 GhostPunishR';
+
+/// Dépôt du code source.
+///
+/// L'AGPL demande que celui qui reçoit le programme puisse en obtenir le code :
+/// l'application donne donc l'adresse plutôt que de laisser chercher.
+const foxGptSourceUrl = 'https://github.com/GhostPunishR/FoxGPT';
 
 class LegalSection {
   const LegalSection({required this.title, required this.paragraphs});
@@ -104,6 +117,21 @@ const privacyPolicyDocument = LegalDocument(
             'stockage privé de l’application, afin de retrouver tes '
             'conversations au lancement suivant. Il n’est jamais envoyé '
             'ailleurs.',
+      ],
+    ),
+    LegalSection(
+      title: 'Dictée vocale',
+      paragraphs: <String>[
+        'La dictée utilise le service de reconnaissance vocale d’Android. '
+            'FoxGPT ne transporte aucun son lui-même et n’en conserve aucun : '
+            'seul le texte reconnu arrive dans le champ de saisie, où tu peux '
+            'le corriger avant d’envoyer.',
+        'Selon l’appareil et les paquets de langue installés, ce service peut '
+            'traiter l’audio sur le téléphone ou l’envoyer à ses propres '
+            'serveurs. Ce traitement relève alors de la politique de '
+            'confidentialité de Google.',
+        'L’accès au micro est demandé à la première dictée, jamais au '
+            'lancement, et l’application reste utilisable sans l’accorder.',
       ],
     ),
     LegalSection(
