@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Dictée vocale du composer. Demandée à la première utilisation, pas au
+         lancement : l'application reste utilisable sans micro. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="FoxGPT"
@@ -39,6 +42,11 @@
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
+        </intent>
+        <!-- Sans cette déclaration, Android 11 et suivants cachent le service
+             de reconnaissance vocale à l'application. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 </manifest>

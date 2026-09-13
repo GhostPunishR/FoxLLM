@@ -52,10 +52,21 @@ void main() {
         find.text('Dernière mise à jour : ${document.updatedAt}'),
         findsOneWidget,
       );
-      // Chaque section et son premier paragraphe sont rendus.
+      // Chaque section et son premier paragraphe sont rendus. Le document est
+      // parcouru : il dépasse la hauteur de l'écran, quelle qu'elle soit.
       for (final section in document.sections) {
+        await tester.scrollUntilVisible(
+          find.text(section.title),
+          120,
+          scrollable: find.byType(Scrollable).first,
+        );
         expect(find.text(section.title), findsOneWidget);
       }
+      await tester.scrollUntilVisible(
+        find.text(document.sections.first.paragraphs.first),
+        -120,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(
         find.text(document.sections.first.paragraphs.first),
         findsOneWidget,

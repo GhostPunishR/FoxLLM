@@ -20,6 +20,7 @@ import 'chat_backend_host.dart';
 import 'chat_conversation.dart';
 import 'chat_modes.dart';
 import 'conversation_store.dart';
+import 'dictation.dart';
 import 'message_markdown.dart';
 import 'attachment_picker.dart';
 import 'attachment_resolver.dart';
@@ -44,6 +45,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Pièces jointes du message en cours de rédaction.
   final List<ChatAttachment> _pendingAttachments = <ChatAttachment>[];
+
+  bool _isDictating = false;
+
+  /// Dictée retenue dès son premier usage : `ref` n'est plus lisible dans
+  /// `dispose()`, et l'écoute doit s'arrêter avec l'écran.
+  Dictation? _dictation;
+
+  /// Brouillon d'avant la dictée : le texte reconnu s'y ajoute au lieu de
+  /// l'effacer, et chaque résultat partiel remplace le précédent.
+  String _draftBeforeDictation = '';
 
   bool _isGenerating = false;
   bool _sending = false;
@@ -164,6 +175,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    unawaited(_dictation?.stop());
     _generationEpoch += 1;
     _inputController.dispose();
     _scrollController.dispose();
@@ -529,8 +541,60 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
-  void _showVoiceInfo() {
-    _showSnack('La dictée vocale sera ajoutée dans une prochaine étape.');
+  Future<void> _startDictation() async {
+    if (_isDictating) {
+      return;
+    }
+    _draftBeforeDictation = _inputController.text;
+    setState(() => _isDictating = true);
+
+    final Dictation dictation = _dictation ?? ref.read(dictationProvider);
+    _dictation = dictation;
+    final status = await dictation.start(onText: _onDictationText);
+    if (!mounted) {
+      return;
+    }
+    if (status == DictationStatus.listening) {
+      return;
+    }
+
+    setState(() => _isDictating = false);
+    _showSnack(
+      status == DictationStatus.denied
+          ? 'La dictée a besoin du micro. Autorise-le dans les réglages '
+                'Android de FoxGPT.'
+          : 'Aucune reconnaissance vocale disponible sur cet appareil.',
+    );
+  }
+
+  void _onDictationText(String text) {
+    if (!mounted || !_isDictating) {
+      return;
+    }
+    final separator =
+        _draftBeforeDictation.isEmpty || _draftBeforeDictation.endsWith(' ')
+        ? ''
+        : ' ';
+    final combined = '$_draftBeforeDictation$separator$text';
+    _inputController.value = TextEditingValue(
+      text: combined,
+      selection: TextSelection.collapsed(offset: combined.length),
+    );
+  }
+
+  Future<void> _stopDictation() async {
+    if (!_isDictating) {
+      return;
+    }
+    setState(() => _isDictating = false);
+    await _dictation?.stop();
+  }
+
+  void _showDictationHint() {
+    if (_isDictating) {
+      return;
+    }
+    _showSnack('Maintiens le bouton du micro pour dicter.');
   }
 
   void _showAddMenu() {
@@ -679,7 +743,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 onReflection: () => unawaited(_toggleReasoning()),
                 onSearch: () => unawaited(_toggleWebSearch()),
                 onAdd: _showAddMenu,
-                onVoice: _showVoiceInfo,
+                isDictating: _isDictating,
+                onVoiceStart: () => unawaited(_startDictation()),
+                onVoiceEnd: () => unawaited(_stopDictation()),
+                onVoiceTap: _showDictationHint,
                 onSend: () => unawaited(_sendMessage()),
                 onStop: () => unawaited(_stopGeneration()),
               ),
@@ -963,7 +1030,10 @@ class _Composer extends StatelessWidget {
     required this.onReflection,
     required this.onSearch,
     required this.onAdd,
-    required this.onVoice,
+    required this.isDictating,
+    required this.onVoiceStart,
+    required this.onVoiceEnd,
+    required this.onVoiceTap,
     required this.onSend,
     required this.onStop,
   });
@@ -981,7 +1051,12 @@ class _Composer extends StatelessWidget {
   final VoidCallback onReflection;
   final VoidCallback onSearch;
   final VoidCallback onAdd;
-  final VoidCallback onVoice;
+
+  /// Dictée en cours : le bouton du micro s'allume et le champ se remplit.
+  final bool isDictating;
+  final VoidCallback onVoiceStart;
+  final VoidCallback onVoiceEnd;
+  final VoidCallback onVoiceTap;
   final VoidCallback onSend;
   final VoidCallback onStop;
 
@@ -1026,7 +1101,9 @@ class _Composer extends StatelessWidget {
                   style: TextStyle(color: fox.textPrimary, fontSize: 17),
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: 'Message ou maintenir pour parler',
+                    hintText: isDictating
+                        ? 'Parle, je t’écoute…'
+                        : 'Message ou maintenir pour parler',
                     hintStyle: TextStyle(
                       color: fox.textSecondary,
                       fontSize: 17,
@@ -1073,13 +1150,22 @@ class _Composer extends StatelessWidget {
                       onPressed: onAdd,
                     ),
                     const SizedBox(width: 3),
-                    if (isGenerating)
+                    // Le micro reste offert même une fois le message commencé :
+                    // dicter la fin d'une phrase est le cas le plus courant.
+                    _DictationButton(
+                      isDictating: isDictating,
+                      onStart: onVoiceStart,
+                      onEnd: onVoiceEnd,
+                      onTap: onVoiceTap,
+                    ),
+                    if (isGenerating) ...<Widget>[
+                      const SizedBox(width: 3),
                       _RoundComposerButton(
                         tooltip: 'Arrêter',
                         icon: Icons.stop_rounded,
                         onPressed: onStop,
-                      )
-                    else
+                      ),
+                    ] else
                       // Seul ce bouton dépend du brouillon : le reste de
                       // l'écran, liste de messages comprise, n'est pas
                       // reconstruit à chaque frappe.
@@ -1089,17 +1175,19 @@ class _Composer extends StatelessWidget {
                           // Une pièce jointe seule suffit à envoyer.
                           if (value.text.trim().isEmpty &&
                               attachments.isEmpty) {
-                            return _RoundComposerButton(
-                              tooltip: 'Parler',
-                              icon: Icons.graphic_eq_rounded,
-                              onPressed: onVoice,
-                            );
+                            return const SizedBox.shrink();
                           }
-                          return _RoundComposerButton(
-                            tooltip: 'Envoyer',
-                            icon: Icons.arrow_upward_rounded,
-                            filled: true,
-                            onPressed: onSend,
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              const SizedBox(width: 3),
+                              _RoundComposerButton(
+                                tooltip: 'Envoyer',
+                                icon: Icons.arrow_upward_rounded,
+                                filled: true,
+                                onPressed: onSend,
+                              ),
+                            ],
                           );
                         },
                       ),
@@ -1280,6 +1368,64 @@ class _ToolChip extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Micro du composer : maintenu pour dicter, comme l'annonce le champ.
+class _DictationButton extends StatelessWidget {
+  const _DictationButton({
+    required this.isDictating,
+    required this.onStart,
+    required this.onEnd,
+    required this.onTap,
+  });
+
+  final bool isDictating;
+  final VoidCallback onStart;
+  final VoidCallback onEnd;
+
+  /// Appui simple : rappelle qu'il faut maintenir, plutôt que de ne rien faire.
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Semantics(
+      button: true,
+      label: 'Dicter',
+      hint: 'Maintenir pour dicter',
+      child: Tooltip(
+        message: isDictating ? 'Dictée en cours' : 'Maintenir pour dicter',
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPressStart: (_) => onStart(),
+          onLongPressEnd: (_) => onEnd(),
+          onLongPressCancel: onEnd,
+          child: SizedBox.square(
+            dimension: 42,
+            child: Center(
+              child: Container(
+                width: 31,
+                height: 31,
+                decoration: BoxDecoration(
+                  color: isDictating ? fox.accent : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDictating ? fox.accent : fox.textPrimary,
+                    width: 1.7,
+                  ),
+                ),
+                child: Icon(
+                  isDictating ? Icons.mic_rounded : Icons.graphic_eq_rounded,
+                  color: isDictating ? fox.onAccent : fox.textPrimary,
+                  size: 20,
+                ),
               ),
             ),
           ),

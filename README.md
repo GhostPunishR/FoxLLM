@@ -58,7 +58,9 @@ Déjà présent :
   affichées comme pièces jointes dans le fil ;
 - images envoyées aux API personnelles multimodales (format OpenAI ou Gemini) ;
 - personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
-- composer responsive avec Réflexion et Rechercher activables, ajout, voix/envoi et Stop ;
+- composer responsive avec Réflexion et Rechercher activables, pièces jointes,
+  dictée vocale et Stop ;
+- dictée vocale maintenue au doigt, écrite dans le champ et modifiable avant envoi ;
 - mode Réflexion : consigne de raisonnement et marge de génération élargie, sur tous les moteurs ;
 - mode Recherche : outil de recherche web intégré d'OpenAI (API Responses) et de Google Gemini ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;

@@ -2,90 +2,101 @@
 
 Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
-## [Non publié]
+## [0.1.2] - 2026-09-13
 
-### Modifications
+Les quatre actions du composer deviennent réelles — pièces jointes, réflexion,
+recherche web et dictée —, les réponses s'affichent en Markdown complet, et
+FoxGPT déclare sa licence. La suite de tests passe de 120 à 216 cas.
+
+### Composer
+
+- le menu « + » joint de vraies pièces jointes : un fichier, une photo de la
+  galerie ou une prise de vue. Elles apparaissent dans le fil comme pièces
+  jointes — aperçu pour une image, carte nommée pour un fichier — au lieu de
+  déverser le texte du fichier dans le message. Une copie est rangée dans
+  l'espace privé de l'application, ce qui permet de les retrouver en rouvrant
+  la conversation, et elle est effacée avec elle ;
+- les images partent aux API personnelles au format multimodal : morceaux
+  `image_url` côté OpenAI, `inline_data` côté Gemini. Le moteur local ne lit
+  pas les images et le dit avant d'envoyer, en nommant la pièce jointe ;
+- « Réflexion » et « Rechercher » deviennent des interrupteurs : leur aplat dit
+  lequel est actif, et le choix est conservé entre deux lancements. Réflexion
+  ajoute une consigne de raisonnement aux instructions du modèle et élargit la
+  marge de génération, sans quoi la conclusion serait coupée ; elle vaut pour
+  tous les moteurs. Recherche active l'outil intégré du fournisseur ; ceux qui
+  n'en ont pas le disent, plutôt que de laisser croire à une réponse sourcée ;
+- la dictée vocale écrit la parole dans le champ, au fil des mots. Le bouton se
+  maintient, comme l'annonçait déjà le champ de saisie, et reste offert même
+  une fois le message commencé : dicter la fin d'une phrase est le cas le plus
+  courant. Le texte reste modifiable avant envoi, rien ne part tout seul, et
+  l'accès au micro n'est demandé qu'à la première dictée.
+
+### Réponses
+
+- le Markdown est rendu : titres dimensionnés selon leur niveau, listes à puces
+  ou numérotées avec leur imbrication, traits de séparation, gras et italique.
+  `### Titre` affichait ses dièses et `**réponse**` ses astérisques ;
+- seuls les délimiteurs à astérisques sont reconnus, jamais ceux à tirets bas :
+  `__init__` et `nom_de_variable` y perdraient les leurs. Une multiplication,
+  une rangée d'astérisques ou un délimiteur non refermé restent du texte ;
+- les liens `[texte](https://…)` s'ouvrent dans le navigateur du système. Seuls
+  `http` et `https` sont acceptés : une réponse de modèle est du texte non
+  vérifié, et tout autre schéma s'affiche tel qu'écrit plutôt que de masquer
+  une destination sous un libellé ;
+- les blocs de code sont colorés : commentaires, chaînes, nombres, mots-clés et
+  appels se distinguent. Une vingtaine de langages sont reconnus d'après celui
+  annoncé après les triples accents graves, avec repli sur un jeu commun quand
+  il est absent ou inconnu — colorer large ferait passer des identifiants
+  ordinaires pour des mots-clés. Les cinq couleurs viennent de la palette et
+  gardent un contraste d'au moins 4,5:1 sur le fond des blocs.
+
+### Fournisseurs
 
 - OpenAI passe à son API Responses : c'est le seul format où ses outils
   intégrés existent, la recherche web comprise. Les messages y deviennent des
   éléments d'`input`, la consigne système un champ `instructions`, et la
   réponse arrive en évènements typés dont seuls les fragments de texte sont
   retenus. Les autres fournisseurs gardent `chat/completions`, le format
-  qu'ils imitent ;
-- le mode Recherche est donc disponible avec OpenAI comme avec Gemini. Les
-  fournisseurs qui n'ont pas d'outil de recherche le disent, plutôt que de
-  laisser croire à une réponse sourcée ;
-- les puces « Réflexion » et « Rechercher » du composer deviennent des
-  interrupteurs : leur aplat dit lequel est actif, et le choix est conservé
-  entre deux lancements. Réflexion ajoute une consigne de raisonnement aux
-  instructions du modèle et élargit la marge de génération, sans quoi la
-  conclusion serait coupée. Recherche active l'outil de recherche intégré de
-  Gemini ; les autres moteurs n'en ont pas dans ce format de requête et
-  l'application le dit au lieu d'envoyer une requête sans effet ;
-- le menu « + » du chat joint de vraies pièces jointes : un fichier, une photo
-  de la galerie ou une prise de vue. Elles apparaissent dans le fil comme
-  pièces jointes — aperçu pour une image, carte nommée pour un fichier — au
-  lieu de déverser le texte du fichier dans le message. Une copie est rangée
-  dans l'espace privé de l'application, ce qui permet de les retrouver en
-  rouvrant la conversation, et elle est effacée avec elle ;
-- les images partent aux API personnelles au format multimodal : morceaux
-  `image_url` pour un fournisseur compatible OpenAI, `inline_data` pour Gemini.
-  Le moteur local ne lit pas les images et le dit avant d'envoyer, en nommant
-  la pièce jointe concernée ;
-- « À propos » porte la notice de copyright et l'adresse du code source, et
-  l'écran Licence ouvre sur la même notice : l'AGPL demande que celui qui
-  reçoit le programme puisse obtenir son code, encore faut-il qu'il sache où ;
-- chaque fichier source porte la notice de licence sous forme d'identifiant
-  SPDX (`AGPL-3.0-only`), et le README la notice de copyright complète.
-  Le fichier `LICENSE` retrouve le texte de la FSF mot pour mot : la ligne de
-  son annexe est un modèle à recopier dans les fichiers du programme, pas un
-  champ à remplir. Un test refuse désormais un fichier source sans notice ;
-- les titres, les listes et les traits de séparation du Markdown sont rendus :
-  `### Titre` affichait ses dièses, `- point` son tiret, et la hiérarchie d'une
-  réponse disparaissait. Les titres prennent une taille selon leur niveau, les
-  listes une puce ou leur numéro d'origine, et l'indentation donne
-  l'imbrication ;
-- les liens `[texte](https://…)` deviennent cliquables et s'ouvrent dans le
-  navigateur du système. Seuls `http` et `https` sont acceptés : une réponse de
-  modèle est du texte non vérifié, et tout autre schéma s'affiche tel qu'écrit
-  plutôt que de masquer une destination sous un libellé ;
-- le gras et l'italique du Markdown sont rendus : `**réponse**` s'affichait
-  avec ses astérisques et sans le gras demandé. Seuls les délimiteurs à
-  astérisques sont reconnus — un astérisque pour l'italique, deux pour le
-  gras, trois pour les deux —, jamais ceux à tirets bas : `__init__` et
-  `nom_de_variable` y perdraient leurs tirets au profit d'un gras jamais
-  demandé. Une multiplication, une rangée d'astérisques ou un délimiteur non
-  refermé restent du texte, et le code en ligne n'est pas réinterprété ;
-- les blocs de code du chat sont colorés : commentaires, chaînes, nombres,
-  mots-clés et appels se distinguent, au lieu d'un bloc entier d'une seule
-  teinte. La coloration reconnaît une vingtaine de langages d'après celui
-  annoncé après les triples accents graves, et retombe sur un jeu commun quand
-  il est absent ou inconnu — colorer large ferait passer des identifiants
-  ordinaires pour des mots-clés. Les cinq couleurs viennent de la palette et
-  gardent un contraste d'au moins 4,5:1 sur le fond des blocs, dans les deux
-  déclinaisons ;
+  qu'ils imitent.
+
+### Paramètres et licence
+
 - Paramètres → Modèles locaux affiche le modèle en place plutôt que
   « llama.cpp », qui nommait le moteur — information que l'écran des modèles
   donne déjà. Le nom est lu depuis le chemin mémorisé : interroger le moteur
   l'aurait construit, isolate et bibliothèque native compris, pour un
   sous-titre ;
-- À propos donne accès au texte intégral de la licence GNU Affero General
-  Public License v3, sous laquelle FoxGPT est distribué, et à la page des
-  licences tierces que les dépendances imposent de faire figurer dans
-  l'application. Le fichier `LICENSE` de la racine est embarqué tel quel :
-  deux exemplaires d'une licence finissent toujours par diverger.
+- FoxGPT déclare sa licence : le texte intégral de la GNU Affero General Public
+  License v3 est consultable dans À propos, chaque fichier source porte la
+  notice sous forme d'identifiant SPDX (`AGPL-3.0-only`), et le README la
+  notice de copyright complète. Le fichier `LICENSE` est celui de la FSF mot
+  pour mot : la ligne de son annexe est un modèle à recopier dans les fichiers
+  du programme, pas un champ à remplir ;
+- À propos donne aussi l'adresse du code source et la page des licences
+  tierces : l'AGPL demande que celui qui reçoit le programme puisse obtenir son
+  code, encore faut-il qu'il sache où ;
+- la politique de confidentialité couvre la dictée : FoxGPT ne transporte aucun
+  son, mais le service de reconnaissance d'Android peut traiter l'audio sur
+  l'appareil ou l'envoyer à ses propres serveurs selon les paquets de langue
+  installés.
 
 ### Tests
 
-- tests du découpage syntaxique : rôles reconnus, code reconstitué à
-  l'identique, commentaires propres à chaque langage, chaîne non refermée,
-  échappements, langage inconnu ;
-- contraste WCAG des cinq couleurs de code sur le fond des blocs, et
-  vérification qu'aucune ne se confond avec une autre ;
-- vérification que le fichier `LICENSE` porte bien le texte officiel de l'AGPL
-  v3, clause 13 comprise, et qu'il est déclaré comme ressource ;
-- tests du sous-titre des modèles locaux : modèle nommé, absence de modèle,
-  stockage illisible.
+- pièces jointes : copie rangée et relue, noms identiques sans écrasement,
+  texte joint à la requête, image transformée en morceau multimodal, refus
+  expliqué d'un binaire ou d'une image sur un moteur sans vision ;
+- modes du composer : bascule et persistance, consigne et marge de réflexion,
+  outil de recherche envoyé seulement quand le mode est actif, envoi refusé
+  quand le moteur ne sait pas chercher ;
+- dictée : parole écrite au fil des mots, ajout à un brouillon déjà saisi,
+  micro refusé, appareil sans reconnaissance vocale ;
+- API Responses : point d'entrée, champ `instructions`, rôles de l'historique,
+  `max_output_tokens`, outil `web_search`, morceaux d'image, lecture du flux
+  d'évènements et routage du fournisseur ;
+- Markdown : découpage en blocs, gras et italique, liens et schémas refusés,
+  découpage syntaxique du code et contraste WCAG de ses cinq couleurs ;
+- licence : texte officiel de l'AGPL v3 clause 13 comprise, ressource
+  réellement embarquée, et notice présente dans chaque fichier source.
 
 ## [0.1.1] - 2026-09-13
 
