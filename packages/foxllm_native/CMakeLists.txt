@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(foxgpt_native LANGUAGES C CXX)
+project(foxllm_native LANGUAGES C CXX)
 
 include(FetchContent)
 
@@ -7,10 +7,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-option(FOXGPT_WITH_LLAMA_CPP "Build FoxGPT with llama.cpp support" OFF)
+option(FOXLLM_WITH_LLAMA_CPP "Build FoxLLM with llama.cpp support" OFF)
 
-if(FOXGPT_WITH_LLAMA_CPP)
-    # Keep llama.cpp as static implementation details of libfoxgpt_native.so.
+if(FOXLLM_WITH_LLAMA_CPP)
+    # Keep llama.cpp as static implementation details of libfoxllm_native.so.
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(LLAMA_BUILD_COMMON OFF CACHE BOOL "" FORCE)
     set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -37,25 +37,25 @@ if(FOXGPT_WITH_LLAMA_CPP)
     FetchContent_MakeAvailable(llama_cpp)
 endif()
 
-add_library(foxgpt_native SHARED src/foxgpt_native.cpp)
-target_include_directories(foxgpt_native PRIVATE src)
-target_compile_features(foxgpt_native PRIVATE cxx_std_17)
+add_library(foxllm_native SHARED src/foxllm_native.cpp)
+target_include_directories(foxllm_native PRIVATE src)
+target_compile_features(foxllm_native PRIVATE cxx_std_17)
 
-if(FOXGPT_WITH_LLAMA_CPP)
-    target_compile_definitions(foxgpt_native PRIVATE FOXGPT_WITH_LLAMA_CPP=1)
-    target_link_libraries(foxgpt_native PRIVATE llama)
+if(FOXLLM_WITH_LLAMA_CPP)
+    target_compile_definitions(foxllm_native PRIVATE FOXLLM_WITH_LLAMA_CPP=1)
+    target_link_libraries(foxllm_native PRIVATE llama)
 endif()
 
 set_target_properties(
-    foxgpt_native
+    foxllm_native
     PROPERTIES
-        OUTPUT_NAME foxgpt_native
+        OUTPUT_NAME foxllm_native
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN YES
 )
 
 install(
-    TARGETS foxgpt_native
+    TARGETS foxllm_native
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin
     ARCHIVE DESTINATION lib

@@ -5,15 +5,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/features/local_models/local_model_file.dart';
-import 'package:foxgpt/features/local_models/local_model_library.dart';
+import 'package:foxllm/features/local_models/local_model_file.dart';
+import 'package:foxllm/features/local_models/local_model_library.dart';
 
 void main() {
   late Directory tempDirectory;
   late LocalModelLibrary library;
 
   setUp(() async {
-    tempDirectory = await Directory.systemTemp.createTemp('foxgpt-models-');
+    tempDirectory = await Directory.systemTemp.createTemp('foxllm-models-');
     library = LocalModelLibrary(
       applicationSupportDirectory: () async => tempDirectory,
     );

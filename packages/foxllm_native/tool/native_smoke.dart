@@ -3,14 +3,14 @@
 
 import 'dart:io';
 
-import 'package:foxgpt_native/foxgpt_native.dart';
+import 'package:foxllm_native/foxllm_native.dart';
 
 Future<void> main() async {
-  final engine = FoxGptNativeEngine();
+  final engine = FoxLlmNativeEngine();
 
   try {
     final version = engine.version;
-    if (!version.startsWith('foxgpt-native/0.3.0')) {
+    if (!version.startsWith('foxllm-native/0.3.0')) {
       throw StateError('Unexpected native engine version: $version');
     }
 
@@ -18,7 +18,7 @@ Future<void> main() async {
       throw StateError('A new native engine must not have a model loaded.');
     }
 
-    const missingModel = '/definitely/missing/foxgpt-smoke.gguf';
+    const missingModel = '/definitely/missing/foxllm-smoke.gguf';
     if (engine.loadModel(missingModel)) {
       throw StateError('Loading a missing model unexpectedly succeeded.');
     }
@@ -32,9 +32,9 @@ Future<void> main() async {
     engine.dispose();
   }
 
-  final worker = await FoxGptNativeWorker.start();
+  final worker = await FoxLlmNativeWorker.start();
   try {
-    if (!worker.version.startsWith('foxgpt-native/0.3.0')) {
+    if (!worker.version.startsWith('foxllm-native/0.3.0')) {
       throw StateError('Unexpected worker native version: ${worker.version}');
     }
 
@@ -46,7 +46,7 @@ Future<void> main() async {
 
     var loadFailed = false;
     try {
-      await worker.loadModel('/definitely/missing/foxgpt-worker-smoke.gguf');
+      await worker.loadModel('/definitely/missing/foxllm-worker-smoke.gguf');
     } on StateError {
       loadFailed = true;
     }
@@ -98,5 +98,5 @@ Future<void> main() async {
     throw StateError('Disposed worker unexpectedly accepted a generation.');
   }
 
-  stdout.writeln('FoxGPT native worker smoke test passed.');
+  stdout.writeln('FoxLLM native worker smoke test passed.');
 }

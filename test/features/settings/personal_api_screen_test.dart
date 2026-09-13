@@ -6,11 +6,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/personal_api_settings.dart';
-import 'package:foxgpt/core/llm/personal_api_settings_provider.dart';
-import 'package:foxgpt/core/llm/provider_config.dart';
-import 'package:foxgpt/core/security/api_key_store.dart';
-import 'package:foxgpt/features/settings/personal_api_screen.dart';
+import 'package:foxllm/core/llm/personal_api_settings.dart';
+import 'package:foxllm/core/llm/personal_api_settings_provider.dart';
+import 'package:foxllm/core/llm/provider_config.dart';
+import 'package:foxllm/core/security/api_key_store.dart';
+import 'package:foxllm/features/settings/personal_api_screen.dart';
 
 void main() {
   testWidgets('affiche les réglages enregistrés au premier rendu', (

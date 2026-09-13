@@ -13,7 +13,7 @@ class LastModelStore {
   LastModelStore({FlutterSecureStorage? storage})
     : _storage = storage ?? FlutterSecureStorage();
 
-  static const _key = 'foxgpt.local_model.last_path';
+  static const _key = 'foxllm.local_model.last_path';
 
   final FlutterSecureStorage _storage;
 

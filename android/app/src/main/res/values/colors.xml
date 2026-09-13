@@ -4,5 +4,5 @@
          dans lib/core/theme/fox_palette.dart. La fenêtre de lancement utilise
          cette couleur pour que le démarrage ne montre aucun écran intermédiaire
          d'une autre teinte. -->
-    <color name="foxgpt_background">#FFFFF9F4</color>
+    <color name="foxllm_background">#FFFFF9F4</color>
 </resources>

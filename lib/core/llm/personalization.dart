@@ -19,7 +19,7 @@ class PersonalizationStore {
   PersonalizationStore({FlutterSecureStorage? storage})
     : _storage = storage ?? FlutterSecureStorage();
 
-  static const _key = 'foxgpt.personalization.instructions';
+  static const _key = 'foxllm.personalization.instructions';
 
   final FlutterSecureStorage _storage;
 

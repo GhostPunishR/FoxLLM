@@ -5,10 +5,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/theme/fox_palette.dart';
-import 'package:foxgpt/core/theme/fox_theme.dart';
-import 'package:foxgpt/features/chat/code_highlighter.dart';
-import 'package:foxgpt/features/chat/message_markdown.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/features/chat/code_highlighter.dart';
+import 'package:foxllm/features/chat/message_markdown.dart';
 
 void main() {
   group('highlightCode', () {

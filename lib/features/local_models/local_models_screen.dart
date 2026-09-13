@@ -6,7 +6,7 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:foxgpt_native/foxgpt_native.dart';
+import 'package:foxllm_native/foxllm_native.dart';
 
 import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_backend_provider.dart';
@@ -220,7 +220,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Supprimer le modèle ?'),
         content: Text(
-          '${model.fileName}\n\nLe fichier GGUF importé dans FoxGPT sera supprimé du téléphone.',
+          '${model.fileName}\n\nLe fichier GGUF importé dans FoxLLM sera supprimé du téléphone.',
         ),
         actions: <Widget>[
           TextButton(
@@ -285,7 +285,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Les fichiers sélectionnés sont copiés dans le stockage privé de FoxGPT. Le modèle chargé reste disponible hors connexion.',
+              'Les fichiers sélectionnés sont copiés dans le stockage privé de FoxLLM. Le modèle chargé reste disponible hors connexion.',
             ),
             if (_importing) ...<Widget>[
               const SizedBox(height: 16),
@@ -419,7 +419,7 @@ class _ModelCard extends StatelessWidget {
   }
 }
 
-String _formatRuntimeDetails(FoxGptModelInfo info) =>
+String _formatRuntimeDetails(FoxLlmModelInfo info) =>
     '${_formatBytes(info.sizeBytes)} · contexte ${info.contextSize} tokens';
 
 String _formatBytes(int bytes) {

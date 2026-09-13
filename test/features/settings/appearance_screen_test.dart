@@ -6,12 +6,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/theme/fox_palette.dart';
-import 'package:foxgpt/core/theme/fox_theme.dart';
-import 'package:foxgpt/core/theme/system_appearance.dart';
-import 'package:foxgpt/core/theme/theme_provider.dart';
-import 'package:foxgpt/features/settings/appearance_screen.dart';
-import 'package:foxgpt/main.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/core/theme/system_appearance.dart';
+import 'package:foxllm/core/theme/theme_provider.dart';
+import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/main.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -164,7 +164,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [foxThemeStoreProvider.overrideWithValue(store)],
-        child: const FoxGptApp(),
+        child: const FoxLlmApp(),
       ),
     );
     await tester.pump();

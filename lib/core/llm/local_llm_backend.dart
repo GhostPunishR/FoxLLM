@@ -1,17 +1,17 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import 'package:foxgpt_native/foxgpt_native.dart';
+import 'package:foxllm_native/foxllm_native.dart';
 
 import 'chat_message.dart';
 import 'generation_settings.dart';
 import 'llm_backend.dart';
 
 class LocalLlmBackend implements LlmBackend {
-  LocalLlmBackend({Future<FoxGptNativeWorker>? worker})
-    : _worker = worker ?? FoxGptNativeWorker.start();
+  LocalLlmBackend({Future<FoxLlmNativeWorker>? worker})
+    : _worker = worker ?? FoxLlmNativeWorker.start();
 
-  final Future<FoxGptNativeWorker> _worker;
+  final Future<FoxLlmNativeWorker> _worker;
   String? _loadedModelPath;
 
   @override
@@ -26,9 +26,9 @@ class LocalLlmBackend implements LlmBackend {
 
   Future<bool> get isModelLoaded async => (await _worker).isModelLoaded;
 
-  Future<FoxGptModelInfo?> get modelInfo async => (await _worker).modelInfo;
+  Future<FoxLlmModelInfo?> get modelInfo async => (await _worker).modelInfo;
 
-  Future<FoxGptGenerationStats?> get lastGenerationStats async =>
+  Future<FoxLlmGenerationStats?> get lastGenerationStats async =>
       (await _worker).lastGenerationStats;
 
   Future<void> loadModel(String path) async {
@@ -68,7 +68,7 @@ class LocalLlmBackend implements LlmBackend {
 
   @override
   Future<void> dispose() async {
-    final FoxGptNativeWorker worker;
+    final FoxLlmNativeWorker worker;
     try {
       worker = await _worker;
     } catch (_) {

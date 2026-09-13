@@ -18,7 +18,7 @@ enum DictationStatus {
 
 /// Dictée vocale du composer.
 ///
-/// La reconnaissance est celle d'Android : FoxGPT ne transporte aucun son
+/// La reconnaissance est celle d'Android : FoxLLM ne transporte aucun son
 /// lui-même, mais le service du système peut envoyer l'audio à ses propres
 /// serveurs selon l'appareil et les paquets de langue installés. La politique
 /// de confidentialité le dit, faute de pouvoir le garantir.

@@ -1,4 +1,4 @@
-name: foxgpt
+name: foxllm
 description: Client LLM Android hybride local et BYOK.
 publish_to: none
 version: 0.1.2+3
@@ -17,8 +17,8 @@ dependencies:
   url_launcher: ^6.3.2
   image_picker: ^1.2.0
   speech_to_text: ^7.3.0
-  foxgpt_native:
-    path: packages/foxgpt_native
+  foxllm_native:
+    path: packages/foxllm_native
   android_libcpp_shared: ^0.3.0
 
 dev_dependencies:

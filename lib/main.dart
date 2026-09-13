@@ -13,11 +13,11 @@ import 'features/chat/chat_backend_host.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
-  runApp(const ProviderScope(child: FoxGptApp()));
+  runApp(const ProviderScope(child: FoxLlmApp()));
 }
 
-class FoxGptApp extends ConsumerWidget {
-  const FoxGptApp({super.key});
+class FoxLlmApp extends ConsumerWidget {
+  const FoxLlmApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,7 +41,7 @@ class FoxGptApp extends ConsumerWidget {
     );
 
     return MaterialApp(
-      title: 'FoxGPT',
+      title: 'FoxLLM',
       debugShowCheckedModeBanner: false,
       theme: theme.themeData,
       home: const ChatBackendHost(),

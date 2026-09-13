@@ -1,7 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
-#include "foxgpt_native.h"
+#include "foxllm_native.h"
 
 #include <atomic>
 #include <cstdlib>
@@ -9,7 +9,7 @@
 #include <new>
 #include <string>
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
 #include "llama.h"
 
 #include <algorithm>
@@ -24,7 +24,7 @@ struct Engine {
     std::string last_error;
     std::atomic<bool> stop_requested{false};
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     llama_model* model = nullptr;
     std::string model_description;
     uint64_t model_size_bytes = 0;
@@ -39,7 +39,7 @@ Engine* as_engine(void* engine) {
     return static_cast<Engine*>(engine);
 }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
 
 std::once_flag backend_once;
 
@@ -105,7 +105,7 @@ bool generate_internal(
     float temperature,
     float top_p,
     int32_t max_tokens,
-    foxgpt_token_callback callback,
+    foxllm_token_callback callback,
     void* user_data,
     std::string* collected_response) {
     if (prompt == nullptr || prompt[0] == '\0') {
@@ -273,17 +273,17 @@ bool generate_internal(
 
 extern "C" {
 
-void* foxgpt_engine_create(void) {
+void* foxllm_engine_create(void) {
     return new (std::nothrow) Engine();
 }
 
-void foxgpt_engine_destroy(void* engine) {
+void foxllm_engine_destroy(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     {
         std::lock_guard<std::mutex> lock(instance->operation_mutex);
         unload_model(instance);
@@ -293,7 +293,7 @@ void foxgpt_engine_destroy(void* engine) {
     delete instance;
 }
 
-int32_t foxgpt_engine_load_model(void* engine, const char* model_path) {
+int32_t foxllm_engine_load_model(void* engine, const char* model_path) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return 0;
@@ -306,7 +306,7 @@ int32_t foxgpt_engine_load_model(void* engine, const char* model_path) {
 
     instance->stop_requested.store(false);
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     std::lock_guard<std::mutex> lock(instance->operation_mutex);
     initialize_backend();
     unload_model(instance);
@@ -335,13 +335,13 @@ int32_t foxgpt_engine_load_model(void* engine, const char* model_path) {
 #endif
 }
 
-void foxgpt_engine_unload_model(void* engine) {
+void foxllm_engine_unload_model(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     std::lock_guard<std::mutex> lock(instance->operation_mutex);
     unload_model(instance);
 #else
@@ -352,65 +352,65 @@ void foxgpt_engine_unload_model(void* engine) {
     instance->last_error.clear();
 }
 
-int32_t foxgpt_engine_is_model_loaded(void* engine) {
+int32_t foxllm_engine_is_model_loaded(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return 0;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     return instance->model != nullptr ? 1 : 0;
 #else
     return 0;
 #endif
 }
 
-const char* foxgpt_engine_model_description(void* engine) {
+const char* foxllm_engine_model_description(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return "";
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     return instance->model_description.c_str();
 #else
     return "";
 #endif
 }
 
-uint64_t foxgpt_engine_model_size_bytes(void* engine) {
+uint64_t foxllm_engine_model_size_bytes(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return 0;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     return instance->model_size_bytes;
 #else
     return 0;
 #endif
 }
 
-int32_t foxgpt_engine_model_context_size(void* engine) {
+int32_t foxllm_engine_model_context_size(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return 0;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     return instance->model_context_size;
 #else
     return 0;
 #endif
 }
 
-char* foxgpt_engine_generate(void* engine, const char* prompt) {
+char* foxllm_engine_generate(void* engine, const char* prompt) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return nullptr;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     instance->stop_requested.store(false);
     std::string response;
     if (!generate_internal(
@@ -436,13 +436,13 @@ char* foxgpt_engine_generate(void* engine, const char* prompt) {
 #endif
 }
 
-int32_t foxgpt_engine_generate_stream(
+int32_t foxllm_engine_generate_stream(
     void* engine,
     const char* prompt,
     float temperature,
     float top_p,
     int32_t max_tokens,
-    foxgpt_token_callback callback,
+    foxllm_token_callback callback,
     void* user_data) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
@@ -454,7 +454,7 @@ int32_t foxgpt_engine_generate_stream(
         return 0;
     }
 
-#ifdef FOXGPT_WITH_LLAMA_CPP
+#ifdef FOXLLM_WITH_LLAMA_CPP
     return generate_internal(
                instance,
                prompt,
@@ -481,21 +481,21 @@ int32_t foxgpt_engine_generate_stream(
 #endif
 }
 
-void foxgpt_engine_reset_stop(void* engine) {
+void foxllm_engine_reset_stop(void* engine) {
     auto* instance = as_engine(engine);
     if (instance != nullptr) {
         instance->stop_requested.store(false);
     }
 }
 
-void foxgpt_engine_stop(void* engine) {
+void foxllm_engine_stop(void* engine) {
     auto* instance = as_engine(engine);
     if (instance != nullptr) {
         instance->stop_requested.store(true);
     }
 }
 
-const char* foxgpt_engine_last_error(void* engine) {
+const char* foxllm_engine_last_error(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
         return "Invalid native engine handle.";
@@ -503,15 +503,15 @@ const char* foxgpt_engine_last_error(void* engine) {
     return instance->last_error.c_str();
 }
 
-const char* foxgpt_native_version(void) {
-#ifdef FOXGPT_WITH_LLAMA_CPP
-    return "foxgpt-native/0.3.0+llama-b10903";
+const char* foxllm_native_version(void) {
+#ifdef FOXLLM_WITH_LLAMA_CPP
+    return "foxllm-native/0.3.0+llama-b10903";
 #else
-    return "foxgpt-native/0.3.0+stub";
+    return "foxllm-native/0.3.0+stub";
 #endif
 }
 
-void foxgpt_string_free(char* value) {
+void foxllm_string_free(char* value) {
     std::free(value);
 }
 

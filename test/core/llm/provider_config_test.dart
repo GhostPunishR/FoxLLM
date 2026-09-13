@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/provider_config.dart';
+import 'package:foxllm/core/llm/provider_config.dart';
 
 void main() {
   group('normalizeBaseUrl', () {

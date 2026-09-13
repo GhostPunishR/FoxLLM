@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-/// Rôles de couleur de FoxGPT, injectés dans le `ThemeData`.
+/// Rôles de couleur de FoxLLM, injectés dans le `ThemeData`.
 ///
 /// Les écrans ne codent plus de valeur en dur : ils lisent ces rôles, ce qui
 /// permet de basculer entre les déclinaisons claire et sombre sans toucher aux
@@ -56,7 +56,7 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
   final Color textSecondary;
   final Color textTertiary;
 
-  /// Orange FoxGPT, pour les aplats et actions principales.
+  /// Orange FoxLLM, pour les aplats et actions principales.
   final Color accent;
 
   /// Contenu posé sur [accent].
@@ -206,10 +206,10 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
 }
 
 extension FoxPaletteAccess on BuildContext {
-  /// Palette FoxGPT du thème courant.
+  /// Palette FoxLLM du thème courant.
   ///
   /// Retombe sur la déclinaison correspondant à la luminosité ambiante si
-  /// l'extension est absente, pour qu'un widget monté hors du thème FoxGPT
+  /// l'extension est absente, pour qu'un widget monté hors du thème FoxLLM
   /// s'affiche au lieu de lever.
   FoxPalette get fox {
     final theme = Theme.of(this);

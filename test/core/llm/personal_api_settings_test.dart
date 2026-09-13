@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/personal_api_provider.dart';
-import 'package:foxgpt/core/llm/personal_api_settings.dart';
+import 'package:foxllm/core/llm/personal_api_provider.dart';
+import 'package:foxllm/core/llm/personal_api_settings.dart';
 
 void main() {
   group('PersonalApiSettings', () {

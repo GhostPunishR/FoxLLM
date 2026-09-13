@@ -56,17 +56,17 @@ jobs:
         run: |
           apk=build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
           unzip -l "$apk" | tee /tmp/apk-files.txt
-          grep -F 'lib/arm64-v8a/libfoxgpt_native.so' /tmp/apk-files.txt
+          grep -F 'lib/arm64-v8a/libfoxllm_native.so' /tmp/apk-files.txt
           unzip -p "$apk" \
-            lib/arm64-v8a/libfoxgpt_native.so > /tmp/libfoxgpt_native.so
-          strings /tmp/libfoxgpt_native.so | grep -F 'foxgpt-native/0.3.0+llama-b10903'
-          nm -D --defined-only /tmp/libfoxgpt_native.so | grep -F 'foxgpt_engine_generate_stream'
-          nm -D --defined-only /tmp/libfoxgpt_native.so | grep -F 'foxgpt_engine_reset_stop'
+            lib/arm64-v8a/libfoxllm_native.so > /tmp/libfoxllm_native.so
+          strings /tmp/libfoxllm_native.so | grep -F 'foxllm-native/0.3.0+llama-b10903'
+          nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_generate_stream'
+          nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_reset_stop'
 
       - name: Upload ${{ matrix.mode }} APK
         uses: actions/upload-artifact@v4
         with:
-          name: foxgpt-${{ matrix.mode }}-apk
+          name: foxllm-${{ matrix.mode }}-apk
           path: build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
           if-no-files-found: error
           retention-days: 14

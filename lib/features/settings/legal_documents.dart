@@ -6,17 +6,17 @@ import 'package:flutter/material.dart';
 import '../../core/theme/fox_palette.dart';
 
 /// Version de l'application, tenue en phase avec `pubspec.yaml` par un test.
-const foxGptVersion = '0.1.2';
+const foxLlmVersion = '0.1.2';
 
 /// Titulaire des droits, affiché dans « À propos » et porté par chaque fichier
 /// source sous forme d'identifiant SPDX.
-const foxGptCopyright = 'Copyright © 2026 GhostPunishR';
+const foxLlmCopyright = 'Copyright © 2026 GhostPunishR';
 
 /// Dépôt du code source.
 ///
 /// L'AGPL demande que celui qui reçoit le programme puisse en obtenir le code :
 /// l'application donne donc l'adresse plutôt que de laisser chercher.
-const foxGptSourceUrl = 'https://github.com/GhostPunishR/FoxGPT';
+const foxLlmSourceUrl = 'https://github.com/GhostPunishR/FoxLLM';
 
 class LegalSection {
   const LegalSection({required this.title, required this.paragraphs});
@@ -44,7 +44,7 @@ const termsOfUseDocument = LegalDocument(
     LegalSection(
       title: 'Objet',
       paragraphs: <String>[
-        'FoxGPT est un client de discussion qui exécute des modèles de langage '
+        'FoxLLM est un client de discussion qui exécute des modèles de langage '
             'directement sur ton téléphone, ou qui contacte un fournisseur '
             'distant avec une clé API que tu fournis toi-même.',
         'Utiliser l’application vaut acceptation des présentes conditions.',
@@ -54,7 +54,7 @@ const termsOfUseDocument = LegalDocument(
       title: 'Clés API et fournisseurs tiers',
       paragraphs: <String>[
         'Le mode « API personnelle » utilise une clé que tu obtiens auprès du '
-            'fournisseur de ton choix. FoxGPT ne revend aucun accès et '
+            'fournisseur de ton choix. FoxLLM ne revend aucun accès et '
             'n’intervient pas dans la relation entre toi et ce fournisseur.',
         'Tu restes seul responsable de cette clé, des coûts facturés par le '
             'fournisseur, et du respect des conditions de ce dernier.',
@@ -99,7 +99,7 @@ const privacyPolicyDocument = LegalDocument(
     LegalSection(
       title: 'Principe',
       paragraphs: <String>[
-        'FoxGPT ne dispose d’aucun serveur. L’application ne collecte, ne '
+        'FoxLLM ne dispose d’aucun serveur. L’application ne collecte, ne '
             'transmet et ne stocke aucune donnée personnelle pour son propre '
             'compte.',
       ],
@@ -123,7 +123,7 @@ const privacyPolicyDocument = LegalDocument(
       title: 'Dictée vocale',
       paragraphs: <String>[
         'La dictée utilise le service de reconnaissance vocale d’Android. '
-            'FoxGPT ne transporte aucun son lui-même et n’en conserve aucun : '
+            'FoxLLM ne transporte aucun son lui-même et n’en conserve aucun : '
             'seul le texte reconnu arrive dans le champ de saisie, où tu peux '
             'le corriger avant d’envoyer.',
         'Selon l’appareil et les paquets de langue installés, ce service peut '

@@ -51,8 +51,8 @@ class ChatModesStore {
   ChatModesStore({FlutterSecureStorage? storage})
     : _storage = storage ?? FlutterSecureStorage();
 
-  static const _reasoningKey = 'foxgpt.chat.mode.reasoning';
-  static const _webSearchKey = 'foxgpt.chat.mode.web_search';
+  static const _reasoningKey = 'foxllm.chat.mode.reasoning';
+  static const _webSearchKey = 'foxllm.chat.mode.web_search';
 
   final FlutterSecureStorage _storage;
 

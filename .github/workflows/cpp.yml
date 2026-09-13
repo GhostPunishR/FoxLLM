@@ -24,7 +24,7 @@ jobs:
       - name: Compiler version
         run: g++ --version
       - name: Compile native bridge
-        working-directory: packages/foxgpt_native
+        working-directory: packages/foxllm_native
         run: |
           g++ \
             -std=c++17 \
@@ -33,5 +33,5 @@ jobs:
             -Werror \
             -fPIC \
             -shared \
-            src/foxgpt_native.cpp \
-            -o /tmp/libfoxgpt_native_smoke.so
+            src/foxllm_native.cpp \
+            -o /tmp/libfoxllm_native_smoke.so

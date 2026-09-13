@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: packages/foxgpt_native
+        working-directory: packages/foxllm_native
     steps:
       - uses: actions/checkout@v4
       - name: Setup Flutter

@@ -20,7 +20,7 @@ import 'fox_theme.dart';
 class SystemAppearance {
   const SystemAppearance();
 
-  static const MethodChannel channel = MethodChannel('foxgpt/appearance');
+  static const MethodChannel channel = MethodChannel('foxllm/appearance');
 
   /// Annonce le mode au système sans attendre sa réponse.
   ///

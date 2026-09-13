@@ -4,13 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/chat_message.dart';
-import 'package:foxgpt/core/llm/generation_settings.dart';
-import 'package:foxgpt/core/llm/local_backend_provider.dart';
-import 'package:foxgpt/core/llm/local_llm_backend.dart';
-import 'package:foxgpt/features/chat/chat_screen.dart';
-import 'package:foxgpt/main.dart';
-import 'package:foxgpt_native/foxgpt_native.dart';
+import 'package:foxllm/core/llm/chat_message.dart';
+import 'package:foxllm/core/llm/generation_settings.dart';
+import 'package:foxllm/core/llm/local_backend_provider.dart';
+import 'package:foxllm/core/llm/local_llm_backend.dart';
+import 'package:foxllm/features/chat/chat_screen.dart';
+import 'package:foxllm/main.dart';
+import 'package:foxllm_native/foxllm_native.dart';
 
 void main() {
   testWidgets('ouvre directement le chat, sans écran intermédiaire', (
@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [localLlmBackendProvider.overrideWithValue(_IdleBackend())],
-        child: const FoxGptApp(),
+        child: const FoxLlmApp(),
       ),
     );
 
@@ -40,7 +40,7 @@ void main() {
     tester,
   ) async {
     // Construire `LocalLlmBackend` démarre l'isolate worker et charge
-    // `libfoxgpt_native.so`, donc `llama.cpp`. Fait pendant le premier build,
+    // `libfoxllm_native.so`, donc `llama.cpp`. Fait pendant le premier build,
     // ce travail retarde l'affichage du chat d'autant. Le moteur ne doit être
     // créé qu'à la première utilisation réelle.
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -55,7 +55,7 @@ void main() {
             return _IdleBackend();
           }),
         ],
-        child: const FoxGptApp(),
+        child: const FoxLlmApp(),
       ),
     );
     await tester.pump();
@@ -89,10 +89,10 @@ class _IdleBackend implements LocalLlmBackend {
   Future<bool> get isModelLoaded async => false;
 
   @override
-  Future<FoxGptModelInfo?> get modelInfo async => null;
+  Future<FoxLlmModelInfo?> get modelInfo async => null;
 
   @override
-  Future<FoxGptGenerationStats?> get lastGenerationStats async => null;
+  Future<FoxLlmGenerationStats?> get lastGenerationStats async => null;
 
   @override
   Future<void> loadModel(String path) async {}

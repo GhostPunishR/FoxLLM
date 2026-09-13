@@ -33,7 +33,7 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 18),
           Center(
             child: Text(
-              'FoxGPT',
+              'FoxLLM',
               style: TextStyle(
                 color: fox.textPrimary,
                 fontSize: 22,
@@ -44,14 +44,14 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 6),
           Center(
             child: Text(
-              'Version $foxGptVersion',
+              'Version $foxLlmVersion',
               style: TextStyle(color: fox.textSecondary, fontSize: 14),
             ),
           ),
           const SizedBox(height: 4),
           Center(
             child: Text(
-              foxGptCopyright,
+              foxLlmCopyright,
               style: TextStyle(color: fox.textTertiary, fontSize: 13),
             ),
           ),
@@ -73,7 +73,7 @@ class AboutScreen extends StatelessWidget {
               _AboutTile(
                 icon: Icons.description_outlined,
                 title: termsOfUseDocument.title,
-                subtitle: 'Ce que tu acceptes en utilisant FoxGPT',
+                subtitle: 'Ce que tu acceptes en utilisant FoxLLM',
                 document: termsOfUseDocument,
               ),
               Divider(height: 1, color: fox.border),
@@ -87,12 +87,12 @@ class AboutScreen extends StatelessWidget {
               _AboutTile(
                 icon: Icons.code,
                 title: 'Code source',
-                subtitle: foxGptSourceUrl.replaceFirst('https://', ''),
+                subtitle: foxLlmSourceUrl.replaceFirst('https://', ''),
                 // L'AGPL demande que le code reste accessible à qui reçoit le
                 // programme : l'adresse est donnée ici, pas seulement dans le
                 // dépôt.
                 onTap: () =>
-                    unawaited(openExternalLink(Uri.parse(foxGptSourceUrl))),
+                    unawaited(openExternalLink(Uri.parse(foxLlmSourceUrl))),
               ),
               Divider(height: 1, color: fox.border),
               _AboutTile(
@@ -109,13 +109,13 @@ class AboutScreen extends StatelessWidget {
               _AboutTile(
                 icon: Icons.inventory_2_outlined,
                 title: 'Licences tierces',
-                subtitle: 'Bibliothèques utilisées par FoxGPT',
+                subtitle: 'Bibliothèques utilisées par FoxLLM',
                 // Page fournie par Flutter : elle rassemble les licences que
                 // les dépendances imposent de faire figurer dans l'application.
                 onTap: () => showLicensePage(
                   context: context,
-                  applicationName: 'FoxGPT',
-                  applicationVersion: 'Version $foxGptVersion',
+                  applicationName: 'FoxLLM',
+                  applicationVersion: 'Version $foxLlmVersion',
                   applicationIcon: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: FoxMark(size: 52),

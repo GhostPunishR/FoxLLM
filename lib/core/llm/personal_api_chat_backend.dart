@@ -4,7 +4,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:foxgpt_native/foxgpt_native.dart';
+import 'package:foxllm_native/foxllm_native.dart';
 
 import 'chat_message.dart';
 import 'generation_settings.dart';
@@ -72,10 +72,10 @@ class PersonalApiChatBackend implements LocalLlmBackend {
   Future<bool> get isModelLoaded => Future<bool>.value(true);
 
   @override
-  Future<FoxGptModelInfo?> get modelInfo => _localBackend.modelInfo;
+  Future<FoxLlmModelInfo?> get modelInfo => _localBackend.modelInfo;
 
   @override
-  Future<FoxGptGenerationStats?> get lastGenerationStats =>
+  Future<FoxLlmGenerationStats?> get lastGenerationStats =>
       _localBackend.lastGenerationStats;
 
   @override

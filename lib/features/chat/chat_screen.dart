@@ -562,7 +562,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _showSnack(
       status == DictationStatus.denied
           ? 'La dictée a besoin du micro. Autorise-le dans les réglages '
-                'Android de FoxGPT.'
+                'Android de FoxLLM.'
           : 'Aucune reconnaissance vocale disponible sur cet appareil.',
     );
   }

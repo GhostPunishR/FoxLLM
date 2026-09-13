@@ -5,16 +5,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxgpt/core/llm/chat_message.dart';
-import 'package:foxgpt/features/chat/chat_conversation.dart';
-import 'package:foxgpt/features/chat/conversation_store.dart';
+import 'package:foxllm/core/llm/chat_message.dart';
+import 'package:foxllm/features/chat/chat_conversation.dart';
+import 'package:foxllm/features/chat/conversation_store.dart';
 
 void main() {
   late Directory tempDirectory;
   late ConversationStore store;
 
   setUp(() async {
-    tempDirectory = await Directory.systemTemp.createTemp('foxgpt-chats-');
+    tempDirectory = await Directory.systemTemp.createTemp('foxllm-chats-');
     store = ConversationStore(
       applicationSupportDirectory: () async => tempDirectory,
     );

@@ -74,11 +74,11 @@ class PersonalApiSettingsStore {
   PersonalApiSettingsStore({FlutterSecureStorage? storage})
     : _storage = storage ?? FlutterSecureStorage();
 
-  static const _providerKey = 'foxgpt.personal_api.provider';
-  static const _baseUrlKey = 'foxgpt.personal_api.base_url';
-  static const _modelKey = 'foxgpt.personal_api.model';
-  static const _persistenceKey = 'foxgpt.personal_api.persistence';
-  static const _useInChatKey = 'foxgpt.personal_api.use_in_chat';
+  static const _providerKey = 'foxllm.personal_api.provider';
+  static const _baseUrlKey = 'foxllm.personal_api.base_url';
+  static const _modelKey = 'foxllm.personal_api.model';
+  static const _persistenceKey = 'foxllm.personal_api.persistence';
+  static const _useInChatKey = 'foxllm.personal_api.use_in_chat';
 
   final FlutterSecureStorage _storage;
 

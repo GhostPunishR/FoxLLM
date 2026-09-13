@@ -316,7 +316,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'FoxGPT contacte directement le fournisseur depuis ton téléphone. '
+                  'FoxLLM contacte directement le fournisseur depuis ton téléphone. '
                   'Pour les fournisseurs connus, la Base URL est configurée automatiquement '
                   'et les modèles accessibles sont récupérés avec ta clé.',
                   style: TextStyle(

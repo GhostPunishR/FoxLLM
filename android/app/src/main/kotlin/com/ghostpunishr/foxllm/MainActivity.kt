@@ -1,7 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
-package com.ghostpunishr.foxgpt
+package com.ghostpunishr.foxllm
 
 import android.app.UiModeManager
 import android.os.Build
@@ -47,6 +47,6 @@ class MainActivity : FlutterActivity() {
     }
 
     private companion object {
-        const val CHANNEL = "foxgpt/appearance"
+        const val CHANNEL = "foxllm/appearance"
     }
 }
