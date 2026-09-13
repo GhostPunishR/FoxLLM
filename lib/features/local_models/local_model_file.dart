@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 class LocalModelFile {
   const LocalModelFile({
     required this.fileName,

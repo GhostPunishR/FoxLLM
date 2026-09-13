@@ -87,9 +87,20 @@ La prochaine étape est de brancher la sélection Local/API directement dans le 
 
 ## Licence
 
-FoxGPT est distribué sous licence [GNU Affero General Public License v3](LICENSE).
-Le texte intégral est également consultable dans l'application, dans
-Paramètres → À propos → Licence.
+Copyright © 2026 GhostPunishR
+
+FoxGPT est un logiciel libre : vous pouvez le redistribuer et le modifier selon
+les termes de la [GNU Affero General Public License](LICENSE), version 3 ou,
+à votre choix, toute version ultérieure.
+
+Ce programme est distribué dans l'espoir qu'il sera utile, mais SANS AUCUNE
+GARANTIE, ni explicite ni implicite, y compris les garanties de
+commercialisation ou d'adaptation à un usage particulier. Voir la licence pour
+plus de détails.
+
+Chaque fichier source porte la notice correspondante sous forme d'identifiant
+SPDX (`AGPL-3.0-or-later`). Le texte intégral de la licence est aussi
+consultable dans l'application, dans Paramètres → À propos → Licence.
 
 Les bibliothèques tierces gardent leurs licences respectives ; l'application les
 rassemble dans Paramètres → À propos → Licences tierces.

@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 @DefaultAsset('package:foxgpt_native/foxgpt_native.dart')
 library;
 

@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import 'package:url_launcher/url_launcher.dart';
 
 /// Ouvre un lien d'une réponse dans le navigateur du système.

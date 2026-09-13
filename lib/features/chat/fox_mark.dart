@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import 'package:flutter/material.dart';
 
 /// Renard FoxGPT, identique à celui de l'écran de lancement et de l'icône.

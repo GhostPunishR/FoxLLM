@@ -6,6 +6,11 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- chaque fichier source porte la notice de licence sous forme d'identifiant
+  SPDX (`AGPL-3.0-or-later`), et le README la notice de copyright complète.
+  Le fichier `LICENSE` retrouve le texte de la FSF mot pour mot : la ligne de
+  son annexe est un modèle à recopier dans les fichiers du programme, pas un
+  champ à remplir. Un test refuse désormais un fichier source sans notice ;
 - les titres, les listes et les traits de séparation du Markdown sont rendus :
   `### Titre` affichait ses dièses, `- point` son tiret, et la hiérarchie d'une
   réponse disparaissait. Les titres prennent une taille selon leur niveau, les

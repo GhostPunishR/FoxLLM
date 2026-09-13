@@ -1,3 +1,6 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import '../../core/llm/chat_message.dart';
 
 /// Conversation affichée dans le menu latéral et rechargeable après fermeture.
