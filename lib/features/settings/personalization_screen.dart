@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/llm/personalization.dart';
-import '../../core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/llm/model/personalization.dart';
 
 /// Écran où l'utilisateur décrit comment son IA doit répondre.
 ///

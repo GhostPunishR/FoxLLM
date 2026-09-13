@@ -4,10 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/llm/local_backend_provider.dart';
-import '../../core/llm/local_llm_backend.dart';
-import '../../core/llm/personal_api_chat_backend.dart';
-import 'chat_screen.dart';
+import 'package:foxllm/features/chat/chat_screen.dart';
+import 'package:foxllm/llm/backend/local_backend_provider.dart';
+import 'package:foxllm/llm/backend/local_llm_backend.dart';
+import 'package:foxllm/llm/personal_api/personal_api_chat_backend.dart';
 
 /// Backend utilisé par l'écran de chat : l'API personnelle si elle est active,
 /// sinon le moteur local.

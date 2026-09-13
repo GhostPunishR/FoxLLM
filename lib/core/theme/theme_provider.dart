@@ -4,8 +4,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'fox_theme.dart';
-import 'system_appearance.dart';
+import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/core/theme/system_appearance.dart';
 
 /// Conserve la déclinaison choisie entre deux lancements.
 ///

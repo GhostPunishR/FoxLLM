@@ -75,16 +75,32 @@ package natif : rien à installer de plus que le SDK Flutter et le NDK Android.
 
 ```text
 lib/
-├── core/llm/        contrat LlmBackend, moteurs distants, réglages
-├── core/theme/      palette et déclinaisons du renard
-├── features/chat/   écran de chat, Markdown, pièces jointes, dictée
-└── features/        modèles locaux, paramètres, pages légales
+├── main.dart         amorçage et widget racine
+├── core/             briques transverses, sans écran
+│   ├── app_info.dart version, titulaire des droits, adresse du dépôt
+│   ├── storage/      clé API et dernier modèle, en stockage sécurisé
+│   ├── theme/        palette du renard et ses deux déclinaisons
+│   └── ui/           widgets partagés par plusieurs écrans
+├── llm/              moteurs et contrat commun, aucun widget
+│   ├── model/        messages, pièces jointes, réglages de génération
+│   ├── backend/      LlmBackend, socle HTTP, moteurs local et distants
+│   └── personal_api/ fournisseurs BYOK, réglages, découverte des modèles
+└── features/         un dossier par écran
+    ├── chat/         chat, pièces jointes, conversations, Markdown
+    ├── local_models/ bibliothèque GGUF et son écran
+    └── settings/     apparence, API, personnalisation, à propos
+
 packages/foxllm_native/
-├── lib/             liaison FFI et isolate worker
-├── src/             ABI C stable devant le C++
-└── hook/            compilation de llama.cpp à la construction
-docs/                site public du projet
+├── lib/              liaison FFI et isolate worker
+├── src/              ABI C stable devant le C++
+└── hook/             compilation de llama.cpp à la construction
+
+test/                 miroir de lib/, plus repository/ pour le dépôt lui-même
+docs/                 site public du projet
 ```
+
+Les imports internes s'écrivent en `package:foxllm/...` plutôt qu'en chemins
+relatifs : déplacer un fichier ne casse alors rien.
 
 Le code Flutter ne crée jamais `FoxLlmNativeEngine` directement : il passe par
 `LocalLlmBackend`, qui délègue à `FoxLlmNativeWorker`. C'est ce qui garde les

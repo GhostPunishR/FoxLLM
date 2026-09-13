@@ -4,11 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/llm/personal_api_provider.dart';
-import '../../core/llm/personal_api_settings.dart';
-import '../../core/llm/personal_api_settings_provider.dart';
-import '../../core/llm/provider_config.dart';
-import '../../core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
+import 'package:foxllm/llm/personal_api/provider_config.dart';
 
 class PersonalApiScreen extends ConsumerStatefulWidget {
   const PersonalApiScreen({super.key});
