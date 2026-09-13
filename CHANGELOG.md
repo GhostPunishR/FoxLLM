@@ -4,6 +4,26 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [Non publié]
 
+### Corrections
+
+- le modèle local ne tient plus les deux rôles de la conversation. Le prompt
+  était assemblé à la main dans un format `<|rôle|>` qui n'appartient à aucun
+  modèle : faute de reconnaître la fin de son tour, le modèle enchaînait en
+  écrivant la réplique de l'utilisateur, puis la suivante, jusqu'à la limite de
+  jetons, balises comprises. Le prompt est désormais construit avec le gabarit
+  de conversation inscrit dans le GGUF, celui-là même pour lequel le modèle a
+  été entraîné : il termine sur son jeton de fin, et `llama.cpp` arrête la
+  boucle ;
+- un filet de sécurité coupe malgré tout la réponse au premier marqueur de fin
+  de tour, pour les GGUF dont le gabarit est inexact ou qui écrivent leurs
+  balises en texte ordinaire plutôt qu'en jetons spéciaux. Douze marqueurs des
+  familles ChatML, Llama 3, Phi et Mistral sont reconnus, y compris arrivés en
+  plusieurs morceaux, sans retarder l'affichage du texte ordinaire ;
+- l'ABI native passe en 0.4.0 avec l'export `foxllm_engine_apply_chat_template`,
+  dont la CI Android vérifie la présence dans la bibliothèque livrée. Un GGUF
+  sans gabarit, ou avec un gabarit que `llama.cpp` ne sait pas appliquer, se
+  replie sur ChatML plutôt que d'échouer.
+
 ### Ajouts
 
 - site public dans `docs/`, prêt à être publié par GitHub Pages : page

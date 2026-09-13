@@ -39,6 +39,42 @@ Engine* as_engine(void* engine) {
     return static_cast<Engine*>(engine);
 }
 
+char* copy_string(const std::string& value) {
+    auto* result = static_cast<char*>(std::malloc(value.size() + 1));
+    if (result == nullptr) {
+        return nullptr;
+    }
+
+    std::memcpy(result, value.c_str(), value.size() + 1);
+    return result;
+}
+
+// Repli quand le GGUF ne porte pas de gabarit de conversation : ChatML est le
+// format le plus répandu, et celui que la plupart des modèles récents
+// reconnaissent même sans y avoir été entraînés.
+std::string chatml_prompt(
+    const char* const* roles,
+    const char* const* contents,
+    int32_t message_count,
+    bool add_assistant) {
+    std::string prompt;
+    for (int32_t index = 0; index < message_count; ++index) {
+        const char* role = roles[index] != nullptr ? roles[index] : "user";
+        const char* content = contents[index] != nullptr ? contents[index] : "";
+        prompt += "<|im_start|>";
+        prompt += role;
+        prompt += '\n';
+        prompt += content;
+        prompt += "<|im_end|>\n";
+    }
+
+    if (add_assistant) {
+        prompt += "<|im_start|>assistant\n";
+    }
+
+    return prompt;
+}
+
 #ifdef FOXLLM_WITH_LLAMA_CPP
 
 std::once_flag backend_once;
@@ -57,16 +93,6 @@ void unload_model(Engine* engine) {
     engine->model_size_bytes = 0;
     engine->model_context_size = 0;
     engine->stop_requested.store(false);
-}
-
-char* copy_string(const std::string& value) {
-    auto* result = static_cast<char*>(std::malloc(value.size() + 1));
-    if (result == nullptr) {
-        return nullptr;
-    }
-
-    std::memcpy(result, value.c_str(), value.size() + 1);
-    return result;
 }
 
 std::string token_to_piece(const llama_vocab* vocab, llama_token token) {
@@ -404,6 +430,85 @@ int32_t foxllm_engine_model_context_size(void* engine) {
 #endif
 }
 
+char* foxllm_engine_apply_chat_template(
+    void* engine,
+    const char* const* roles,
+    const char* const* contents,
+    int32_t message_count,
+    int32_t add_assistant) {
+    auto* instance = as_engine(engine);
+    if (instance == nullptr) {
+        return nullptr;
+    }
+
+    if (roles == nullptr || contents == nullptr || message_count <= 0) {
+        instance->last_error = "No message to format.";
+        return nullptr;
+    }
+
+#ifdef FOXLLM_WITH_LLAMA_CPP
+    std::lock_guard<std::mutex> lock(instance->operation_mutex);
+    if (instance->model == nullptr) {
+        instance->last_error = "No model is loaded.";
+        return nullptr;
+    }
+
+    // Chaque modèle a sa propre façon de baliser les tours de parole. Le
+    // gabarit est écrit dans le GGUF : l'utiliser est ce qui fait que le
+    // modèle reconnaît la fin de son tour et s'arrête sur son jeton de fin,
+    // au lieu de continuer en inventant la suite du dialogue.
+    const char* chat_template = llama_model_chat_template(instance->model, nullptr);
+    if (chat_template == nullptr) {
+        instance->last_error.clear();
+        return copy_string(
+            chatml_prompt(roles, contents, message_count, add_assistant != 0));
+    }
+
+    std::vector<llama_chat_message> chat;
+    chat.reserve(static_cast<size_t>(message_count));
+    for (int32_t index = 0; index < message_count; ++index) {
+        chat.push_back(llama_chat_message{
+            roles[index] != nullptr ? roles[index] : "user",
+            contents[index] != nullptr ? contents[index] : ""});
+    }
+
+    std::vector<char> buffer(4096);
+    int32_t written = llama_chat_apply_template(
+        chat_template,
+        chat.data(),
+        chat.size(),
+        add_assistant != 0,
+        buffer.data(),
+        static_cast<int32_t>(buffer.size()));
+
+    if (written > static_cast<int32_t>(buffer.size())) {
+        buffer.resize(static_cast<size_t>(written));
+        written = llama_chat_apply_template(
+            chat_template,
+            chat.data(),
+            chat.size(),
+            add_assistant != 0,
+            buffer.data(),
+            static_cast<int32_t>(buffer.size()));
+    }
+
+    if (written < 0) {
+        // Gabarit non reconnu par llama.cpp : mieux vaut ChatML qu'un échec,
+        // l'utilisateur veut discuter avec son modèle, pas lire une erreur.
+        instance->last_error.clear();
+        return copy_string(
+            chatml_prompt(roles, contents, message_count, add_assistant != 0));
+    }
+
+    instance->last_error.clear();
+    return copy_string(std::string(buffer.data(), static_cast<size_t>(written)));
+#else
+    instance->last_error.clear();
+    return copy_string(
+        chatml_prompt(roles, contents, message_count, add_assistant != 0));
+#endif
+}
+
 char* foxllm_engine_generate(void* engine, const char* prompt) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {
@@ -505,9 +610,9 @@ const char* foxllm_engine_last_error(void* engine) {
 
 const char* foxllm_native_version(void) {
 #ifdef FOXLLM_WITH_LLAMA_CPP
-    return "foxllm-native/0.3.0+llama-b10903";
+    return "foxllm-native/0.4.0+llama-b10903";
 #else
-    return "foxllm-native/0.3.0+stub";
+    return "foxllm-native/0.4.0+stub";
 #endif
 }
 
