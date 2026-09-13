@@ -6,6 +6,15 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- OpenAI passe à son API Responses : c'est le seul format où ses outils
+  intégrés existent, la recherche web comprise. Les messages y deviennent des
+  éléments d'`input`, la consigne système un champ `instructions`, et la
+  réponse arrive en évènements typés dont seuls les fragments de texte sont
+  retenus. Les autres fournisseurs gardent `chat/completions`, le format
+  qu'ils imitent ;
+- le mode Recherche est donc disponible avec OpenAI comme avec Gemini. Les
+  fournisseurs qui n'ont pas d'outil de recherche le disent, plutôt que de
+  laisser croire à une réponse sourcée ;
 - les puces « Réflexion » et « Rechercher » du composer deviennent des
   interrupteurs : leur aplat dit lequel est actif, et le choix est conservé
   entre deux lancements. Réflexion ajoute une consigne de raisonnement aux

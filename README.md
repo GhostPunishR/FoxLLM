@@ -60,10 +60,11 @@ Déjà présent :
 - personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
 - composer responsive avec Réflexion et Rechercher activables, ajout, voix/envoi et Stop ;
 - mode Réflexion : consigne de raisonnement et marge de génération élargie, sur tous les moteurs ;
-- mode Recherche : outil de recherche web intégré de Google Gemini ;
+- mode Recherche : outil de recherche web intégré d'OpenAI (API Responses) et de Google Gemini ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;
 - backend OpenAI-compatible avec streaming SSE et BYOK ;
+- backend OpenAI sur l'API Responses, pour ses outils intégrés ;
 - stockage sécurisé des clés API ou conservation en mémoire pour la session ;
 - package FFI `foxgpt_native` avec ABI C stable ;
 - `llama.cpp` b10903 épinglé pour le moteur Android arm64 ;

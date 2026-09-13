@@ -11,7 +11,6 @@ import 'generation_settings.dart';
 import 'llm_backend.dart';
 import 'local_backend_provider.dart';
 import 'local_llm_backend.dart';
-import 'personal_api_provider.dart';
 import 'personal_api_settings.dart';
 import 'personal_api_settings_provider.dart';
 
@@ -57,11 +56,10 @@ class PersonalApiChatBackend implements LocalLlmBackend {
 
   /// Vrai si le fournisseur configuré sait consulter le web.
   ///
-  /// Seul Gemini expose un outil de recherche dans le format de requête que
-  /// FoxGPT utilise ; les API compatibles OpenAI n'en ont pas dans
-  /// `chat/completions`.
-  bool get supportsWebSearch =>
-      _settings.provider.id == geminiPersonalApiProvider.id;
+  /// Gemini et l'API Responses d'OpenAI ont chacun un outil de recherche
+  /// intégré ; les fournisseurs qui se contentent d'imiter
+  /// `chat/completions` n'en ont aucun.
+  bool get supportsWebSearch => _settings.provider.supportsWebSearch;
 
   @override
   String? get loadedModelPath =>

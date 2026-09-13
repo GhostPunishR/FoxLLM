@@ -11,6 +11,7 @@ import 'gemini_backend.dart';
 import 'generation_settings.dart';
 import 'llm_backend.dart';
 import 'openai_compatible_backend.dart';
+import 'openai_responses_backend.dart';
 import 'personal_api_provider.dart';
 import 'provider_config.dart';
 
@@ -139,6 +140,11 @@ LlmBackend createPersonalApiRemoteBackend({
         model: settings.model,
         keyStore: keyStore,
         apiKeyPersistence: settings.apiKeyPersistence,
+      );
+    case PersonalApiProtocol.openAiResponses:
+      return OpenAiResponsesBackend(
+        provider: settings.toProviderConfig(),
+        keyStore: keyStore,
       );
     case PersonalApiProtocol.openAiCompatible:
       return OpenAiCompatibleBackend(

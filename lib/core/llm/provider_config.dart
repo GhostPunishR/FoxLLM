@@ -20,6 +20,9 @@ class ProviderConfig {
 
   Uri get chatCompletionsUri =>
       Uri.parse('${normalizeBaseUrl(baseUrl)}/chat/completions');
+
+  /// Point d'entrée de l'API Responses d'OpenAI.
+  Uri get responsesUri => Uri.parse('${normalizeBaseUrl(baseUrl)}/responses');
 }
 
 /// Base URL sans espaces ni barre oblique finale, prête à être concaténée.
