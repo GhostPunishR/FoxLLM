@@ -49,10 +49,10 @@ Déjà présent :
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
 - renommage et suppression d'une conversation depuis le menu latéral ;
-- écran Paramètres avec accès aux modèles locaux, à l'API personnelle, à l'apparence et à « À propos » ;
+- écran Paramètres avec accès aux modèles locaux — le modèle en place y est nommé —, à l'API personnelle, à l'apparence et à « À propos » ;
 - deux thèmes FoxGPT, clair par défaut et sombre, tous deux teintés de l'orange du renard ;
-- conditions d'utilisation et politique de confidentialité consultables dans l'application ;
-- réponses affichées en Markdown, avec blocs de code annotés et copiables ;
+- conditions d'utilisation, politique de confidentialité, licence AGPL v3 et licences tierces consultables dans l'application ;
+- réponses affichées en Markdown, avec blocs de code annotés, colorés et copiables ;
 - pièce jointe texte ou code depuis le composer, insérée dans le message ;
 - personnalisation du ton et du comportement de l'IA, appliquée au moteur local comme à l'API personnelle ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
@@ -83,3 +83,12 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 ## Prochain jalon
 
 La prochaine étape est de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
+
+## Licence
+
+FoxGPT est distribué sous licence [GNU Affero General Public License v3](LICENSE).
+Le texte intégral est également consultable dans l'application, dans
+Paramètres → À propos → Licence.
+
+Les bibliothèques tierces gardent leurs licences respectives ; l'application les
+rassemble dans Paramètres → À propos → Licences tierces.

@@ -2,6 +2,41 @@
 
 Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
+## [Non publié]
+
+### Modifications
+
+- les blocs de code du chat sont colorés : commentaires, chaînes, nombres,
+  mots-clés et appels se distinguent, au lieu d'un bloc entier d'une seule
+  teinte. La coloration reconnaît une vingtaine de langages d'après celui
+  annoncé après les triples accents graves, et retombe sur un jeu commun quand
+  il est absent ou inconnu — colorer large ferait passer des identifiants
+  ordinaires pour des mots-clés. Les cinq couleurs viennent de la palette et
+  gardent un contraste d'au moins 4,5:1 sur le fond des blocs, dans les deux
+  déclinaisons ;
+- Paramètres → Modèles locaux affiche le modèle en place plutôt que
+  « llama.cpp », qui nommait le moteur — information que l'écran des modèles
+  donne déjà. Le nom est lu depuis le chemin mémorisé : interroger le moteur
+  l'aurait construit, isolate et bibliothèque native compris, pour un
+  sous-titre ;
+- À propos donne accès au texte intégral de la licence GNU Affero General
+  Public License v3, sous laquelle FoxGPT est distribué, et à la page des
+  licences tierces que les dépendances imposent de faire figurer dans
+  l'application. Le fichier `LICENSE` de la racine est embarqué tel quel :
+  deux exemplaires d'une licence finissent toujours par diverger.
+
+### Tests
+
+- tests du découpage syntaxique : rôles reconnus, code reconstitué à
+  l'identique, commentaires propres à chaque langage, chaîne non refermée,
+  échappements, langage inconnu ;
+- contraste WCAG des cinq couleurs de code sur le fond des blocs, et
+  vérification qu'aucune ne se confond avec une autre ;
+- vérification que le fichier `LICENSE` porte bien le texte officiel de l'AGPL
+  v3, clause 13 comprise, et qu'il est déclaré comme ressource ;
+- tests du sous-titre des modèles locaux : modèle nommé, absence de modèle,
+  stockage illisible.
+
 ## [0.1.1] - 2026-09-13
 
 Première mise à jour après la v0.1.0 : démarrage raccourci, conversations et

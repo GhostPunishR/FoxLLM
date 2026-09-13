@@ -5,6 +5,7 @@ import '../../core/llm/personal_api_settings_provider.dart';
 import '../../core/llm/personalization.dart';
 import '../../core/theme/fox_palette.dart';
 import '../../core/theme/theme_provider.dart';
+import '../local_models/current_local_model.dart';
 import '../local_models/local_models_screen.dart';
 import 'about_screen.dart';
 import 'appearance_screen.dart';
@@ -19,6 +20,16 @@ class SettingsScreen extends ConsumerWidget {
     final fox = context.fox;
 
     final instructions = ref.watch(personalizationProvider);
+    // Le sous-titre nomme le modèle en place : « llama.cpp » désignait le
+    // moteur, une information que l'écran des modèles donne déjà.
+    final localModelSubtitle = ref
+        .watch(currentLocalModelProvider)
+        .when(
+          data: (name) =>
+              name == null ? 'GGUF · aucun modèle chargé' : 'GGUF · $name',
+          loading: () => 'GGUF · lecture du modèle…',
+          error: (_, _) => 'GGUF · modèle indisponible',
+        );
     final personalApiState = ref.watch(personalApiSettingsProvider);
     final personalApiSubtitle = personalApiState.when(
       data: (settings) {
@@ -50,13 +61,15 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.memory_outlined,
                 title: 'Modèles locaux',
-                subtitle: 'GGUF · llama.cpp',
-                onTap: () {
-                  Navigator.of(context).push(
+                subtitle: localModelSubtitle,
+                onTap: () async {
+                  await Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (context) => const LocalModelsScreen(),
                     ),
                   );
+                  // Un modèle a pu être chargé ou déchargé entre-temps.
+                  ref.invalidate(currentLocalModelProvider);
                 },
               ),
               Divider(height: 1, color: fox.border),

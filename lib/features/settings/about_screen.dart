@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/fox_palette.dart';
 import '../chat/fox_mark.dart';
 import 'legal_documents.dart';
+import 'license_screen.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -69,6 +70,34 @@ class AboutScreen extends StatelessWidget {
                 subtitle: 'Ce que deviennent tes données',
                 document: privacyPolicyDocument,
               ),
+              Divider(height: 1, color: fox.border),
+              _AboutTile(
+                icon: Icons.balance_outlined,
+                title: 'Licence',
+                subtitle: 'GNU Affero General Public License v3',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const LicenseScreen(),
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: fox.border),
+              _AboutTile(
+                icon: Icons.inventory_2_outlined,
+                title: 'Licences tierces',
+                subtitle: 'Bibliothèques utilisées par FoxGPT',
+                // Page fournie par Flutter : elle rassemble les licences que
+                // les dépendances imposent de faire figurer dans l'application.
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: 'FoxGPT',
+                  applicationVersion: 'Version $foxGptVersion',
+                  applicationIcon: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: FoxMark(size: 52),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -102,13 +131,22 @@ class _AboutTile extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.document,
-  });
+    this.document,
+    this.onTap,
+  }) : assert(
+         document != null || onTap != null,
+         'une entrée doit mener quelque part',
+       );
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final LegalDocument document;
+
+  /// Document légal à ouvrir, quand l'entrée en présente un.
+  final LegalDocument? document;
+
+  /// Destination libre, pour les entrées qui n'ouvrent pas un document.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -131,9 +169,14 @@ class _AboutTile extends StatelessWidget {
       ),
       trailing: Icon(Icons.chevron_right_rounded, color: fox.textTertiary),
       onTap: () {
+        final legalDocument = document;
+        if (legalDocument == null) {
+          onTap!();
+          return;
+        }
         Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (context) => LegalDocumentScreen(document: document),
+            builder: (context) => LegalDocumentScreen(document: legalDocument),
           ),
         );
       },

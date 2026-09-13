@@ -24,6 +24,11 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     required this.accentText,
     required this.accentSurface,
     required this.accentBorder,
+    required this.codeComment,
+    required this.codeKeyword,
+    required this.codeString,
+    required this.codeNumber,
+    required this.codeCall,
   });
 
   /// Fond général des écrans.
@@ -60,6 +65,19 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
   final Color accentSurface;
   final Color accentBorder;
 
+  /// Coloration syntaxique des blocs de code du chat.
+  ///
+  /// Le texte courant du code reprend [textPrimary] ; ces rôles ne portent que
+  /// ce qui s'en détache. Chacun garde un contraste d'au moins 4,5:1 sur
+  /// [surfaceInput], le fond des blocs.
+  final Color codeComment;
+  final Color codeKeyword;
+  final Color codeString;
+  final Color codeNumber;
+
+  /// Nom d'une fonction appelée ou déclarée.
+  final Color codeCall;
+
   static const dark = FoxPalette(
     background: Color(0xFF0F0B08),
     surfaceRaised: Color(0xFF1A1310),
@@ -76,6 +94,11 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     accentText: Color(0xFFFF8A4C),
     accentSurface: Color(0xFF33200F),
     accentBorder: Color(0xFF5E3A1C),
+    codeComment: Color(0xFF9A8778),
+    codeKeyword: Color(0xFFFF8A4C),
+    codeString: Color(0xFFA5C97A),
+    codeNumber: Color(0xFFE0A85C),
+    codeCall: Color(0xFF7FBEEA),
   );
 
   static const light = FoxPalette(
@@ -94,6 +117,11 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     accentText: Color(0xFFA8400A),
     accentSurface: Color(0xFFFFEAD9),
     accentBorder: Color(0xFFF5C6A3),
+    codeComment: Color(0xFF7C6556),
+    codeKeyword: Color(0xFFB23A0B),
+    codeString: Color(0xFF2F6B22),
+    codeNumber: Color(0xFF8A5A0F),
+    codeCall: Color(0xFF15618F),
   );
 
   @override
@@ -113,6 +141,11 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     Color? accentText,
     Color? accentSurface,
     Color? accentBorder,
+    Color? codeComment,
+    Color? codeKeyword,
+    Color? codeString,
+    Color? codeNumber,
+    Color? codeCall,
   }) {
     return FoxPalette(
       background: background ?? this.background,
@@ -130,6 +163,11 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
       accentText: accentText ?? this.accentText,
       accentSurface: accentSurface ?? this.accentSurface,
       accentBorder: accentBorder ?? this.accentBorder,
+      codeComment: codeComment ?? this.codeComment,
+      codeKeyword: codeKeyword ?? this.codeKeyword,
+      codeString: codeString ?? this.codeString,
+      codeNumber: codeNumber ?? this.codeNumber,
+      codeCall: codeCall ?? this.codeCall,
     );
   }
 
@@ -155,6 +193,11 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
       accentText: mix(accentText, other.accentText),
       accentSurface: mix(accentSurface, other.accentSurface),
       accentBorder: mix(accentBorder, other.accentBorder),
+      codeComment: mix(codeComment, other.codeComment),
+      codeKeyword: mix(codeKeyword, other.codeKeyword),
+      codeString: mix(codeString, other.codeString),
+      codeNumber: mix(codeNumber, other.codeNumber),
+      codeCall: mix(codeCall, other.codeCall),
     );
   }
 }

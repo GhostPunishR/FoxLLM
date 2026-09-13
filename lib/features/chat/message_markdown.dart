@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/fox_palette.dart';
+import 'code_highlighter.dart';
 
 /// Morceau d'un message de chat.
 ///
@@ -225,6 +226,41 @@ class MessageMarkdown extends StatelessWidget {
   }
 }
 
+/// Fragments colorés d'un bloc de code.
+///
+/// Sans coloration, tout le bloc s'affichait dans la même teinte : lisible
+/// pour une ligne, pénible pour une fonction entière.
+List<InlineSpan> codeSpans(
+  String code, {
+  required String? language,
+  required FoxPalette palette,
+}) {
+  Color colorOf(CodeTokenType type) => switch (type) {
+    CodeTokenType.plain => palette.textPrimary,
+    CodeTokenType.comment => palette.codeComment,
+    CodeTokenType.string => palette.codeString,
+    CodeTokenType.number => palette.codeNumber,
+    CodeTokenType.keyword => palette.codeKeyword,
+    CodeTokenType.call => palette.codeCall,
+  };
+
+  return <InlineSpan>[
+    for (final token in highlightCode(code, language: language))
+      TextSpan(
+        text: token.text,
+        style: TextStyle(
+          color: colorOf(token.type),
+          fontStyle: token.type == CodeTokenType.comment
+              ? FontStyle.italic
+              : null,
+          fontWeight: token.type == CodeTokenType.keyword
+              ? FontWeight.w600
+              : null,
+        ),
+      ),
+  ];
+}
+
 /// Bloc de code avec en-tête, langage et bouton de copie.
 class CodeBlock extends StatefulWidget {
   const CodeBlock({
@@ -323,8 +359,14 @@ class _CodeBlockState extends State<CodeBlock> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-            child: SelectableText(
-              widget.code,
+            child: SelectableText.rich(
+              TextSpan(
+                children: codeSpans(
+                  widget.code,
+                  language: widget.language,
+                  palette: fox,
+                ),
+              ),
               style: TextStyle(
                 color: fox.textPrimary,
                 fontFamily: 'monospace',

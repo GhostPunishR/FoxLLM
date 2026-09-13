@@ -27,3 +27,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    # Le fichier de licence de la racine est embarqué tel quel et affiché dans
+    # « À propos » : une copie dans le code finirait par diverger de celui qui
+    # fait foi.
+    - LICENSE
