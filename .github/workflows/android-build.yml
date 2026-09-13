@@ -59,9 +59,10 @@ jobs:
           grep -F 'lib/arm64-v8a/libfoxllm_native.so' /tmp/apk-files.txt
           unzip -p "$apk" \
             lib/arm64-v8a/libfoxllm_native.so > /tmp/libfoxllm_native.so
-          strings /tmp/libfoxllm_native.so | grep -F 'foxllm-native/0.3.0+llama-b10903'
+          strings /tmp/libfoxllm_native.so | grep -F 'foxllm-native/0.4.0+llama-b10903'
           nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_generate_stream'
           nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_reset_stop'
+          nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_apply_chat_template'
 
       - name: Upload ${{ matrix.mode }} APK
         uses: actions/upload-artifact@v4

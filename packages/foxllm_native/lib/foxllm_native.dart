@@ -47,6 +47,23 @@ external int _engineModelSizeBytes(Pointer<Void> engine);
 )
 external int _engineModelContextSize(Pointer<Void> engine);
 
+@Native<
+  Pointer<Utf8> Function(
+    Pointer<Void>,
+    Pointer<Pointer<Utf8>>,
+    Pointer<Pointer<Utf8>>,
+    Int32,
+    Int32,
+  )
+>(symbol: 'foxllm_engine_apply_chat_template')
+external Pointer<Utf8> _engineApplyChatTemplate(
+  Pointer<Void> engine,
+  Pointer<Pointer<Utf8>> roles,
+  Pointer<Pointer<Utf8>> contents,
+  int messageCount,
+  int addAssistant,
+);
+
 @Native<Pointer<Utf8> Function(Pointer<Void>, Pointer<Utf8>)>(
   symbol: 'foxllm_engine_generate',
 )
@@ -92,6 +109,16 @@ external Pointer<Utf8> _nativeVersion();
 
 @Native<Void Function(Pointer<Utf8>)>(symbol: 'foxllm_string_free')
 external void _stringFree(Pointer<Utf8> value);
+
+/// Un tour de parole, tel que le gabarit du modèle l'attend.
+class FoxLlmChatMessage {
+  const FoxLlmChatMessage({required this.role, required this.content});
+
+  /// `system`, `user` ou `assistant`, les trois rôles que les gabarits de
+  /// conversation connaissent.
+  final String role;
+  final String content;
+}
 
 class FoxLlmModelInfo {
   const FoxLlmModelInfo({
@@ -175,6 +202,60 @@ class FoxLlmNativeEngine {
   void unloadModel() {
     _ensureAlive();
     _engineUnloadModel(_handle);
+  }
+
+  /// Met la conversation au format que le modèle chargé attend.
+  ///
+  /// Le gabarit est lu dans le GGUF : c'est lui qui décide des balises de tour
+  /// de parole, donc du jeton de fin sur lequel le modèle s'arrêtera. Un
+  /// format inventé donnerait un modèle qui ne reconnaît pas la fin de son
+  /// tour et continue en écrivant la réplique suivante à la place de
+  /// l'utilisateur.
+  String applyChatTemplate(
+    List<FoxLlmChatMessage> messages, {
+    bool addAssistant = true,
+  }) {
+    _ensureAlive();
+    if (messages.isEmpty) {
+      throw ArgumentError.value(messages, 'messages', 'must not be empty');
+    }
+
+    final roles = calloc<Pointer<Utf8>>(messages.length);
+    final contents = calloc<Pointer<Utf8>>(messages.length);
+    try {
+      for (var index = 0; index < messages.length; index++) {
+        roles[index] = messages[index].role.toNativeUtf8();
+        contents[index] = messages[index].content.toNativeUtf8();
+      }
+
+      final result = _engineApplyChatTemplate(
+        _handle,
+        roles,
+        contents,
+        messages.length,
+        addAssistant ? 1 : 0,
+      );
+      if (result == nullptr) {
+        throw StateError(lastError);
+      }
+
+      try {
+        return result.toDartString();
+      } finally {
+        _stringFree(result);
+      }
+    } finally {
+      for (var index = 0; index < messages.length; index++) {
+        if (roles[index] != nullptr) {
+          calloc.free(roles[index]);
+        }
+        if (contents[index] != nullptr) {
+          calloc.free(contents[index]);
+        }
+      }
+      calloc.free(roles);
+      calloc.free(contents);
+    }
   }
 
   String generate(String prompt) {
@@ -353,6 +434,23 @@ class FoxLlmNativeWorker {
     _ensureIdle('unload the model');
     await _request('unload');
     _modelInfo = null;
+  }
+
+  /// Met la conversation au format attendu par le modèle chargé.
+  ///
+  /// Passe par le worker parce que le moteur natif lui appartient : c'est lui
+  /// qui détient le GGUF, donc le gabarit de conversation qui s'y trouve.
+  Future<String> applyChatTemplate(
+    List<FoxLlmChatMessage> messages, {
+    bool addAssistant = true,
+  }) async {
+    _ensureUsable();
+    final value = await _request('chatTemplate', <String, Object?>{
+      'roles': <String>[for (final message in messages) message.role],
+      'contents': <String>[for (final message in messages) message.content],
+      'addAssistant': addAssistant,
+    });
+    return value! as String;
   }
 
   Stream<String> generate({
@@ -664,6 +762,18 @@ void _foxLlmNativeWorkerMain(SendPort events) {
         case 'unload':
           engine.unloadModel();
           events.send(<String, Object?>{'type': 'response', 'id': requestId});
+        case 'chatTemplate':
+          final roles = (message['roles']! as List<Object?>).cast<String>();
+          final contents = (message['contents']! as List<Object?>)
+              .cast<String>();
+          events.send(<String, Object?>{
+            'type': 'response',
+            'id': requestId,
+            'value': engine.applyChatTemplate(<FoxLlmChatMessage>[
+              for (var index = 0; index < roles.length; index++)
+                FoxLlmChatMessage(role: roles[index], content: contents[index]),
+            ], addAssistant: message['addAssistant']! as bool),
+          });
         case 'generate':
           engine.resetStop();
           events.send(<String, Object?>{

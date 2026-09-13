@@ -10,7 +10,7 @@ Future<void> main() async {
 
   try {
     final version = engine.version;
-    if (!version.startsWith('foxllm-native/0.3.0')) {
+    if (!version.startsWith('foxllm-native/0.4.0')) {
       throw StateError('Unexpected native engine version: $version');
     }
 
@@ -27,6 +27,28 @@ Future<void> main() async {
       throw StateError('A failed model load must expose a native error.');
     }
 
+    const chatml =
+        '<|im_start|>system\nTu es utile.<|im_end|>\n'
+        '<|im_start|>user\nBonjour<|im_end|>\n'
+        '<|im_start|>assistant\n';
+    final prompt = engine.applyChatTemplate(const <FoxLlmChatMessage>[
+      FoxLlmChatMessage(role: 'system', content: 'Tu es utile.'),
+      FoxLlmChatMessage(role: 'user', content: 'Bonjour'),
+    ]);
+    if (prompt != chatml) {
+      throw StateError('Unexpected fallback chat prompt: $prompt');
+    }
+
+    var emptyRejected = false;
+    try {
+      engine.applyChatTemplate(const <FoxLlmChatMessage>[]);
+    } on ArgumentError {
+      emptyRejected = true;
+    }
+    if (!emptyRejected) {
+      throw StateError('An empty conversation must be rejected.');
+    }
+
     engine.unloadModel();
   } finally {
     engine.dispose();
@@ -34,7 +56,7 @@ Future<void> main() async {
 
   final worker = await FoxLlmNativeWorker.start();
   try {
-    if (!worker.version.startsWith('foxllm-native/0.3.0')) {
+    if (!worker.version.startsWith('foxllm-native/0.4.0')) {
       throw StateError('Unexpected worker native version: ${worker.version}');
     }
 
@@ -65,6 +87,15 @@ Future<void> main() async {
     }
     if (worker.lastGenerationStats != null) {
       throw StateError('A failed generation must not publish success stats.');
+    }
+
+    final workerPrompt = await worker.applyChatTemplate(
+      const <FoxLlmChatMessage>[
+        FoxLlmChatMessage(role: 'user', content: 'Bonjour'),
+      ],
+    );
+    if (!workerPrompt.endsWith('<|im_start|>assistant\n')) {
+      throw StateError('Worker chat prompt lacks the assistant turn.');
     }
 
     await worker.unloadModel();
