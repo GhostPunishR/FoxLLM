@@ -149,25 +149,135 @@ String _joinTrimmed(List<String> lines) {
   return lines.sublist(start, end).join('\n');
 }
 
-/// Repère les portions `code` en ligne, hors bloc.
-final _inlineCodePattern = RegExp(r'`([^`\n]+)`');
+/// Construit les fragments d'un paragraphe : gras, italique et code en ligne.
+///
+/// Les modèles écrivent en Markdown. Rendu tel quel, `**réponse**` s'affichait
+/// avec ses astérisques et sans le gras demandé.
+///
+/// Seuls les délimiteurs à astérisques sont reconnus. Ceux à tirets bas ne le
+/// sont pas volontairement : `__init__` ou `nom_de_variable` y perdraient leurs
+/// tirets au profit d'un gras jamais demandé.
+List<InlineSpan> buildInlineSpans(
+  String text, {
+  required TextStyle codeStyle,
+}) => _inlineSpans(text, codeStyle: codeStyle, bold: false, italic: false);
 
-/// Construit les fragments d'un paragraphe, code en ligne mis en valeur.
-List<InlineSpan> buildInlineSpans(String text, {required TextStyle codeStyle}) {
-  final spans = <InlineSpan>[];
-  var index = 0;
-  for (final match in _inlineCodePattern.allMatches(text)) {
-    if (match.start > index) {
-      spans.add(TextSpan(text: text.substring(index, match.start)));
+List<InlineSpan> _inlineSpans(
+  String text, {
+  required TextStyle codeStyle,
+  required bool bold,
+  required bool italic,
+}) {
+  TextStyle? emphasis() {
+    if (!bold && !italic) {
+      return null;
     }
-    spans.add(TextSpan(text: match.group(1), style: codeStyle));
-    index = match.end;
+    return TextStyle(
+      fontWeight: bold ? FontWeight.w700 : null,
+      fontStyle: italic ? FontStyle.italic : null,
+    );
   }
-  if (index < text.length) {
-    spans.add(TextSpan(text: text.substring(index)));
+
+  final spans = <InlineSpan>[];
+  final pending = StringBuffer();
+
+  void flush() {
+    if (pending.isNotEmpty) {
+      spans.add(TextSpan(text: pending.toString(), style: emphasis()));
+      pending.clear();
+    }
   }
+
+  var index = 0;
+  while (index < text.length) {
+    final char = text[index];
+
+    if (char == '`') {
+      // Le code en ligne n'est pas réinterprété : des astérisques y restent
+      // des astérisques.
+      final closing = text.indexOf('`', index + 1);
+      final newline = text.indexOf('\n', index + 1);
+      final onSameLine = newline == -1 || closing < newline;
+      if (closing > index + 1 && onSameLine) {
+        flush();
+        spans.add(
+          TextSpan(
+            text: text.substring(index + 1, closing),
+            style: codeStyle.merge(emphasis()),
+          ),
+        );
+        index = closing + 1;
+        continue;
+      }
+    }
+
+    if (char == '*') {
+      // Un astérisque met en italique, deux en gras, trois les deux à la fois.
+      var run = 0;
+      while (run < 3 && index + run < text.length && text[index + run] == '*') {
+        run += 1;
+      }
+      final marker = '*' * run;
+      final contentStart = index + run;
+      final closing = _closingEmphasis(text, contentStart, marker);
+      if (closing != -1) {
+        flush();
+        spans.addAll(
+          _inlineSpans(
+            text.substring(contentStart, closing),
+            codeStyle: codeStyle,
+            bold: bold || run >= 2,
+            italic: italic || run.isOdd,
+          ),
+        );
+        index = closing + marker.length;
+        continue;
+      }
+    }
+
+    pending.write(char);
+    index += 1;
+  }
+
+  flush();
   return spans;
 }
+
+/// Position du délimiteur fermant, ou `-1` s'il n'y en a pas d'utilisable.
+///
+/// Les règles écartent ce qui n'est pas une mise en valeur : un produit
+/// « 2 * 3 * 4 », une liste à puces, ou des astérisques séparés par un
+/// paragraphe entier.
+int _closingEmphasis(String text, int contentStart, String marker) {
+  if (contentStart >= text.length || _isSpace(text[contentStart])) {
+    return -1;
+  }
+
+  var index = contentStart;
+  while (index < text.length) {
+    final closing = text.indexOf(marker, index);
+    if (closing == -1) {
+      return -1;
+    }
+    // Un « ** » ne ferme pas une mise en italique ouverte par un seul astérisque.
+    if (marker == '*' && text.startsWith('**', closing)) {
+      index = closing + 2;
+      continue;
+    }
+    if (closing == contentStart || _isSpace(text[closing - 1])) {
+      index = closing + marker.length;
+      continue;
+    }
+    final content = text.substring(contentStart, closing);
+    if (content.contains('\n\n')) {
+      return -1;
+    }
+    return closing;
+  }
+  return -1;
+}
+
+bool _isSpace(String character) => character.trim().isEmpty;
 
 /// Affiche le contenu d'un message : prose et blocs de code copiables.
 class MessageMarkdown extends StatelessWidget {

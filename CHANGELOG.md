@@ -6,6 +6,13 @@ Toutes les évolutions importantes de FoxGPT sont documentées dans ce fichier.
 
 ### Modifications
 
+- le gras et l'italique du Markdown sont rendus : `**réponse**` s'affichait
+  avec ses astérisques et sans le gras demandé. Seuls les délimiteurs à
+  astérisques sont reconnus — un astérisque pour l'italique, deux pour le
+  gras, trois pour les deux —, jamais ceux à tirets bas : `__init__` et
+  `nom_de_variable` y perdraient leurs tirets au profit d'un gras jamais
+  demandé. Une multiplication, une rangée d'astérisques ou un délimiteur non
+  refermé restent du texte, et le code en ligne n'est pas réinterprété ;
 - les blocs de code du chat sont colorés : commentaires, chaînes, nombres,
   mots-clés et appels se distinguent, au lieu d'un bloc entier d'une seule
   teinte. La coloration reconnaît une vingtaine de langages d'après celui

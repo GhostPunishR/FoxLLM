@@ -76,6 +76,104 @@ void main() {
   });
 
   group('buildInlineSpans', () {
+    test('met en gras le texte entouré de doubles astérisques', () {
+      final spans = buildInlineSpans(
+        'La **réponse** est là.',
+        codeStyle: const TextStyle(),
+      );
+
+      expect(spans.map((s) => (s as TextSpan).text), <String>[
+        'La ',
+        'réponse',
+        ' est là.',
+      ]);
+      // Les astérisques disparaissent au profit du gras qu'elles demandaient.
+      expect((spans[1] as TextSpan).style?.fontWeight, FontWeight.w700);
+      expect((spans[0] as TextSpan).style?.fontWeight, isNull);
+    });
+
+    test('met en italique un seul astérisque', () {
+      final spans = buildInlineSpans(
+        'Un mot *souligné* ici.',
+        codeStyle: const TextStyle(),
+      );
+
+      expect((spans[1] as TextSpan).text, 'souligné');
+      expect((spans[1] as TextSpan).style?.fontStyle, FontStyle.italic);
+      expect((spans[1] as TextSpan).style?.fontWeight, isNull);
+    });
+
+    test('combine gras et italique imbriqués', () {
+      final spans = buildInlineSpans(
+        '**très *fort* ici**',
+        codeStyle: const TextStyle(),
+      );
+
+      final inner = spans.cast<TextSpan>().firstWhere(
+        (span) => span.text == 'fort',
+      );
+      expect(inner.style?.fontWeight, FontWeight.w700);
+      expect(inner.style?.fontStyle, FontStyle.italic);
+    });
+
+    test('trois astérisques donnent gras et italique', () {
+      final spans = buildInlineSpans(
+        '***très fort***',
+        codeStyle: const TextStyle(),
+      );
+
+      expect(spans.single.toPlainText(), 'très fort');
+      final style = (spans.single as TextSpan).style;
+      expect(style?.fontWeight, FontWeight.w700);
+      expect(style?.fontStyle, FontStyle.italic);
+    });
+
+    test('une rangée d’astérisques reste telle quelle', () {
+      const text = '5 étoiles ***** pour toi';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+      expect(spans.map((s) => s.toPlainText()).join(), text);
+    });
+
+    test('une multiplication n’est pas une mise en valeur', () {
+      const text = 'Calcule 2 * 3 * 4 pour voir.';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+
+      expect(spans.single.toPlainText(), text);
+      expect((spans.single as TextSpan).style?.fontStyle, isNull);
+    });
+
+    test('des astérisques non refermées restent du texte', () {
+      const text = 'Une **promesse non tenue';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+
+      expect(spans.map((s) => s.toPlainText()).join(), text);
+    });
+
+    test('la mise en valeur ne traverse pas un paragraphe', () {
+      const text = 'Début *ouvert\n\nSuite* fermée';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+
+      expect(spans.map((s) => s.toPlainText()).join(), text);
+    });
+
+    test('les tirets bas ne déclenchent rien', () {
+      // Sinon `__init__` ou `nom_de_variable` perdraient leurs tirets.
+      const text = 'Appelle __init__ sur nom_de_variable.';
+      final spans = buildInlineSpans(text, codeStyle: const TextStyle());
+
+      expect(spans.single.toPlainText(), text);
+    });
+
+    test('le code en ligne garde ses astérisques', () {
+      final spans = buildInlineSpans(
+        'Écris `a ** b` ainsi.',
+        codeStyle: const TextStyle(fontFamily: 'monospace'),
+      );
+
+      expect((spans[1] as TextSpan).text, 'a ** b');
+      expect((spans[1] as TextSpan).style?.fontFamily, 'monospace');
+    });
+
     test('met en valeur le code en ligne sans ses accents graves', () {
       final spans = buildInlineSpans(
         'Appelle `ping()` ensuite.',
@@ -141,6 +239,13 @@ void main() {
       expect(find.text('Copié'), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
       expect(find.text('Copier'), findsOneWidget);
+    });
+
+    testWidgets('n’affiche plus les astérisques du gras', (tester) async {
+      await _pump(tester, 'Voici la **réponse** attendue.');
+
+      expect(find.textContaining('**'), findsNothing);
+      expect(find.text('Voici la réponse attendue.'), findsOneWidget);
     });
 
     testWidgets('un message sans code reste un simple texte', (tester) async {
