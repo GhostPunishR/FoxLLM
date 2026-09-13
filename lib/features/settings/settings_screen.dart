@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/personal_api_settings_provider.dart';
 import '../local_models/local_models_screen.dart';
+import 'about_screen.dart';
 import 'personal_api_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -11,8 +12,6 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const background = Color(0xFF0B0B0B);
-    const muted = Color(0xFF969696);
-    const orange = Color(0xFFFC6117);
 
     final personalApiState = ref.watch(personalApiSettingsProvider);
     final personalApiSubtitle = personalApiState.when(
@@ -93,32 +92,21 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const _SettingsSectionTitle('FoxGPT'),
           const SizedBox(height: 8),
-          const _SettingsCard(
+          _SettingsCard(
             children: <Widget>[
               _SettingsTile(
                 icon: Icons.info_outline,
                 title: 'À propos',
-                subtitle: 'FoxGPT · local + BYOK',
+                subtitle: 'Conditions d’utilisation et confidentialité',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const AboutScreen(),
+                    ),
+                  );
+                },
               ),
             ],
-          ),
-          const SizedBox(height: 26),
-          const Center(
-            child: Text(
-              'FoxGPT',
-              style: TextStyle(color: muted, fontSize: 13, letterSpacing: 0.2),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Container(
-              width: 28,
-              height: 3,
-              decoration: BoxDecoration(
-                color: orange,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
           ),
         ],
       ),

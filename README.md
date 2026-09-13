@@ -48,7 +48,8 @@ Déjà présent :
 - fenêtre de lancement Android avec le renard FoxGPT sur le fond du chat, sans rupture visuelle ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
 - historique de conversations disponible pendant la session avec retour vers un chat précédent ;
-- écran Paramètres avec accès aux modèles locaux et aux sections FoxGPT ;
+- écran Paramètres avec accès aux modèles locaux, à l'API personnelle et à « À propos » ;
+- conditions d'utilisation et politique de confidentialité consultables dans l'application ;
 - composer responsive avec Réflexion, Rechercher, ajout, voix/envoi et Stop ;
 - chat local branché sur le streaming du `LocalLlmBackend` ;
 - contrat Dart commun `LlmBackend` ;

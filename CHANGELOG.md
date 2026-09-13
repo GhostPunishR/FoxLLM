@@ -27,6 +27,11 @@ n'est volontairement modifié.
   l'apparition de l'interface. Ils sont désormais construits à la première
   utilisation réelle (envoi d'un message, ouverture des modèles locaux).
 
+- l'entrée « À propos » des Paramètres ouvre désormais un écran donnant accès
+  aux conditions d'utilisation et à la politique de confidentialité ;
+- suppression du pied de page des Paramètres (le libellé « FoxGPT » et son
+  trait orange).
+
 ### Corrections
 
 - deux imports GGUF du même nom lancés en parallèle ne s'écrasent plus : la
