@@ -61,51 +61,6 @@ L'APK se récupère sur la page [Releases](../../releases). Il vise **Android 9
 (API 28) ou plus récent, en arm64**. Les autres architectures utilisent un stub
 natif : le mode API personnelle reste disponible, pas le moteur local.
 
-## Développer
-
-```bash
-flutter pub get
-flutter test          # 221 cas
-flutter analyze
-flutter build apk --release
-```
-
-`llama.cpp` (b10903) est compilé et lié statiquement par le build hook du
-package natif : rien à installer de plus que le SDK Flutter et le NDK Android.
-
-```text
-lib/
-├── main.dart         amorçage et widget racine
-├── core/             briques transverses, sans écran
-│   ├── app_info.dart version, titulaire des droits, adresse du dépôt
-│   ├── storage/      clé API et dernier modèle, en stockage sécurisé
-│   ├── theme/        palette du renard et ses deux déclinaisons
-│   └── ui/           widgets partagés par plusieurs écrans
-├── llm/              moteurs et contrat commun, aucun widget
-│   ├── model/        messages, pièces jointes, réglages de génération
-│   ├── backend/      LlmBackend, socle HTTP, moteurs local et distants
-│   └── personal_api/ fournisseurs BYOK, réglages, découverte des modèles
-└── features/         un dossier par écran
-    ├── chat/         chat, pièces jointes, conversations, Markdown
-    ├── local_models/ bibliothèque GGUF et son écran
-    └── settings/     apparence, API, personnalisation, à propos
-
-packages/foxllm_native/
-├── lib/              liaison FFI et isolate worker
-├── src/              ABI C stable devant le C++
-└── hook/             compilation de llama.cpp à la construction
-
-test/                 miroir de lib/, plus repository/ pour le dépôt lui-même
-docs/                 site public du projet
-```
-
-Les imports internes s'écrivent en `package:foxllm/...` plutôt qu'en chemins
-relatifs : déplacer un fichier ne casse alors rien.
-
-Le code Flutter ne crée jamais `FoxLlmNativeEngine` directement : il passe par
-`LocalLlmBackend`, qui délègue à `FoxLlmNativeWorker`. C'est ce qui garde les
-appels bloquants de `llama.cpp` hors de l'isolate d'interface.
-
 ## Intégration continue
 
 | Vérification | Ce qu'elle contrôle | État |
@@ -120,15 +75,8 @@ appels bloquants de `llama.cpp` hors de l'isolate d'interface.
 
 ## Licence
 
-Copyright © 2026 GhostPunishR
-
 FoxLLM est un logiciel libre, distribué sous
 [GNU Affero General Public License version 3](LICENSE), à l'exclusion de toute
 version ultérieure. Il est fourni sans aucune garantie.
 
-Chaque fichier source porte sa notice sous forme d'identifiant SPDX
-(`AGPL-3.0-only`). Le texte intégral de la licence est aussi consultable dans
-l'application, avec l'adresse du dépôt : l'AGPL demande que celui qui reçoit le
-programme puisse en obtenir le code source. Les bibliothèques tierces gardent
-leurs licences respectives, rassemblées dans Paramètres, À propos, Licences
-tierces.
+Copyright © 2026 GhostPunishR
