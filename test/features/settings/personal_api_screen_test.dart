@@ -6,10 +6,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/core/llm/personal_api_settings.dart';
-import 'package:foxllm/core/llm/personal_api_settings_provider.dart';
-import 'package:foxllm/core/llm/provider_config.dart';
-import 'package:foxllm/core/security/api_key_store.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
+import 'package:foxllm/llm/personal_api/provider_config.dart';
+import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/features/settings/personal_api_screen.dart';
 
 void main() {

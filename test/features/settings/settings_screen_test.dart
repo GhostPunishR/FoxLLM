@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/core/llm/last_model_store.dart';
+import 'package:foxllm/core/storage/last_model_store.dart';
 import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/features/local_models/local_model_file.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';

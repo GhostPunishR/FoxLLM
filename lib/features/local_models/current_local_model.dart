@@ -3,8 +3,8 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/llm/last_model_store.dart';
-import 'local_model_file.dart';
+import 'package:foxllm/core/storage/last_model_store.dart';
+import 'package:foxllm/features/local_models/local_model_file.dart';
 
 /// Nom du modèle GGUF en place, ou `null` si aucun.
 ///

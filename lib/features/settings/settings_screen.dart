@@ -4,16 +4,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/llm/personal_api_settings_provider.dart';
-import '../../core/llm/personalization.dart';
-import '../../core/theme/fox_palette.dart';
-import '../../core/theme/theme_provider.dart';
-import '../local_models/current_local_model.dart';
-import '../local_models/local_models_screen.dart';
-import 'about_screen.dart';
-import 'appearance_screen.dart';
-import 'personal_api_screen.dart';
-import 'personalization_screen.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
+import 'package:foxllm/llm/model/personalization.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/theme_provider.dart';
+import 'package:foxllm/features/local_models/current_local_model.dart';
+import 'package:foxllm/features/local_models/local_models_screen.dart';
+import 'package:foxllm/features/settings/about/about_screen.dart';
+import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/features/settings/personal_api_screen.dart';
+import 'package:foxllm/features/settings/personalization_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});

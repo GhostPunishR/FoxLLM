@@ -24,6 +24,19 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ### Modifications
 
+- l'arborescence du code est refaite. `lib/core/llm/` ramassait dix-huit
+  fichiers mêlant le contrat des moteurs, les modèles de données et les
+  réglages ; `lib/features/chat/` mêlait écrans et stockage. Désormais `core/`
+  ne garde que les briques transverses (`storage/`, `theme/`, `ui/`), `llm/`
+  regroupe les moteurs (`model/`, `backend/`, `personal_api/`) sans le moindre
+  widget, et chaque écran garde ses dépendances sous `features/`. Le dossier
+  `test/` suit la même arborescence, et `test/repository/` rassemble les
+  contrôles qui portent sur le dépôt lui-même ;
+- la version, le titulaire des droits et l'adresse du dépôt quittent
+  `legal_documents.dart` pour `core/app_info.dart` : ces constantes ne sont pas
+  des textes juridiques ;
+- les imports internes s'écrivent en `package:foxllm/...` au lieu de chemins
+  relatifs. Un fichier déplacé ne casse plus les fichiers qui l'utilisent ;
 - README repris en page de présentation : logo, badges Dart, Flutter, C++,
   Android et licence, les deux moteurs, les fonctions, l'installation, la
   structure du code, et les vérifications d'intégration continue rassemblées

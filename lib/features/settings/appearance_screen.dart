@@ -6,10 +6,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/fox_palette.dart';
-import '../../core/theme/fox_theme.dart';
-import '../../core/theme/theme_provider.dart';
-import '../chat/fox_mark.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/core/theme/theme_provider.dart';
+import 'package:foxllm/core/ui/fox_mark.dart';
 
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});

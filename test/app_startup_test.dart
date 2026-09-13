@@ -4,10 +4,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:foxllm/core/llm/chat_message.dart';
-import 'package:foxllm/core/llm/generation_settings.dart';
-import 'package:foxllm/core/llm/local_backend_provider.dart';
-import 'package:foxllm/core/llm/local_llm_backend.dart';
+import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/generation_settings.dart';
+import 'package:foxllm/llm/backend/local_backend_provider.dart';
+import 'package:foxllm/llm/backend/local_llm_backend.dart';
 import 'package:foxllm/features/chat/chat_screen.dart';
 import 'package:foxllm/main.dart';
 import 'package:foxllm_native/foxllm_native.dart';

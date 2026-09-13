@@ -5,7 +5,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
-import 'local_model_file.dart';
+import 'package:foxllm/features/local_models/local_model_file.dart';
 
 typedef LocalModelDirectoryProvider = Future<Directory> Function();
 typedef LocalModelImportProgress =

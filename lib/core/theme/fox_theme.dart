@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'fox_palette.dart';
+import 'package:foxllm/core/theme/fox_palette.dart';
 
 /// Déclinaisons disponibles dans Paramètres → Apparence.
 ///
