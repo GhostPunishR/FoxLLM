@@ -26,8 +26,7 @@ Une application de discussion avec un modèle de langage, écrite en Flutter ave
 un moteur d'inférence C++. Elle n'a pas de serveur : il n'y a donc ni compte à
 créer, ni file d'attente, ni données à nous confier.
 
-Présentation complète, schémas et textes légaux sur le site du projet, dans
-[`docs/`](docs/).
+Présentation complète, schémas et textes légaux sur le site du projet [FoxLLM](https://ghostpunishr.github.io/FoxLLM/).
 
 ## Deux façons de répondre
 
