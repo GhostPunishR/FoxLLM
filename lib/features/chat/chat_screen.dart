@@ -11,6 +11,8 @@ import '../../core/theme/fox_palette.dart';
 import 'chat_backend_host.dart';
 import 'chat_conversation.dart';
 import 'conversation_store.dart';
+import 'message_markdown.dart';
+import 'text_attachment.dart';
 import '../local_models/local_models_screen.dart';
 import '../settings/settings_screen.dart';
 import 'fox_mark.dart';
@@ -422,25 +424,72 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.memory_outlined),
-                title: const Text('Modèles locaux'),
-                subtitle: const Text('Importer ou charger un fichier GGUF'),
+                leading: const Icon(Icons.attach_file),
+                title: const Text('Joindre un fichier'),
+                subtitle: const Text('Texte ou code, ajouté au message'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  _openLocalModels();
+                  unawaited(_attachFile());
                 },
+              ),
+              // Photos et caméra attendent un modèle multimodal : aucun des
+              // deux backends ne sait lire une image aujourd'hui, les proposer
+              // actives enverrait une pièce jointe que le modèle ignorerait.
+              const ListTile(
+                enabled: false,
+                leading: Icon(Icons.photo_library_outlined),
+                title: Text('Photos'),
+                subtitle: Text('Nécessite un modèle multimodal'),
               ),
               const ListTile(
                 enabled: false,
-                leading: Icon(Icons.attach_file),
-                title: Text('Joindre un fichier'),
-                subtitle: Text('Bientôt disponible'),
+                leading: Icon(Icons.photo_camera_outlined),
+                title: Text('Caméra'),
+                subtitle: Text('Nécessite un modèle multimodal'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _attachFile() async {
+    final TextAttachment? attachment;
+    try {
+      attachment = await ref.read(attachmentPickerProvider).pickTextFile();
+    } on AttachmentException catch (error) {
+      _showSnack(error.message);
+      return;
+    } catch (_) {
+      _showSnack('Impossible de lire ce fichier.');
+      return;
+    }
+    if (attachment == null || !mounted) {
+      return;
+    }
+    _insertAttachment(attachment);
+  }
+
+  /// Insère la pièce jointe au curseur, en préservant le brouillon en cours.
+  void _insertAttachment(TextAttachment attachment) {
+    final block = formatAttachment(attachment);
+    final value = _inputController.value;
+    final offset = value.selection.isValid
+        ? value.selection.end
+        : value.text.length;
+    final before = value.text.substring(0, offset);
+    final after = value.text.substring(offset);
+    final prefix = before.isEmpty || before.endsWith('\n') ? '' : '\n';
+    final inserted = '$prefix$block';
+
+    _inputController.value = TextEditingValue(
+      text: '$before$inserted$after',
+      selection: TextSelection.collapsed(
+        offset: before.length + inserted.length,
+      ),
+    );
+    _showSnack('« ${attachment.name} » ajouté au message.');
   }
 
   @override
@@ -468,61 +517,81 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _openSettings();
         },
       ),
-      body: Stack(
+      body: Column(
         children: <Widget>[
-          Positioned.fill(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: KeyedSubtree(
-                    key: const ValueKey<String>('chat-content'),
-                    child: _messages.isEmpty
-                        ? const _WelcomeState()
-                        : _MessageList(
-                            messages: _messages,
-                            controller: _scrollController,
-                          ),
-                  ),
-                ),
-                if (_restoringModel) const _RestoringModelBanner(),
-                SafeArea(
-                  top: false,
-                  child: KeyedSubtree(
-                    key: const ValueKey<String>('chat-composer'),
-                    child: _Composer(
-                      controller: _inputController,
-                      isGenerating: _isGenerating,
-                      onReflection: _showReflectionInfo,
-                      onSearch: _showSearchInfo,
-                      onAdd: _showAddMenu,
-                      onVoice: _showVoiceInfo,
-                      onSend: () => unawaited(_sendMessage()),
-                      onStop: () => unawaited(_stopGeneration()),
+          // Barre opaque : le fil de messages s'arrête dessous au lieu de
+          // défiler derrière les deux boutons, où le texte devenait illisible.
+          _ChatTopBar(
+            onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+            onNewChat: () => unawaited(_newChat()),
+          ),
+          Expanded(
+            child: KeyedSubtree(
+              key: const ValueKey<String>('chat-content'),
+              child: _messages.isEmpty
+                  ? const _WelcomeState()
+                  : _MessageList(
+                      messages: _messages,
+                      controller: _scrollController,
                     ),
-                  ),
-                ),
-              ],
             ),
           ),
-          Positioned(
-            top: 18,
-            left: 12,
-            child: _TopButton(
-              tooltip: 'Menu',
-              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              child: const _MenuGlyph(),
-            ),
-          ),
-          Positioned(
-            top: 18,
-            right: 12,
-            child: _TopButton(
-              tooltip: 'Nouveau chat',
-              onPressed: () => unawaited(_newChat()),
-              child: const _NewChatGlyph(),
+          if (_restoringModel) const _RestoringModelBanner(),
+          SafeArea(
+            top: false,
+            child: KeyedSubtree(
+              key: const ValueKey<String>('chat-composer'),
+              child: _Composer(
+                controller: _inputController,
+                isGenerating: _isGenerating,
+                onReflection: _showReflectionInfo,
+                onSearch: _showSearchInfo,
+                onAdd: _showAddMenu,
+                onVoice: _showVoiceInfo,
+                onSend: () => unawaited(_sendMessage()),
+                onStop: () => unawaited(_stopGeneration()),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// En-tête du chat : menu latéral et nouveau chat, sur le fond du thème.
+class _ChatTopBar extends StatelessWidget {
+  const _ChatTopBar({required this.onMenu, required this.onNewChat});
+
+  final VoidCallback onMenu;
+  final VoidCallback onNewChat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: context.fox.background,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          height: 52,
+          child: Row(
+            children: <Widget>[
+              const SizedBox(width: 12),
+              _TopButton(
+                tooltip: 'Menu',
+                onPressed: onMenu,
+                child: const _MenuGlyph(),
+              ),
+              const Spacer(),
+              _TopButton(
+                tooltip: 'Nouveau chat',
+                onPressed: onNewChat,
+                child: const _NewChatGlyph(),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -603,7 +672,7 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.fromLTRB(18, 72, 18, 24),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final fox = context.fox;
@@ -633,9 +702,9 @@ class _MessageList extends StatelessWidget {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(
-                    message.content,
-                    style: TextStyle(
+                : MessageMarkdown(
+                    content: message.content,
+                    textStyle: TextStyle(
                       color: fox.textPrimary,
                       fontSize: 16,
                       height: 1.45,
