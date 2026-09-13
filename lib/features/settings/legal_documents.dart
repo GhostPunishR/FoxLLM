@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/fox_palette.dart';
+
 /// Version de l'application, tenue en phase avec `pubspec.yaml` par un test.
 const foxGptVersion = '0.1.0';
 
@@ -141,20 +143,13 @@ class LegalDocumentScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const background = Color(0xFF0B0B0B);
-    const muted = Color(0xFF969696);
+    final fox = context.fox;
 
     return Scaffold(
-      backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: background,
-        surfaceTintColor: Colors.transparent,
         title: Text(
           document.title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
       body: ListView(
@@ -162,14 +157,14 @@ class LegalDocumentScreen extends StatelessWidget {
         children: <Widget>[
           Text(
             'Dernière mise à jour : ${document.updatedAt}',
-            style: const TextStyle(color: muted, fontSize: 13),
+            style: TextStyle(color: fox.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 20),
           for (final section in document.sections) ...<Widget>[
             Text(
               section.title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: fox.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
               ),
@@ -178,8 +173,8 @@ class LegalDocumentScreen extends StatelessWidget {
             for (final paragraph in section.paragraphs) ...<Widget>[
               Text(
                 paragraph,
-                style: const TextStyle(
-                  color: Color(0xFFD6D6D6),
+                style: TextStyle(
+                  color: fox.textPrimary.withValues(alpha: 0.86),
                   fontSize: 15,
                   height: 1.5,
                 ),

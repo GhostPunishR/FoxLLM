@@ -4,48 +4,43 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/theme_provider.dart';
 import 'features/chat/chat_backend_host.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0B0B0B),
-      systemNavigationBarIconBrightness: Brightness.light,
-      systemNavigationBarDividerColor: Color(0xFF0B0B0B),
-    ),
-  );
   runApp(const ProviderScope(child: FoxGptApp()));
 }
 
-class FoxGptApp extends StatelessWidget {
+class FoxGptApp extends ConsumerWidget {
   const FoxGptApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    const background = Color(0xFF0B0B0B);
-    const orange = Color(0xFFFC6117);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = ref.watch(foxThemeProvider);
+    final palette = theme.palette;
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Les barres système suivent le thème, sinon leurs icônes deviennent
+    // illisibles sur la déclinaison claire.
+    SystemChrome.setSystemUIOverlayStyle(
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
+        systemNavigationBarColor: palette.background,
+        systemNavigationBarIconBrightness: isDark
+            ? Brightness.light
+            : Brightness.dark,
+        systemNavigationBarDividerColor: palette.background,
+      ),
+    );
 
     return MaterialApp(
       title: 'FoxGPT',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        useMaterial3: true,
-        scaffoldBackgroundColor: background,
-        canvasColor: background,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: orange,
-          brightness: Brightness.dark,
-          surface: const Color(0xFF171717),
-        ),
-        snackBarTheme: const SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-        ),
-      ),
+      theme: theme.themeData,
       home: const ChatBackendHost(),
     );
   }

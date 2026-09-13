@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/personal_api_settings_provider.dart';
+import '../../core/theme/fox_palette.dart';
+import '../../core/theme/theme_provider.dart';
 import '../local_models/local_models_screen.dart';
 import 'about_screen.dart';
+import 'appearance_screen.dart';
 import 'personal_api_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -11,7 +14,7 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const background = Color(0xFF0B0B0B);
+    final fox = context.fox;
 
     final personalApiState = ref.watch(personalApiSettingsProvider);
     final personalApiSubtitle = personalApiState.when(
@@ -28,13 +31,10 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: background,
-        surfaceTintColor: Colors.transparent,
-        title: const Text(
+        title: Text(
           'Paramètres',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
       body: ListView(
@@ -56,7 +56,7 @@ class SettingsScreen extends ConsumerWidget {
                   );
                 },
               ),
-              const Divider(height: 1, color: Color(0xFF292929)),
+              Divider(height: 1, color: fox.border),
               _SettingsTile(
                 icon: Icons.cloud_outlined,
                 title: 'API personnelle',
@@ -74,15 +74,22 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const _SettingsSectionTitle('Application'),
           const SizedBox(height: 8),
-          const _SettingsCard(
+          _SettingsCard(
             children: <Widget>[
               _SettingsTile(
-                icon: Icons.dark_mode_outlined,
+                icon: Icons.palette_outlined,
                 title: 'Apparence',
-                subtitle: 'Sombre',
+                subtitle: ref.watch(foxThemeProvider).label,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const AppearanceScreen(),
+                    ),
+                  );
+                },
               ),
-              Divider(height: 1, color: Color(0xFF292929)),
-              _SettingsTile(
+              Divider(height: 1, color: fox.border),
+              const _SettingsTile(
                 icon: Icons.shield_outlined,
                 title: 'Confidentialité',
                 subtitle: 'Clés et données conservées sur l’appareil',
@@ -123,8 +130,8 @@ class _SettingsSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       label,
-      style: const TextStyle(
-        color: Color(0xFF989898),
+      style: TextStyle(
+        color: context.fox.textSecondary,
         fontSize: 14,
         fontWeight: FontWeight.w600,
       ),
@@ -139,11 +146,12 @@ class _SettingsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Material(
-      color: const Color(0xFF181818),
+      color: fox.surfaceRaised,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFF242424)),
+        side: BorderSide(color: fox.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
@@ -166,30 +174,28 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     final enabled = onTap != null;
 
     return ListTile(
       onTap: onTap,
       minLeadingWidth: 28,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      leading: Icon(
-        icon,
-        color: enabled ? Colors.white : const Color(0xFFB0B0B0),
-      ),
+      leading: Icon(icon, color: enabled ? fox.textPrimary : fox.textTertiary),
       title: Text(
         title,
         style: TextStyle(
-          color: enabled ? Colors.white : const Color(0xFFE0E0E0),
+          color: enabled ? fox.textPrimary : fox.textSecondary,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Color(0xFF909090), fontSize: 13),
+        style: TextStyle(color: fox.textSecondary, fontSize: 13),
       ),
       trailing: enabled
-          ? const Icon(Icons.chevron_right_rounded, color: Color(0xFF8D8D8D))
+          ? Icon(Icons.chevron_right_rounded, color: fox.textTertiary)
           : null,
     );
   }

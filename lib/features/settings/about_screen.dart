@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/fox_palette.dart';
 import '../chat/fox_mark.dart';
 import 'legal_documents.dart';
 
@@ -8,17 +9,13 @@ class AboutScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const background = Color(0xFF0B0B0B);
-    const muted = Color(0xFF969696);
+    final fox = context.fox;
 
     return Scaffold(
-      backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: background,
-        surfaceTintColor: Colors.transparent,
-        title: const Text(
+        title: Text(
           'À propos',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
       body: ListView(
@@ -27,30 +24,34 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 12),
           const Center(child: FoxMark(size: 84)),
           const SizedBox(height: 18),
-          const Center(
+          Center(
             child: Text(
               'FoxGPT',
               style: TextStyle(
-                color: Colors.white,
+                color: fox.textPrimary,
                 fontSize: 22,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
           const SizedBox(height: 6),
-          const Center(
+          Center(
             child: Text(
               'Version $foxGptVersion',
-              style: TextStyle(color: muted, fontSize: 14),
+              style: TextStyle(color: fox.textSecondary, fontSize: 14),
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Client de discussion qui exécute des modèles GGUF directement sur '
             'ton téléphone, ou contacte le fournisseur d’API de ton choix avec '
             'ta propre clé.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: muted, fontSize: 14, height: 1.5),
+            style: TextStyle(
+              color: fox.textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 28),
           _AboutCard(
@@ -61,7 +62,7 @@ class AboutScreen extends StatelessWidget {
                 subtitle: 'Ce que tu acceptes en utilisant FoxGPT',
                 document: termsOfUseDocument,
               ),
-              const Divider(height: 1, color: Color(0xFF292929)),
+              Divider(height: 1, color: fox.border),
               _AboutTile(
                 icon: Icons.privacy_tip_outlined,
                 title: privacyPolicyDocument.title,
@@ -83,11 +84,12 @@ class _AboutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Material(
-      color: const Color(0xFF181818),
+      color: fox.surfaceRaised,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFF242424)),
+        side: BorderSide(color: fox.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
@@ -110,26 +112,24 @@ class _AboutTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return ListTile(
       minLeadingWidth: 28,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-      leading: Icon(icon, color: Colors.white),
+      leading: Icon(icon, color: fox.textPrimary),
       title: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: fox.textPrimary,
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Color(0xFF909090), fontSize: 13),
+        style: TextStyle(color: fox.textSecondary, fontSize: 13),
       ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: Color(0xFF8D8D8D),
-      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: fox.textTertiary),
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute<void>(

@@ -27,6 +27,11 @@ n'est volontairement modifié.
   l'apparition de l'interface. Ils sont désormais construits à la première
   utilisation réelle (envoi d'un message, ouverture des modèles locaux).
 
+- Paramètres → Apparence propose deux déclinaisons aux couleurs du renard,
+  « Sombre renard » et « Clair renard », avec aperçu et choix conservé entre
+  deux lancements. Les écrans lisent désormais une palette centralisée
+  (`FoxPalette`) au lieu de couleurs codées en dur, et les puces d'outils du
+  chat passent du bleu Material à l'orange FoxGPT ;
 - l'entrée « À propos » des Paramètres ouvre désormais un écran donnant accès
   aux conditions d'utilisation et à la politique de confidentialité ;
 - suppression du pied de page des Paramètres (le libellé « FoxGPT » et son

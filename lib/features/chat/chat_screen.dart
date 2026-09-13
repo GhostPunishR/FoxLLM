@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/chat_message.dart';
 import '../../core/llm/local_backend_provider.dart';
+import '../../core/theme/fox_palette.dart';
 import '../local_models/local_models_screen.dart';
 import '../settings/settings_screen.dart';
 import 'fox_mark.dart';
@@ -18,14 +19,6 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
-  static const background = Color(0xFF0B0B0B);
-  static const composer = Color(0xFF242424);
-  static const composerBorder = Color(0xFF3A3A3A);
-  static const muted = Color(0xFF949494);
-  static const blue = Color(0xFF5B8CFF);
-  static const blueSurface = Color(0xFF202B43);
-  static const blueBorder = Color(0xFF35558C);
-
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
@@ -286,7 +279,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _showAddMenu() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF191919),
+      backgroundColor: context.fox.surfaceRaised,
       showDragHandle: true,
       builder: (context) => SafeArea(
         child: Padding(
@@ -320,7 +313,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: background,
       resizeToAvoidBottomInset: true,
       drawerScrimColor: Colors.black54,
       drawer: _FoxDrawer(
@@ -421,20 +413,20 @@ class _WelcomeState extends StatelessWidget {
       builder: (context, constraints) {
         return Padding(
           padding: EdgeInsets.only(top: constraints.maxHeight * 0.39),
-          child: const Align(
+          child: Align(
             alignment: Alignment.topCenter,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                FoxMark(size: 46),
-                SizedBox(height: 22),
+                const FoxMark(size: 46),
+                const SizedBox(height: 22),
                 SizedBox(
                   width: 300,
                   child: Text(
                     "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: context.fox.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       height: 1.28,
@@ -464,6 +456,7 @@ class _MessageList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 72, 18, 24),
       itemCount: messages.length,
       itemBuilder: (context, index) {
+        final fox = context.fox;
         final message = messages[index];
         final isUser = message.role == ChatRole.user;
         if (message.role == ChatRole.system) {
@@ -480,7 +473,7 @@ class _MessageList extends StatelessWidget {
                 : const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             decoration: isUser
                 ? BoxDecoration(
-                    color: const Color(0xFF282828),
+                    color: fox.userBubble,
                     borderRadius: BorderRadius.circular(22),
                   )
                 : null,
@@ -492,8 +485,8 @@ class _MessageList extends StatelessWidget {
                   )
                 : Text(
                     message.content,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: fox.textPrimary,
                       fontSize: 16,
                       height: 1.45,
                     ),
@@ -528,15 +521,16 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: _ChatScreenState.composer,
+            color: fox.surfaceInput,
             borderRadius: BorderRadius.circular(36),
-            border: Border.all(color: _ChatScreenState.composerBorder),
+            border: Border.all(color: fox.borderStrong),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(18, 13, 12, 11),
@@ -547,18 +541,18 @@ class _Composer extends StatelessWidget {
                   controller: controller,
                   minLines: 1,
                   maxLines: 5,
-                  keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(color: Colors.white, fontSize: 17),
-                  decoration: const InputDecoration(
+                  keyboardAppearance: Theme.of(context).brightness,
+                  style: TextStyle(color: fox.textPrimary, fontSize: 17),
+                  decoration: InputDecoration(
                     isDense: true,
                     hintText: 'Message ou maintenir pour parler',
                     hintStyle: TextStyle(
-                      color: _ChatScreenState.muted,
+                      color: fox.textSecondary,
                       fontSize: 17,
                       fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 2),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 2),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -648,11 +642,10 @@ class _ToolChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Material(
-      color: _ChatScreenState.blueSurface,
-      shape: StadiumBorder(
-        side: BorderSide(color: _ChatScreenState.blueBorder),
-      ),
+      color: fox.accentSurface,
+      shape: StadiumBorder(side: BorderSide(color: fox.accentBorder)),
       child: InkWell(
         customBorder: const StadiumBorder(),
         onTap: onPressed,
@@ -661,12 +654,12 @@ class _ToolChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(icon, size: 18, color: _ChatScreenState.blue),
+              Icon(icon, size: 18, color: fox.accentText),
               const SizedBox(width: 5),
               Text(
                 label,
-                style: const TextStyle(
-                  color: _ChatScreenState.blue,
+                style: TextStyle(
+                  color: fox.accentText,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
@@ -694,6 +687,7 @@ class _RoundComposerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     return Tooltip(
       message: tooltip,
       child: SizedBox.square(
@@ -706,13 +700,16 @@ class _RoundComposerButton extends StatelessWidget {
               width: 31,
               height: 31,
               decoration: BoxDecoration(
-                color: filled ? Colors.white : Colors.transparent,
+                color: filled ? fox.accent : Colors.transparent,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.7),
+                border: Border.all(
+                  color: filled ? fox.accent : fox.textPrimary,
+                  width: 1.7,
+                ),
               ),
               child: Icon(
                 icon,
-                color: filled ? Colors.black : Colors.white,
+                color: filled ? fox.onAccent : fox.textPrimary,
                 size: 20,
               ),
             ),
@@ -762,9 +759,9 @@ class _MenuGlyph extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          Container(width: 24, height: 2, color: Colors.white),
+          Container(width: 24, height: 2, color: context.fox.textPrimary),
           const SizedBox(height: 7),
-          Container(width: 16, height: 2, color: Colors.white),
+          Container(width: 16, height: 2, color: context.fox.textPrimary),
         ],
       ),
     );
@@ -776,20 +773,22 @@ class _NewChatGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.square(
+    return SizedBox.square(
       dimension: 29,
-      child: CustomPaint(painter: _NewChatPainter()),
+      child: CustomPaint(painter: _NewChatPainter(context.fox.textPrimary)),
     );
   }
 }
 
 class _NewChatPainter extends CustomPainter {
-  const _NewChatPainter();
+  const _NewChatPainter(this.color);
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
@@ -815,7 +814,8 @@ class _NewChatPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _NewChatPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _FoxDrawer extends StatefulWidget {
@@ -838,10 +838,6 @@ class _FoxDrawer extends StatefulWidget {
 }
 
 class _FoxDrawerState extends State<_FoxDrawer> {
-  static const _drawerColor = Color(0xFF0D0D0D);
-  static const _searchColor = Color(0xFF242424);
-  static const _muted = Color(0xFF969696);
-
   final _searchController = TextEditingController();
 
   @override
@@ -878,6 +874,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final fox = context.fox;
     final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
     final conversations = _filteredConversations;
     final today = <_ChatConversation>[];
@@ -898,7 +895,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     return Drawer(
       width: width,
       shape: const RoundedRectangleBorder(),
-      backgroundColor: _drawerColor,
+      backgroundColor: fox.background,
       child: SafeArea(
         child: Column(
           children: <Widget>[
@@ -907,28 +904,28 @@ class _FoxDrawerState extends State<_FoxDrawer> {
               child: Container(
                 height: 52,
                 decoration: BoxDecoration(
-                  color: _searchColor,
+                  color: fox.surfaceInput,
                   borderRadius: BorderRadius.circular(28),
                 ),
                 child: TextField(
                   controller: _searchController,
                   autofocus: false,
-                  keyboardAppearance: Brightness.dark,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  decoration: const InputDecoration(
+                  keyboardAppearance: Theme.of(context).brightness,
+                  style: TextStyle(color: fox.textPrimary, fontSize: 16),
+                  decoration: InputDecoration(
                     hintText: 'Rechercher dans les chats',
                     hintStyle: TextStyle(
-                      color: _muted,
+                      color: fox.textSecondary,
                       fontSize: 16,
                       fontWeight: FontWeight.w400,
                     ),
                     prefixIcon: Icon(
                       Icons.search_rounded,
-                      color: _muted,
+                      color: fox.textSecondary,
                       size: 27,
                     ),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 15),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 15),
                   ),
                 ),
               ),
@@ -943,19 +940,22 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                       tooltip: 'Nouveau chat',
                       visualDensity: VisualDensity.compact,
                       onPressed: widget.onNewChat,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add_comment_outlined,
-                        color: _muted,
+                        color: fox.textSecondary,
                         size: 21,
                       ),
                     ),
                   ),
                   if (today.isEmpty && lastWeek.isEmpty && older.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(2, 18, 2, 10),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
                       child: Text(
                         'Aucune conversation',
-                        style: TextStyle(color: _muted, fontSize: 16),
+                        style: TextStyle(
+                          color: fox.textSecondary,
+                          fontSize: 16,
+                        ),
                       ),
                     )
                   else
@@ -973,7 +973,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: Color(0xFF1B1B1B)),
+            Divider(height: 1, thickness: 1, color: fox.border),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: Material(
@@ -982,27 +982,34 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                 child: InkWell(
                   onTap: widget.onSettings,
                   borderRadius: BorderRadius.circular(14),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 13,
+                    ),
                     child: Row(
                       children: <Widget>[
                         Icon(
                           Icons.settings_outlined,
-                          color: Colors.white,
+                          color: fox.textPrimary,
                           size: 25,
                         ),
-                        SizedBox(width: 13),
+                        const SizedBox(width: 13),
                         Expanded(
                           child: Text(
                             'Paramètres',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: fox.textPrimary,
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        Icon(Icons.more_horiz, color: _muted, size: 24),
+                        Icon(
+                          Icons.more_horiz,
+                          color: fox.textSecondary,
+                          size: 24,
+                        ),
                       ],
                     ),
                   ),
@@ -1016,11 +1023,12 @@ class _FoxDrawerState extends State<_FoxDrawer> {
   }
 
   Widget _conversationTile(_ChatConversation conversation) {
+    final fox = context.fox;
     final selected = conversation.id == widget.activeConversationId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Material(
-        color: selected ? const Color(0xFF1B1B1B) : Colors.transparent,
+        color: selected ? fox.surfaceSelected : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => widget.onConversationSelected(conversation.id),
@@ -1032,7 +1040,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? Colors.white : const Color(0xFFE9E9E9),
+                color: selected ? fox.textPrimary : fox.textSecondary,
                 fontSize: 17,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
@@ -1065,8 +1073,8 @@ class _DrawerSectionHeader extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(
-                color: Color(0xFF949494),
+              style: TextStyle(
+                color: context.fox.textSecondary,
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
