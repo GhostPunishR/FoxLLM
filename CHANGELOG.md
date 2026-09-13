@@ -37,6 +37,15 @@ n'est volontairement modifié.
 - suppression du pied de page des Paramètres (le libellé « FoxGPT » et son
   trait orange).
 
+- l'historique des conversations est enregistré dans le stockage privé de
+  l'application et rechargé au lancement suivant ; l'écriture passe par un
+  fichier temporaire renommé, pour qu'une fermeture brutale ne laisse pas un
+  historique tronqué ;
+- le dernier modèle GGUF utilisé est mémorisé et rouvert automatiquement au
+  premier message, au lieu de devoir le recharger à la main à chaque
+  démarrage. Il n'est pas ouvert au lancement, ce qui retarderait l'affichage
+  du chat de plusieurs secondes.
+
 ### Corrections
 
 - deux imports GGUF du même nom lancés en parallèle ne s'écrasent plus : la

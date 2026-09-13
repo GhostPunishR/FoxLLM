@@ -127,6 +127,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('recharge le modèle mémorisé au premier envoi', (tester) async {
+    final backend = _FakeChatBackend(
+      loadedModelPath: null,
+      restorableModelPath: '/models/memorise.gguf',
+      chunks: <String>['ok'],
+    );
+    await _pumpChat(tester, backend);
+
+    await _send(tester, 'Bonjour');
+    await tester.pumpAndSettle();
+
+    expect(backend.restoreCalls, 1);
+    expect(backend.loadedModelPath, '/models/memorise.gguf');
+    expect(backend.generateCalls, hasLength(1));
+    expect(find.text('ok'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('signale un modèle mémorisé devenu illisible', (tester) async {
+    final backend = _FakeChatBackend(
+      loadedModelPath: null,
+      restorableModelPath: '/models/casse.gguf',
+      restoreFails: true,
+    );
+    await _pumpChat(tester, backend);
+
+    await _send(tester, 'Bonjour');
+    await tester.pumpAndSettle();
+
+    expect(backend.restoreCalls, 1);
+    expect(
+      find.textContaining('Chargement du modèle impossible'),
+      findsOneWidget,
+    );
+    expect(backend.generateCalls, isEmpty);
+  });
+
   testWidgets('la conversation envoyée apparaît dans le menu latéral', (
     tester,
   ) async {
@@ -170,17 +207,40 @@ class _FakeChatBackend implements LocalLlmBackend {
   _FakeChatBackend({
     this.chunks = const <String>[],
     this.stream,
-    this.loadedModelPath = '/models/test.gguf',
-  });
+    String? loadedModelPath = '/models/test.gguf',
+    this.restorableModelPath,
+    this.restoreFails = false,
+  }) : _loadedModelPath = loadedModelPath;
 
   final List<String> chunks;
   final Stream<String>? stream;
 
   final List<List<ChatMessage>> generateCalls = <List<ChatMessage>>[];
   int stopCalls = 0;
+  int restoreCalls = 0;
+
+  /// Échec simulé de l'ouverture du GGUF mémorisé.
+  final bool restoreFails;
+
+  String? _loadedModelPath;
 
   @override
-  final String? loadedModelPath;
+  String? get loadedModelPath => _loadedModelPath;
+
+  @override
+  String? restorableModelPath;
+
+  @override
+  void markRestorable(String? path) => restorableModelPath = path;
+
+  @override
+  Future<void> restoreModelIfNeeded() async {
+    restoreCalls += 1;
+    if (restoreFails) {
+      throw StateError('GGUF illisible');
+    }
+    _loadedModelPath = restorableModelPath;
+  }
 
   @override
   String get id => 'fake';

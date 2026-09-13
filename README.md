@@ -47,7 +47,7 @@ Déjà présent :
 - icône APK/adaptive icon sur fond blanc ;
 - fenêtre de lancement Android avec le renard FoxGPT sur le fond du chat, sans rupture visuelle ;
 - menu latéral avec recherche de conversations, regroupement temporel et accès aux paramètres ;
-- historique de conversations disponible pendant la session avec retour vers un chat précédent ;
+- historique de conversations conservé entre deux lancements, avec retour vers un chat précédent ;
 - écran Paramètres avec accès aux modèles locaux, à l'API personnelle, à l'apparence et à « À propos » ;
 - deux thèmes FoxGPT, sombre et clair, tous deux teintés de l'orange du renard ;
 - conditions d'utilisation et politique de confidentialité consultables dans l'application ;
@@ -78,4 +78,4 @@ Le moteur local réel est actuellement ciblé sur **Android arm64 / API 28+**. L
 
 ## Prochain jalon
 
-La prochaine étape est de rendre l'historique des conversations persistant entre les redémarrages, de brancher la sélection Local/API directement dans le chat, puis d'ajouter les paramètres de génération dans l'interface.
+La prochaine étape est de brancher la sélection Local/API directement dans le chat, d'ajouter la suppression d'une conversation, puis les paramètres de génération dans l'interface.

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foxgpt_native/foxgpt_native.dart';
 
+import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_backend_provider.dart';
 import 'local_model_file.dart';
 import 'local_model_library.dart';
@@ -143,6 +144,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
     try {
       final backend = ref.read(localLlmBackendProvider);
       await backend.loadModel(model.path);
+      await ref.read(lastModelStoreProvider).save(model.path);
       final info = await backend.modelInfo;
       if (!mounted) {
         return;
@@ -178,6 +180,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
 
     try {
       await ref.read(localLlmBackendProvider).unloadModel();
+      await ref.read(lastModelStoreProvider).clear();
       if (!mounted) {
         return;
       }

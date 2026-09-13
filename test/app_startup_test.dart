@@ -80,6 +80,15 @@ class _IdleBackend implements LocalLlmBackend {
   String? get loadedModelPath => null;
 
   @override
+  String? restorableModelPath;
+
+  @override
+  void markRestorable(String? path) => restorableModelPath = path;
+
+  @override
+  Future<void> restoreModelIfNeeded() async {}
+
+  @override
   Future<String> get nativeVersion async => 'idle/0.0.0';
 
   @override

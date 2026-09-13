@@ -5,8 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/chat_message.dart';
+import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_backend_provider.dart';
+import '../../core/llm/local_llm_backend.dart';
 import '../../core/theme/fox_palette.dart';
+import 'chat_conversation.dart';
+import 'conversation_store.dart';
 import '../local_models/local_models_screen.dart';
 import '../settings/settings_screen.dart';
 import 'fox_mark.dart';
@@ -23,13 +27,55 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final List<ChatMessage> _messages = <ChatMessage>[];
-  final List<_ChatConversation> _conversations = <_ChatConversation>[];
+  final List<ChatConversation> _conversations = <ChatConversation>[];
 
   bool _isGenerating = false;
   bool _scrollScheduled = false;
+  bool _restoringModel = false;
   int _generationEpoch = 0;
   int _nextConversationId = 1;
   int? _activeConversationId;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreSession());
+  }
+
+  /// Recharge l'historique et déclare le dernier modèle utilisé.
+  ///
+  /// Le modèle n'est pas ouvert ici : le faire retarderait l'affichage du chat
+  /// de plusieurs secondes. Il l'est au premier envoi, via
+  /// `restoreModelIfNeeded()`.
+  Future<void> _restoreSession() async {
+    final conversations = await ref.read(conversationStoreProvider).load();
+    if (mounted && conversations.isNotEmpty) {
+      setState(() {
+        _conversations
+          ..clear()
+          ..addAll(conversations);
+        _nextConversationId =
+            conversations
+                .map((conversation) => conversation.id)
+                .reduce((a, b) => a > b ? a : b) +
+            1;
+      });
+    }
+
+    final lastModel = await ref.read(lastModelStoreProvider).load();
+    if (lastModel != null && mounted) {
+      ref.read(localLlmBackendProvider).markRestorable(lastModel);
+      setState(() {});
+    }
+  }
+
+  void _persistConversations() {
+    unawaited(
+      ref
+          .read(conversationStoreProvider)
+          .save(List<ChatConversation>.of(_conversations)),
+    );
+  }
 
   @override
   void dispose() {
@@ -92,8 +138,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final backend = ref.read(localLlmBackendProvider);
     if (backend.loadedModelPath == null) {
-      _showModelRequired();
-      return;
+      // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
+      // retarder l'affichage du chat au lancement.
+      if (backend.restorableModelPath == null) {
+        _showModelRequired();
+        return;
+      }
+      if (!await _restoreModel(backend)) {
+        return;
+      }
     }
 
     final generationEpoch = ++_generationEpoch;
@@ -144,12 +197,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
+  /// Ouvre le modèle mémorisé. Rend `false` si le chargement a échoué ou si
+  /// l'écran a disparu entre-temps.
+  Future<bool> _restoreModel(LocalLlmBackend backend) async {
+    setState(() => _restoringModel = true);
+    try {
+      await backend.restoreModelIfNeeded();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _restoringModel = false);
+        _showSnack('Chargement du modèle impossible : $error');
+      }
+      return false;
+    }
+    if (!mounted) {
+      return false;
+    }
+    setState(() => _restoringModel = false);
+    if (backend.loadedModelPath == null) {
+      _showModelRequired();
+      return false;
+    }
+    return true;
+  }
+
   void _ensureActiveConversation(String firstMessage) {
     if (_activeConversationId != null) {
       return;
     }
 
-    final conversation = _ChatConversation(
+    final conversation = ChatConversation(
       id: _nextConversationId++,
       title: _conversationTitle(firstMessage),
       updatedAt: DateTime.now(),
@@ -167,7 +244,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return '${normalized.substring(0, 39)}…';
   }
 
-  _ChatConversation? _conversationById(int id) {
+  ChatConversation? _conversationById(int id) {
     for (final conversation in _conversations) {
       if (conversation.id == id) {
         return conversation;
@@ -192,6 +269,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _conversations
       ..remove(conversation)
       ..insert(0, conversation);
+    _persistConversations();
   }
 
   void _removeEmptyAssistantPlaceholder() {
@@ -347,6 +425,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ),
                   ),
                 ),
+                if (_restoringModel) const _RestoringModelBanner(),
                 SafeArea(
                   top: false,
                   child: KeyedSubtree(
@@ -390,18 +469,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
-class _ChatConversation {
-  _ChatConversation({
-    required this.id,
-    required this.title,
-    required this.updatedAt,
-    required this.messages,
-  });
+class _RestoringModelBanner extends StatelessWidget {
+  const _RestoringModelBanner();
 
-  final int id;
-  final String title;
-  DateTime updatedAt;
-  List<ChatMessage> messages;
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          SizedBox.square(
+            dimension: 14,
+            child: CircularProgressIndicator(strokeWidth: 2, color: fox.accent),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Chargement du modèle local…',
+            style: TextStyle(color: fox.textSecondary, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _WelcomeState extends StatelessWidget {
@@ -827,7 +918,7 @@ class _FoxDrawer extends StatefulWidget {
     required this.onSettings,
   });
 
-  final List<_ChatConversation> conversations;
+  final List<ChatConversation> conversations;
   final int? activeConversationId;
   final VoidCallback onNewChat;
   final ValueChanged<int> onConversationSelected;
@@ -860,7 +951,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     super.dispose();
   }
 
-  List<_ChatConversation> get _filteredConversations {
+  List<ChatConversation> get _filteredConversations {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) {
       return widget.conversations;
@@ -877,9 +968,9 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     final fox = context.fox;
     final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
     final conversations = _filteredConversations;
-    final today = <_ChatConversation>[];
-    final lastWeek = <_ChatConversation>[];
-    final older = <_ChatConversation>[];
+    final today = <ChatConversation>[];
+    final lastWeek = <ChatConversation>[];
+    final older = <ChatConversation>[];
 
     for (final conversation in conversations) {
       final age = _dayDifference(conversation.updatedAt, DateTime.now());
@@ -1022,7 +1113,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     );
   }
 
-  Widget _conversationTile(_ChatConversation conversation) {
+  Widget _conversationTile(ChatConversation conversation) {
     final fox = context.fox;
     final selected = conversation.id == widget.activeConversationId;
     return Padding(

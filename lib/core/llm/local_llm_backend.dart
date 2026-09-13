@@ -10,6 +10,8 @@ class LocalLlmBackend implements LlmBackend {
 
   final Future<FoxGptNativeWorker> _worker;
   String? _loadedModelPath;
+  String? _restorableModelPath;
+  Future<void>? _restoring;
 
   @override
   String get id => 'local';
@@ -18,6 +20,35 @@ class LocalLlmBackend implements LlmBackend {
   String get displayName => 'Modèle local';
 
   String? get loadedModelPath => _loadedModelPath;
+
+  /// Modèle utilisé lors de la session précédente, à recharger au besoin.
+  String? get restorableModelPath => _restorableModelPath;
+
+  /// Déclare un modèle à remettre en place sans le charger tout de suite :
+  /// ouvrir un GGUF coûte plusieurs secondes et beaucoup de mémoire, ce qui
+  /// retarderait l'affichage du chat.
+  void markRestorable(String? path) {
+    if (_loadedModelPath == null) {
+      _restorableModelPath = path;
+    }
+  }
+
+  /// Recharge le modèle mémorisé si aucun n'est chargé.
+  ///
+  /// Les appels concurrents partagent le même chargement, pour ne pas ouvrir
+  /// deux fois le même GGUF.
+  Future<void> restoreModelIfNeeded() {
+    if (_loadedModelPath != null) {
+      return Future<void>.value();
+    }
+    final path = _restorableModelPath;
+    if (path == null) {
+      return Future<void>.value();
+    }
+    return _restoring ??= loadModel(path).whenComplete(() {
+      _restoring = null;
+    });
+  }
 
   Future<String> get nativeVersion async => (await _worker).version;
 
@@ -32,8 +63,11 @@ class LocalLlmBackend implements LlmBackend {
     try {
       await (await _worker).loadModel(path);
       _loadedModelPath = path;
+      _restorableModelPath = path;
     } catch (_) {
       _loadedModelPath = null;
+      // Un modèle qui ne s'ouvre plus ne doit pas être retenté à chaque envoi.
+      _restorableModelPath = null;
       rethrow;
     }
   }
@@ -41,6 +75,7 @@ class LocalLlmBackend implements LlmBackend {
   Future<void> unloadModel() async {
     await (await _worker).unloadModel();
     _loadedModelPath = null;
+    _restorableModelPath = null;
   }
 
   @override

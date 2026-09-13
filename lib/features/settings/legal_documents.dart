@@ -100,8 +100,10 @@ const privacyPolicyDocument = LegalDocument(
             'fournisseur que tu as configuré, depuis ton téléphone. Leur '
             'traitement relève alors de la politique de confidentialité de ce '
             'fournisseur.',
-        'Les conversations sont conservées le temps de la session et ne sont '
-            'pas encore enregistrées entre deux démarrages.',
+        'L’historique est enregistré sur l’appareil, dans l’espace de '
+            'stockage privé de l’application, afin de retrouver tes '
+            'conversations au lancement suivant. Il n’est jamais envoyé '
+            'ailleurs.',
       ],
     ),
     LegalSection(
