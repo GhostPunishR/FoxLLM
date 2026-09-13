@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fond de la déclinaison sombre, identique à `FoxPalette.dark.background`.
+         Android résout ce dossier quand l'application déclare le mode sombre
+         via `UiModeManager.setApplicationNightMode` (voir MainActivity). -->
+    <color name="foxgpt_background">#FF0F0B08</color>
+</resources>

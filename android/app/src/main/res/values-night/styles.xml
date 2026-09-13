@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Fenêtre de lancement : le renard FoxGPT sur le fond du chat, affiché
-         pendant le démarrage du moteur Flutter. `NormalTheme` reprend la même
-         couleur de fond, sinon le passage de la fenêtre de lancement à Flutter
-         provoquerait un flash. -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <!-- Déclinaison sombre. Mêmes styles que values/, aux icônes système près :
+         claires ici, sombres sur le fond crème. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:statusBarColor">@color/foxgpt_background</item>
@@ -12,7 +10,7 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
-    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <style name="NormalTheme" parent="@android:style/Theme.NoTitleBar">
         <item name="android:windowBackground">@color/foxgpt_background</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:statusBarColor">@color/foxgpt_background</item>

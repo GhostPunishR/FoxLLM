@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Fond de l'application, identique au `scaffoldBackgroundColor` défini
-         dans lib/main.dart. La fenêtre de lancement utilise cette même couleur
-         pour que le démarrage ne montre aucun écran intermédiaire. -->
-    <color name="foxgpt_background">#FF0B0B0B</color>
+    <!-- Fond de la déclinaison claire, identique à `FoxPalette.light.background`
+         dans lib/core/theme/fox_palette.dart. La fenêtre de lancement utilise
+         cette couleur pour que le démarrage ne montre aucun écran intermédiaire
+         d'une autre teinte. -->
+    <color name="foxgpt_background">#FFFFF9F4</color>
 </resources>

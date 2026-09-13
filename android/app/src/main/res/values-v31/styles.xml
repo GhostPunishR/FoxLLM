@@ -1,23 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- À partir d'Android 12, le système impose sa propre fenêtre de
-         lancement. On lui donne le fond du chat et le renard FoxGPT.
+    <!-- À partir d'Android 12, le système impose sa propre fenêtre de lancement.
+         On lui donne le fond de la déclinaison courante et le renard FoxGPT.
+
+         `windowSplashScreenBackground` pointe sur `@color/foxgpt_background`,
+         redéfini dans values-night : le splash suit donc le mode déclaré par
+         `UiModeManager.setApplicationNightMode` (voir MainActivity), au lieu
+         d'être figé sur une teinte.
 
          `fox_splash_logo` respecte le gabarit attendu : un carré de 288dp dont
          le tracé occupe les deux tiers centraux. Une icône hors gabarit peut
          être ignorée, auquel cas Android retombe sur l'icône du launcher.
 
          `windowSplashScreenIconBackgroundColor` est volontairement absent :
-         défini, il dessinerait un disque clair derrière le renard. -->
+         défini, il dessinerait un disque derrière le renard. -->
     <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowFullscreen">true</item>
-        <item name="android:windowSplashScreenBackground">#FF0B0B0B</item>
+        <item name="android:windowSplashScreenBackground">@color/foxgpt_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/fox_splash_logo</item>
         <item name="android:windowSplashScreenAnimationDuration">0</item>
         <item name="android:statusBarColor">@color/foxgpt_background</item>
         <item name="android:navigationBarColor">@color/foxgpt_background</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>

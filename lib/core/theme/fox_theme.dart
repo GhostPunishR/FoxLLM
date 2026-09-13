@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'fox_palette.dart';
 
 /// Déclinaisons disponibles dans Paramètres → Apparence.
+///
+/// L'ordre est celui de l'écran Apparence : la déclinaison claire d'abord,
+/// puisque c'est celle appliquée par défaut.
 enum FoxTheme {
-  dark('Sombre renard', 'Noir chaud et orange'),
-  light('Clair renard', 'Blanc crème et orange');
+  light('Clair renard', 'Blanc crème et orange'),
+  dark('Sombre renard', 'Noir chaud et orange');
 
   const FoxTheme(this.label, this.description);
 

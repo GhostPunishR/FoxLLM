@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxgpt/core/theme/fox_palette.dart';
 import 'package:foxgpt/core/theme/fox_theme.dart';
+import 'package:foxgpt/core/theme/system_appearance.dart';
 import 'package:foxgpt/core/theme/theme_provider.dart';
 import 'package:foxgpt/features/settings/appearance_screen.dart';
 import 'package:foxgpt/main.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('FoxTheme', () {
     test('chaque déclinaison expose sa palette dans le ThemeData', () {
       for (final theme in FoxTheme.values) {
@@ -54,6 +57,100 @@ void main() {
     });
   });
 
+  group('déclinaison par défaut', () {
+    test('la déclinaison claire ouvre la liste et s’applique sans réglage', () {
+      // L'ordre de l'énumération est celui de l'écran Apparence.
+      expect(FoxTheme.values.first, FoxTheme.light);
+      expect(FoxTheme.values.last, FoxTheme.dark);
+
+      final container = ProviderContainer(
+        overrides: [
+          foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(container.read(foxThemeProvider), FoxTheme.light);
+    });
+
+    testWidgets('l’écran affiche la déclinaison claire en premier', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(600, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
+          ],
+          child: MaterialApp(
+            theme: FoxTheme.light.themeData,
+            home: const AppearanceScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(find.text(FoxTheme.light.label)).dy,
+        lessThan(tester.getTopLeft(find.text(FoxTheme.dark.label)).dy),
+      );
+    });
+  });
+
+  group('fenêtre de lancement Android', () {
+    test('le choix est déclaré au système, qui teinte le splash', () async {
+      final modes = _recordNightModes();
+      final container = ProviderContainer(
+        overrides: [
+          foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(foxThemeProvider.notifier).select(FoxTheme.dark);
+      await Future<void>.delayed(Duration.zero);
+      expect(modes.last, isTrue);
+
+      await container.read(foxThemeProvider.notifier).select(FoxTheme.light);
+      await Future<void>.delayed(Duration.zero);
+      expect(modes.last, isFalse);
+    });
+
+    test('la préférence relue au lancement est redite au système', () async {
+      final modes = _recordNightModes();
+      final container = ProviderContainer(
+        overrides: [
+          foxThemeStoreProvider.overrideWithValue(
+            _MemoryThemeStore(saved: FoxTheme.dark),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(foxThemeProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(modes, <bool>[true]);
+    });
+
+    test(
+      'un canal absent ne fait pas échouer le changement de thème',
+      () async {
+        // Hors Android, aucun gestionnaire n'est branché sur le canal.
+        final container = ProviderContainer(
+          overrides: [
+            foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await container.read(foxThemeProvider.notifier).select(FoxTheme.dark);
+        expect(container.read(foxThemeProvider), FoxTheme.dark);
+      },
+    );
+  });
+
   testWidgets('choisir une déclinaison change le thème de l’application', (
     tester,
   ) async {
@@ -72,17 +169,17 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(MaterialApp)),
     );
-    expect(container.read(foxThemeProvider), FoxTheme.dark);
+    expect(container.read(foxThemeProvider), FoxTheme.light);
 
-    await container.read(foxThemeProvider.notifier).select(FoxTheme.light);
+    await container.read(foxThemeProvider.notifier).select(FoxTheme.dark);
     await tester.pumpAndSettle();
 
-    expect(container.read(foxThemeProvider), FoxTheme.light);
-    expect(store.saved, FoxTheme.light);
+    expect(container.read(foxThemeProvider), FoxTheme.dark);
+    expect(store.saved, FoxTheme.dark);
 
     final materialApp = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(materialApp.theme!.brightness, Brightness.light);
-    expect(materialApp.theme!.extension<FoxPalette>(), FoxPalette.light);
+    expect(materialApp.theme!.brightness, Brightness.dark);
+    expect(materialApp.theme!.extension<FoxPalette>(), FoxPalette.dark);
   });
 
   testWidgets('l’écran Apparence coche la déclinaison active', (tester) async {
@@ -95,7 +192,7 @@ void main() {
           foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
         ],
         child: MaterialApp(
-          theme: FoxTheme.dark.themeData,
+          theme: FoxTheme.light.themeData,
           home: const AppearanceScreen(),
         ),
       ),
@@ -111,7 +208,7 @@ void main() {
       findsNWidgets(FoxTheme.values.length - 1),
     );
 
-    await tester.tap(find.text(FoxTheme.light.label));
+    await tester.tap(find.text(FoxTheme.dark.label));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
@@ -124,33 +221,50 @@ void main() {
       // Le stockage répond après coup : sans garde, la préférence relue
       // reviendrait par-dessus la déclinaison que l'utilisateur vient de
       // choisir.
-      final store = _MemoryThemeStore(saved: FoxTheme.dark, delayed: true);
+      final store = _MemoryThemeStore(saved: FoxTheme.light, delayed: true);
       final container = ProviderContainer(
         overrides: [foxThemeStoreProvider.overrideWithValue(store)],
       );
       addTearDown(container.dispose);
 
       container.read(foxThemeProvider);
-      await container.read(foxThemeProvider.notifier).select(FoxTheme.light);
+      await container.read(foxThemeProvider.notifier).select(FoxTheme.dark);
       await Future<void>.delayed(const Duration(milliseconds: 20));
 
-      expect(container.read(foxThemeProvider), FoxTheme.light);
+      expect(container.read(foxThemeProvider), FoxTheme.dark);
     },
   );
 
   test('le choix enregistré est relu au démarrage', () async {
-    final store = _MemoryThemeStore(saved: FoxTheme.light);
+    final store = _MemoryThemeStore(saved: FoxTheme.dark);
     final container = ProviderContainer(
       overrides: [foxThemeStoreProvider.overrideWithValue(store)],
     );
     addTearDown(container.dispose);
 
-    // Le thème sombre s'applique d'abord, sans attendre le stockage.
-    expect(container.read(foxThemeProvider), FoxTheme.dark);
+    // Le thème clair s'applique d'abord, sans attendre le stockage.
+    expect(container.read(foxThemeProvider), FoxTheme.light);
 
     await Future<void>.delayed(Duration.zero);
-    expect(container.read(foxThemeProvider), FoxTheme.light);
+    expect(container.read(foxThemeProvider), FoxTheme.dark);
   });
+}
+
+/// Branche un faux canal natif et retourne les modes reçus, dans l'ordre.
+List<bool> _recordNightModes() {
+  final modes = <bool>[];
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(SystemAppearance.channel, (call) async {
+    if (call.method == 'setDarkMode') {
+      modes.add(call.arguments as bool);
+    }
+    return null;
+  });
+  addTearDown(
+    () => messenger.setMockMethodCallHandler(SystemAppearance.channel, null),
+  );
+  return modes;
 }
 
 /// Rapport de contraste WCAG 2.1 entre deux couleurs opaques.
@@ -183,7 +297,7 @@ class _MemoryThemeStore implements FoxThemeStore {
     if (delayed) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
-    return saved ?? FoxTheme.dark;
+    return saved ?? FoxTheme.light;
   }
 
   @override

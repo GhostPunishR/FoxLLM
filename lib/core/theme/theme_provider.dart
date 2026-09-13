@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'fox_theme.dart';
+import 'system_appearance.dart';
 
 /// Conserve la déclinaison choisie entre deux lancements.
 ///
@@ -19,7 +20,7 @@ class FoxThemeStore {
     final stored = await _storage.read(key: _key);
     return FoxTheme.values.firstWhere(
       (theme) => theme.name == stored,
-      orElse: () => FoxTheme.dark,
+      orElse: () => FoxTheme.light,
     );
   }
 
@@ -39,12 +40,12 @@ class FoxThemeController extends Notifier<FoxTheme> {
 
   @override
   FoxTheme build() {
-    // Le thème sombre s'affiche immédiatement, puis le choix enregistré le
+    // Le thème clair s'affiche immédiatement, puis le choix enregistré le
     // remplace : lire le stockage est asynchrone et ne doit pas retarder le
     // premier frame.
     _selected = false;
     _restore();
-    return FoxTheme.dark;
+    return FoxTheme.light;
   }
 
   Future<void> _restore() async {
@@ -52,11 +53,18 @@ class FoxThemeController extends Notifier<FoxTheme> {
       final stored = await ref.read(foxThemeStoreProvider).load();
       // Une lecture lente ne doit pas revenir par-dessus un choix fait
       // entre-temps, sinon le thème repasserait tout seul à l'ancien.
-      if (!_selected && stored != state) {
+      if (_selected) {
+        return;
+      }
+      if (stored != state) {
         state = stored;
       }
+      // Le système peut ignorer le mode de l'application (réinstallation,
+      // effacement des données) : on le lui redit à chaque lancement, sinon la
+      // fenêtre de lancement repartirait sur la déclinaison claire.
+      ref.read(systemAppearanceProvider).apply(stored);
     } catch (_) {
-      // Préférence illisible : le thème sombre par défaut reste en place.
+      // Préférence illisible : le thème clair par défaut reste en place.
     }
   }
 
@@ -65,6 +73,8 @@ class FoxThemeController extends Notifier<FoxTheme> {
     if (state != theme) {
       state = theme;
     }
+    // La fenêtre de lancement d'Android suivra dès le prochain démarrage.
+    ref.read(systemAppearanceProvider).apply(theme);
     try {
       await ref.read(foxThemeStoreProvider).save(theme);
     } catch (_) {
