@@ -1,5 +1,5 @@
 // Copyright © 2026 GhostPunishR
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 
 import 'dart:io';
 
@@ -35,7 +35,7 @@ void main() {
         }
         final head = file.readAsStringSync();
         if (!head.startsWith('// Copyright © ') ||
-            !head.contains('// SPDX-License-Identifier: AGPL-3.0-or-later')) {
+            !head.contains('// SPDX-License-Identifier: AGPL-3.0-only')) {
           missing.add(file.path);
         }
       }

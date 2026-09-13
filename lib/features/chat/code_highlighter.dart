@@ -1,5 +1,5 @@
 // Copyright © 2026 GhostPunishR
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 
 /// Rôle d'un fragment de code, pour lui donner sa couleur.
 enum CodeTokenType { plain, comment, string, number, keyword, call }

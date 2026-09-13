@@ -1,5 +1,5 @@
 // Copyright © 2026 GhostPunishR
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-only
 
 import 'chat_message.dart';
 import 'generation_settings.dart';
