@@ -34,11 +34,15 @@ final foxThemeProvider = NotifierProvider<FoxThemeController, FoxTheme>(
 );
 
 class FoxThemeController extends Notifier<FoxTheme> {
+  /// Vrai dès que l'utilisateur a choisi une déclinaison dans cette session.
+  bool _selected = false;
+
   @override
   FoxTheme build() {
     // Le thème sombre s'affiche immédiatement, puis le choix enregistré le
     // remplace : lire le stockage est asynchrone et ne doit pas retarder le
     // premier frame.
+    _selected = false;
     _restore();
     return FoxTheme.dark;
   }
@@ -46,7 +50,9 @@ class FoxThemeController extends Notifier<FoxTheme> {
   Future<void> _restore() async {
     try {
       final stored = await ref.read(foxThemeStoreProvider).load();
-      if (stored != state) {
+      // Une lecture lente ne doit pas revenir par-dessus un choix fait
+      // entre-temps, sinon le thème repasserait tout seul à l'ancien.
+      if (!_selected && stored != state) {
         state = stored;
       }
     } catch (_) {
@@ -55,6 +61,7 @@ class FoxThemeController extends Notifier<FoxTheme> {
   }
 
   Future<void> select(FoxTheme theme) async {
+    _selected = true;
     if (state != theme) {
       state = theme;
     }

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/llm/chat_message.dart';
 import '../../core/llm/last_model_store.dart';
 import '../../core/llm/local_llm_backend.dart';
+import '../../core/llm/personalization.dart';
 import '../../core/theme/fox_palette.dart';
 import 'chat_backend_host.dart';
 import 'chat_conversation.dart';
@@ -32,6 +33,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final List<ChatConversation> _conversations = <ChatConversation>[];
 
   bool _isGenerating = false;
+  bool _sending = false;
   bool _scrollScheduled = false;
   bool _restoringModel = false;
   String? _restorableModelPath;
@@ -51,8 +53,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// de plusieurs secondes. Il l'est au premier envoi, via
   /// `restoreModelIfNeeded()`.
   Future<void> _restoreSession() async {
-    // Les deux restaurations sont indépendantes : un historique illisible ne
-    // doit pas empêcher de retrouver le modèle, et inversement.
+    // Les instructions personnalisées partent en premier et sans attente :
+    // elles accompagnent chaque envoi, et la lecture du stockage ne doit
+    // dépendre ni de l'historique ni du modèle, qui peuvent échouer.
+    unawaited(ref.read(personalizationProvider.notifier).resolved());
+    // Les deux restaurations suivantes sont indépendantes : un historique
+    // illisible ne doit pas empêcher de retrouver le modèle, et inversement.
     await _restoreConversations();
     await _restoreModelPath();
   }
@@ -189,10 +195,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty || _isGenerating) {
+    // `_isGenerating` n'est levé qu'une fois la requête partie : sans ce
+    // second verrou, deux appuis rapprochés pendant l'ouverture du modèle ou
+    // la lecture des réglages lanceraient deux envois, dont un serait perdu.
+    if (text.isEmpty || _isGenerating || _sending) {
       return;
     }
+    _sending = true;
+    try {
+      await _send(text);
+    } finally {
+      _sending = false;
+    }
+  }
 
+  Future<void> _send(String text) async {
     final backend = ref.read(chatBackendProvider);
     if (backend.loadedModelPath == null) {
       // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
@@ -208,13 +225,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
 
     final generationEpoch = ++_generationEpoch;
-    final requestMessages = <ChatMessage>[..._messages, ChatMessage.user(text)];
+    final history = <ChatMessage>[..._messages, ChatMessage.user(text)];
+
+    // Les instructions de Paramètres → Personnalisation ouvrent la requête,
+    // sans rejoindre l'historique : elles sont globales et modifiables, la
+    // conversation enregistrée ne doit pas figer celles du jour. Elles sont
+    // lues telles que connues, sans attendre le stockage : sa lecture démarre
+    // au lancement, bien avant qu'un message ait pu être écrit.
+    final instructions = ref.read(personalizationProvider);
+    final requestMessages = <ChatMessage>[
+      if (instructions.isNotEmpty) ChatMessage.system(instructions),
+      ...history,
+    ];
 
     setState(() {
       _ensureActiveConversation(text);
       _messages
         ..clear()
-        ..addAll(requestMessages)
+        ..addAll(history)
         ..add(const ChatMessage.assistant(''));
       _isGenerating = true;
       _syncActiveConversation();

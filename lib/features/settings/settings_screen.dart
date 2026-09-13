@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/llm/personal_api_settings_provider.dart';
+import '../../core/llm/personalization.dart';
 import '../../core/theme/fox_palette.dart';
 import '../../core/theme/theme_provider.dart';
 import '../local_models/local_models_screen.dart';
 import 'about_screen.dart';
 import 'appearance_screen.dart';
 import 'personal_api_screen.dart';
+import 'personalization_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,6 +18,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final fox = context.fox;
 
+    final instructions = ref.watch(personalizationProvider);
     final personalApiState = ref.watch(personalApiSettingsProvider);
     final personalApiSubtitle = personalApiState.when(
       data: (settings) {
@@ -89,10 +92,19 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
               Divider(height: 1, color: fox.border),
-              const _SettingsTile(
-                icon: Icons.shield_outlined,
-                title: 'Confidentialité',
-                subtitle: 'Clés et données conservées sur l’appareil',
+              _SettingsTile(
+                icon: Icons.tune_rounded,
+                title: 'Personnalisation',
+                subtitle: instructions.isEmpty
+                    ? 'Dicter le ton et le comportement de l’IA'
+                    : 'Instructions actives',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const PersonalizationScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),

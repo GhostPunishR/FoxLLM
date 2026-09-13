@@ -118,6 +118,26 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test(
+    'un choix fait pendant la lecture du stockage n’est pas écrasé',
+    () async {
+      // Le stockage répond après coup : sans garde, la préférence relue
+      // reviendrait par-dessus la déclinaison que l'utilisateur vient de
+      // choisir.
+      final store = _MemoryThemeStore(saved: FoxTheme.dark, delayed: true);
+      final container = ProviderContainer(
+        overrides: [foxThemeStoreProvider.overrideWithValue(store)],
+      );
+      addTearDown(container.dispose);
+
+      container.read(foxThemeProvider);
+      await container.read(foxThemeProvider.notifier).select(FoxTheme.light);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(container.read(foxThemeProvider), FoxTheme.light);
+    },
+  );
+
   test('le choix enregistré est relu au démarrage', () async {
     final store = _MemoryThemeStore(saved: FoxTheme.light);
     final container = ProviderContainer(
@@ -151,12 +171,20 @@ double _contrast(Color a, Color b) {
 }
 
 class _MemoryThemeStore implements FoxThemeStore {
-  _MemoryThemeStore({this.saved});
+  _MemoryThemeStore({this.saved, this.delayed = false});
 
   FoxTheme? saved;
 
+  /// Simule un stockage lent, qui répond après le premier frame.
+  final bool delayed;
+
   @override
-  Future<FoxTheme> load() async => saved ?? FoxTheme.dark;
+  Future<FoxTheme> load() async {
+    if (delayed) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    return saved ?? FoxTheme.dark;
+  }
 
   @override
   Future<void> save(FoxTheme theme) async => saved = theme;

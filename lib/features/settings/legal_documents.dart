@@ -107,6 +107,16 @@ const privacyPolicyDocument = LegalDocument(
       ],
     ),
     LegalSection(
+      title: 'Personnalisation',
+      paragraphs: <String>[
+        'Les instructions écrites dans « Paramètres → Personnalisation » sont '
+            'conservées sur l’appareil, dans le stockage sécurisé du système.',
+        'Elles accompagnent chaque message envoyé au modèle choisi, local ou '
+            'distant, afin qu’il adopte le ton demandé. Les effacer depuis cet '
+            'écran les retire immédiatement.',
+      ],
+    ),
+    LegalSection(
       title: 'Clés API',
       paragraphs: <String>[
         'En mode « Mémoriser sur cet appareil », la clé est confiée au '
