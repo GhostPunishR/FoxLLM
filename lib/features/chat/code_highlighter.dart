@@ -461,9 +461,9 @@ List<CodeToken> highlightCode(String code, {String? language}) {
 
 /// Fin d'une chaîne ouverte en [start], délimiteur compris.
 ///
-/// Une chaîne non refermée court jusqu'à la fin de sa ligne — sauf entre
-/// accents graves, seul délimiteur couramment multiligne — pour qu'une
-/// apostrophe isolée dans un commentaire ou du texte ne colore pas la suite.
+/// Une chaîne non refermée court jusqu'à la fin de sa ligne, sauf entre
+/// accents graves, seul délimiteur couramment multiligne. Une apostrophe
+/// isolée dans un commentaire ou du texte ne colore donc pas la suite.
 int _endOfString(String code, int start, String quote) {
   final allowNewline = quote == '`';
   var index = start + 1;

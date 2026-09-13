@@ -14,7 +14,7 @@ import 'provider_config.dart';
 ///
 /// `chat/completions` reste le format que les autres fournisseurs imitent,
 /// mais il n'expose aucun outil intégré : la recherche web d'OpenAI ne vit que
-/// dans `responses`. Le format diffère sur trois points — les messages
+/// dans `responses`. Le format diffère sur trois points : les messages
 /// deviennent des éléments d'`input`, la consigne système passe par
 /// `instructions`, et la réponse arrive en évènements typés plutôt qu'en
 /// fragments de complétion.
@@ -98,7 +98,7 @@ class OpenAiResponsesBackend extends HttpStreamingBackend {
 
   @override
   Iterable<String> extractDeltas(Map<String, dynamic> event) sync* {
-    // Le flux porte une douzaine de types d'évènements — création, appels
+    // Le flux porte une douzaine de types d'évènements : création, appels
     // d'outils, fin de réponse. Seuls les fragments de texte nous intéressent.
     if (event['type'] != 'response.output_text.delta') {
       return;

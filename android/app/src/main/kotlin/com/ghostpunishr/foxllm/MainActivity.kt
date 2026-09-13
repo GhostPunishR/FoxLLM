@@ -16,7 +16,7 @@ import io.flutter.plugin.common.MethodChannel
  * avant que le processus de l'application démarre : elle ne peut pas lire une
  * préférence Flutter et restait donc figée. Depuis Android 12,
  * `setApplicationNightMode` déclare le mode de l'application au système, qui
- * résout alors ses ressources — dont la couleur du splash — en conséquence.
+ * résout alors ses ressources, dont la couleur du splash.
  *
  * Avant Android 12, l'API n'existe pas : la fenêtre de lancement suit le mode
  * sombre du système, faute de mieux.

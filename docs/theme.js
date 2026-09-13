@@ -1,4 +1,5 @@
-/* Copyright © 2026 GhostPunishR — SPDX-License-Identifier: AGPL-3.0-only
+/* Copyright © 2026 GhostPunishR
+   SPDX-License-Identifier: AGPL-3.0-only
    Bascule de thème du site. Trois états comme dans l'application : clair,
    sombre, ou le réglage du système tant que le visiteur n'a rien choisi. */
 

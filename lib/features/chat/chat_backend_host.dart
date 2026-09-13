@@ -15,7 +15,7 @@ import 'chat_screen.dart';
 /// Un `ProviderScope` imbriqué posant un override conditionnel ne convenait
 /// pas : Riverpod n'accepte pas qu'un override apparaisse ou disparaisse en
 /// cours de route. Les réglages étant lus de façon asynchrone, aucun override
-/// n'existait au premier rendu, et celui ajouté ensuite était ignoré — le chat
+/// n'existait au premier rendu, et celui ajouté ensuite était ignoré : le chat
 /// réclamait alors un GGUF malgré une API personnelle configurée.
 ///
 /// Ce provider n'est lu que dans les actions de l'écran, jamais pendant son
