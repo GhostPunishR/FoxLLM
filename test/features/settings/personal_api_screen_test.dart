@@ -102,6 +102,7 @@ class _FakeSettingsStore implements PersonalApiSettingsStore {
     providerId: 'openai',
     model: 'gpt-exemple',
     hasApiKey: true,
+    apiKeyDestination: 'https://api.openai.com:443/v1',
   );
 
   @override

@@ -41,7 +41,8 @@ class ChatScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends ConsumerState<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen>
+    with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
@@ -63,6 +64,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   bool _isGenerating = false;
   bool _sending = false;
+
+  /// Identifie le brouillon courant, texte et pièces jointes ensemble.
+  ///
+  /// Change dès qu'on quitte un fil : une sélection de fichier encore en
+  /// cours ne vient alors pas déposer sa pièce jointe dans le fil suivant.
+  int _draftEpoch = 0;
+
+  /// Écritures de l'historique, regroupées.
+  late final ConversationPersister _persister;
   bool _scrollScheduled = false;
   bool _restoringModel = false;
   String? _restorableModelPath;
@@ -73,7 +83,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // Le magasin est saisi ici : `ref` n'est plus lisible dans `dispose()`,
+    // où le dernier enregistrement doit pourtant encore partir.
+    final store = ref.read(conversationStoreProvider);
+    _persister = ConversationPersister(
+      save: store.save,
+      snapshot: () => List<ChatConversation>.of(_conversations),
+      onError: _reportSaveFailure,
+    );
+    // Android peut tuer une application mise en arrière-plan sans passer par
+    // `dispose()`. Comme les enregistrements sont désormais regroupés, il faut
+    // écrire à ce moment-là, sans quoi les derniers fragments d'une génération
+    // en cours seraient perdus.
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_restoreSession());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _persister.flush();
+    }
+  }
+
+  /// Le regroupeur n'appelle ceci qu'au premier échec d'une série : une panne
+  /// de disque avertit une fois, pas à chaque groupe de fragments.
+  void _reportSaveFailure(Object error) {
+    if (!mounted) {
+      return;
+    }
+    _showSnack('Conversation non enregistrée : $error');
   }
 
   /// Recharge l'historique et déclare le dernier modèle utilisé.
@@ -167,24 +206,71 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _isGenerating = false;
       }
     });
+    if (wasActive) {
+      _clearDraft();
+    }
     _persistConversations();
   }
 
-  void _persistConversations() {
-    unawaited(
-      ref
-          .read(conversationStoreProvider)
-          .save(List<ChatConversation>.of(_conversations)),
-    );
+  void _persistConversations({bool immediate = true}) {
+    if (immediate) {
+      _persister.flush();
+    } else {
+      _persister.schedule();
+    }
   }
 
   @override
   void dispose() {
     unawaited(_dictation?.stop());
+    WidgetsBinding.instance.removeObserver(this);
     _generationEpoch += 1;
+    // Quitter l'écran en pleine génération ne doit pas perdre les fragments
+    // déjà reçus mais pas encore écrits.
+    _persister.dispose();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// Abandonne le brouillon en cours, texte et pièces jointes.
+  ///
+  /// Les deux vont ensemble : n'effacer que le texte laissait les pièces
+  /// jointes d'un fil partir avec le message suivant, écrit dans un autre.
+  void _clearDraft() {
+    _draftEpoch += 1;
+    _inputController.clear();
+    if (_pendingAttachments.isEmpty) {
+      return;
+    }
+    final abandoned = List<ChatAttachment>.of(_pendingAttachments);
+    _pendingAttachments.clear();
+    _deleteUnreferencedAttachments(abandoned);
+  }
+
+  /// Efface les copies qu'aucun message n'utilise.
+  ///
+  /// Le filtrage n'est pas théorique : une pièce jointe déjà envoyée vit dans
+  /// un message enregistré, et supprimer son fichier viderait la conversation
+  /// où elle s'affiche.
+  void _deleteUnreferencedAttachments(List<ChatAttachment> attachments) {
+    if (attachments.isEmpty) {
+      return;
+    }
+    final referenced = <String>{
+      for (final conversation in _conversations)
+        for (final message in conversation.messages)
+          for (final attachment in message.attachments) attachment.path,
+      for (final message in _messages)
+        for (final attachment in message.attachments) attachment.path,
+    };
+    final removable = attachments
+        .where((attachment) => !referenced.contains(attachment.path))
+        .toList(growable: false);
+    if (removable.isEmpty) {
+      return;
+    }
+    unawaited(ref.read(attachmentStoreProvider).delete(removable));
   }
 
   Future<void> _newChat() async {
@@ -201,7 +287,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _messages.clear();
       _isGenerating = false;
     });
-    _inputController.clear();
+    _clearDraft();
     FocusManager.instance.primaryFocus?.unfocus();
   }
 
@@ -227,7 +313,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ..addAll(conversation.messages);
       _isGenerating = false;
     });
-    _inputController.clear();
+    _clearDraft();
     FocusManager.instance.primaryFocus?.unfocus();
     _scrollToBottom();
   }
@@ -252,6 +338,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _send(String text) async {
     final backend = ref.read(chatBackendProvider);
+
+    // Identité de cet envoi, prise avant la moindre attente. Le chargement du
+    // modèle prend plusieurs secondes, pendant lesquelles l'utilisateur peut
+    // ouvrir un autre fil ou en créer un : l'envoi reprenait alors avec
+    // l'ancien texte et le nouvel historique.
+    final generationEpoch = ++_generationEpoch;
+    // Nul tant que le fil n'existe pas ; renseigné dès sa création ci-dessous,
+    // pour que le garde suive le fil où le message vient d'être écrit.
+    var conversationId = _activeConversationId;
+    bool stillCurrent() =>
+        mounted &&
+        generationEpoch == _generationEpoch &&
+        conversationId == _activeConversationId;
+
     if (backend.loadedModelPath == null) {
       // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
       // retarder l'affichage du chat au lancement.
@@ -263,9 +363,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!await _restoreModel(backend, restorable)) {
         return;
       }
+      if (!stillCurrent()) {
+        // Fil abandonné pendant le chargement. Le brouillon de celui qui est
+        // à l'écran maintenant appartient à l'utilisateur : on n'y touche pas.
+        return;
+      }
     }
 
-    final generationEpoch = ++_generationEpoch;
     final attachments = List<ChatAttachment>.of(_pendingAttachments);
     final history = <ChatMessage>[
       ..._messages,
@@ -312,12 +416,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _showSnack(error.message);
       return;
     }
-    if (!mounted || generationEpoch != _generationEpoch) {
+    if (!stillCurrent()) {
       return;
     }
 
     setState(() {
       _ensureActiveConversation(text);
+      conversationId = _activeConversationId;
       _messages
         ..clear()
         ..addAll(history)
@@ -342,27 +447,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         settings: settings,
       )) {
         response += chunk;
-        if (!mounted || generationEpoch != _generationEpoch) {
+        if (!stillCurrent()) {
           return;
         }
         setState(() {
           _messages[_messages.length - 1] = ChatMessage.assistant(response);
-          _syncActiveConversation();
+          // Un état intermédiaire que personne ne relira : il rejoint le
+          // prochain enregistrement groupé plutôt que d'en déclencher un.
+          _syncActiveConversation(immediate: false);
         });
         _scrollToBottom();
       }
 
-      if (mounted && generationEpoch == _generationEpoch && response.isEmpty) {
+      if (stillCurrent() && response.isEmpty) {
         _removeEmptyAssistantPlaceholder();
       }
     } catch (error) {
-      if (!mounted || generationEpoch != _generationEpoch) {
+      if (!stillCurrent()) {
         return;
       }
       _removeEmptyAssistantPlaceholder();
       _showSnack('Génération impossible : $error');
     } finally {
-      if (mounted && generationEpoch == _generationEpoch) {
+      if (stillCurrent()) {
         setState(() {
           _isGenerating = false;
           _syncActiveConversation();
@@ -427,7 +534,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return null;
   }
 
-  void _syncActiveConversation() {
+  void _syncActiveConversation({bool immediate = true}) {
     final id = _activeConversationId;
     if (id == null) {
       return;
@@ -443,7 +550,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _conversations
       ..remove(conversation)
       ..insert(0, conversation);
-    _persistConversations();
+    _persistConversations(immediate: immediate);
   }
 
   void _removeEmptyAssistantPlaceholder() {
@@ -649,6 +756,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   /// Choisit une pièce jointe et en range une copie avec la conversation.
   Future<void> _attach(AttachmentSource source) async {
+    // Le sélecteur système peut rester ouvert longtemps : le brouillon visé
+    // est celui d'avant, pas celui qui sera à l'écran au retour.
+    final draftEpoch = _draftEpoch;
     final PickedAttachment? picked;
     try {
       picked = await ref.read(attachmentPickerProvider).pick(source);
@@ -659,7 +769,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _showSnack('Impossible de lire cette pièce jointe.');
       return;
     }
-    if (picked == null || !mounted) {
+    if (picked == null || !mounted || draftEpoch != _draftEpoch) {
       return;
     }
 
@@ -676,7 +786,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _showSnack('Impossible d’enregistrer cette pièce jointe.');
       return;
     }
-    if (!mounted) {
+    if (!mounted || draftEpoch != _draftEpoch) {
+      // Le brouillon visé n'existe plus : la copie ne rejoint pas le fil
+      // courant, et le fichier écrit entre-temps ne reste pas sur l'appareil.
+      unawaited(
+        ref.read(attachmentStoreProvider).delete(<ChatAttachment>[attachment]),
+      );
       return;
     }
     setState(() => _pendingAttachments.add(attachment));

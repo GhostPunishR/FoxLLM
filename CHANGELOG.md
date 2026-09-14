@@ -6,6 +6,60 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ### Corrections
 
+- **moteur natif** : la boucle de décodage confiait au batch un pointeur vers
+  un jeton déclaré dans le corps de la boucle. `llama_batch_get_one` ne copie
+  pas : `llama_decode` relisait donc au tour suivant une variable sortie de sa
+  portée. Le jeton vit désormais hors de la boucle. Reproduit puis vérifié
+  avec AddressSanitizer, llama.cpp b10903 compilé instrumenté et une vraie
+  génération de vingt-quatre jetons sur un GGUF de test ;
+- **clé API** : une clé enregistrée n'est plus réutilisée quand l'adresse du
+  serveur change. Le fournisseur « Personnalisé » garde le même identifiant
+  d'une base URL à l'autre, si bien que la clé du serveur précédent pouvait
+  partir vers le nouveau, y compris à la récupération des modèles, avant tout
+  enregistrement. La réutilisation dépend maintenant du fournisseur **et** du
+  destinataire, c'est-à-dire schéma, hôte, port effectif et chemin. Une
+  réécriture équivalente de l'URL ne change rien ; changer d'hôte, de port, de
+  schéma ou de chemin impose de ressaisir la clé, parce qu'une passerelle peut
+  router chaque préfixe vers un fournisseur différent. Les installations
+  existantes conservent la leur ;
+- **envoi pendant le chargement d'un modèle** : l'identité de l'envoi est prise
+  avant la première attente et vérifiée après chacune. Ouvrir un autre fil ou
+  en créer un pendant l'ouverture du GGUF faisait repartir l'ancien texte avec
+  le nouvel historique ; l'envoi devenu obsolète est abandonné sans toucher au
+  brouillon du fil courant ;
+- **pièces jointes** : elles suivent le brouillon. Changer de conversation
+  effaçait le texte mais gardait les pièces jointes, qui accompagnaient alors
+  un message d'un autre fil. Les copies devenues inutiles sont effacées, jamais
+  celles d'un message enregistré, et une sélection de fichier qui aboutit après
+  le changement de fil ne s'y invite plus ;
+- **enregistrement de l'historique** : les échecs d'écriture ne sont plus
+  avalés. `save()` remonte l'erreur de son écriture à l'appelant, la file
+  continue de servir les suivantes, et l'utilisateur est averti une fois par
+  panne plutôt qu'à chaque fragment.
+
+### Performances
+
+- l'historique n'est plus réécrit intégralement à chaque fragment reçu. Les
+  enregistrements intermédiaires sont regroupés, au plus un toutes les deux
+  secondes, et l'état est relu au moment d'écrire plutôt que figé à la
+  planification : une écriture différée ne peut donc pas ressusciter une
+  conversation supprimée entre-temps. Fin de génération, arrêt, erreur,
+  navigation, renommage, suppression et fermeture de l'écran écrivent tous
+  sans attendre.
+
+### Tests
+
+- 235 à 266 cas. Origine des clés API et migration des réglages, regroupement
+  des écritures et propagation des échecs, envoi annulé par un changement de
+  fil, pièces jointes liées au brouillon. Les tests d'écran ont été vérifiés
+  contre le code d'origine : ils échouent bien là où le correctif manque ;
+- `packages/foxllm_native/tool/asan/run.sh` rejoue la vérification native :
+  llama.cpp et le moteur compilés sous AddressSanitizer, un GGUF de test
+  fabriqué sur place, et une génération réelle. Hors intégration continue, la
+  compilation instrumentée durant une dizaine de minutes.
+
+### Corrections
+
 - le modèle local ne tient plus les deux rôles de la conversation. Le prompt
   était assemblé à la main dans un format `<|rôle|>` qui n'appartient à aucun
   modèle : faute de reconnaître la fin de son tour, le modèle enchaînait en

@@ -82,9 +82,28 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     super.dispose();
   }
 
-  bool _hasStoredKeyForSelectedProvider() {
+  /// Vrai quand la clé enregistrée vise bien l'adresse actuellement saisie.
+  ///
+  /// La base URL du champ compte autant que le fournisseur : sur
+  /// « Personnalisé », en changer l'hôte ou le chemin désigne un autre
+  /// destinataire, à qui la clé précédente ne doit pas être envoyée sans
+  /// nouvelle saisie.
+  bool _hasStoredKeyForCurrentDestination() {
     final current = ref.read(personalApiSettingsProvider).value;
-    return current?.providerId == _providerId && (current?.hasApiKey ?? false);
+    return _matchesStoredKeyDestination(current);
+  }
+
+  bool _matchesStoredKeyDestination(PersonalApiSettings? current) {
+    if (current == null ||
+        !current.hasApiKey ||
+        current.providerId != _providerId) {
+      return false;
+    }
+    final destination = personalApiDestination(
+      _provider.resolveBaseUrl(_baseUrlController.text.trim()),
+    );
+    return current.apiKeyDestination.isNotEmpty &&
+        current.apiKeyDestination == destination;
   }
 
   String _currentModel() {
@@ -115,7 +134,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       return;
     }
     if (_apiKeyController.text.trim().isEmpty &&
-        !_hasStoredKeyForSelectedProvider()) {
+        !_hasStoredKeyForCurrentDestination()) {
       _showSnack('Entre la clé API du fournisseur.');
       return;
     }
@@ -167,7 +186,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       return null;
     }
     if (_apiKeyController.text.trim().isEmpty &&
-        !_hasStoredKeyForSelectedProvider()) {
+        !_hasStoredKeyForCurrentDestination()) {
       _showSnack('Entre la clé API du fournisseur.');
       return null;
     }
@@ -290,9 +309,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   Widget build(BuildContext context) {
     final fox = context.fox;
     final state = ref.watch(personalApiSettingsProvider);
-    final hasStoredKey =
-        state.value?.providerId == _providerId &&
-        (state.value?.hasApiKey ?? false);
+    final hasStoredKey = _matchesStoredKeyDestination(state.value);
 
     return Scaffold(
       appBar: AppBar(

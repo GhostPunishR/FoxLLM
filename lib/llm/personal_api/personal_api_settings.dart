@@ -25,6 +25,7 @@ class PersonalApiSettings {
     this.apiKeyPersistence = ApiKeyPersistence.device,
     this.useInChat = false,
     this.hasApiKey = false,
+    this.apiKeyDestination = '',
   });
 
   final String providerId;
@@ -34,14 +35,31 @@ class PersonalApiSettings {
   final bool useInChat;
   final bool hasApiKey;
 
+  /// Destinataire auquel la clé enregistrée a été confiée.
+  ///
+  /// Le seul identifiant du fournisseur ne suffit pas : « Personnalisé » garde
+  /// le même identifiant quand la base URL change d'hôte ou de chemin. Sans ce
+  /// destinataire, la clé du serveur précédent partirait vers le nouveau.
+  final String apiKeyDestination;
+
   PersonalApiProvider get provider => personalApiProviderById(providerId);
 
   String get effectiveBaseUrl => provider.resolveBaseUrl(baseUrl);
 
+  /// Destinataire visé par les réglages courants.
+  String get destination => personalApiDestination(effectiveBaseUrl);
+
+  /// Vrai quand la clé enregistrée appartient bien au destinataire
+  /// actuellement configuré, donc quand elle peut lui être envoyée.
+  bool get hasApiKeyForCurrentDestination =>
+      hasApiKey &&
+      apiKeyDestination.isNotEmpty &&
+      apiKeyDestination == destination;
+
   bool get isConfigured =>
       effectiveBaseUrl.trim().isNotEmpty &&
       model.trim().isNotEmpty &&
-      hasApiKey;
+      hasApiKeyForCurrentDestination;
 
   ProviderConfig toProviderConfig() => ProviderConfig(
     id: personalApiProviderId,
@@ -58,6 +76,7 @@ class PersonalApiSettings {
     ApiKeyPersistence? apiKeyPersistence,
     bool? useInChat,
     bool? hasApiKey,
+    String? apiKeyDestination,
   }) {
     return PersonalApiSettings(
       providerId: providerId ?? this.providerId,
@@ -66,6 +85,7 @@ class PersonalApiSettings {
       apiKeyPersistence: apiKeyPersistence ?? this.apiKeyPersistence,
       useInChat: useInChat ?? this.useInChat,
       hasApiKey: hasApiKey ?? this.hasApiKey,
+      apiKeyDestination: apiKeyDestination ?? this.apiKeyDestination,
     );
   }
 }
@@ -79,6 +99,8 @@ class PersonalApiSettingsStore {
   static const _modelKey = 'foxllm.personal_api.model';
   static const _persistenceKey = 'foxllm.personal_api.persistence';
   static const _useInChatKey = 'foxllm.personal_api.use_in_chat';
+  static const _apiKeyDestinationKey =
+      'foxllm.personal_api.api_key_destination';
 
   final FlutterSecureStorage _storage;
 
@@ -89,6 +111,7 @@ class PersonalApiSettingsStore {
       _storage.read(key: _modelKey),
       _storage.read(key: _persistenceKey),
       _storage.read(key: _useInChatKey),
+      _storage.read(key: _apiKeyDestinationKey),
     ]);
 
     final persistence = values[3] == ApiKeyPersistence.session.name
@@ -105,14 +128,27 @@ class PersonalApiSettingsStore {
       persistence: persistence,
     );
     final hasApiKey = apiKey != null && apiKey.trim().isNotEmpty;
+    final baseUrl = provider.custom ? storedBaseUrl : '';
+
+    // Réglages écrits avant que le destinataire soit conservé : la clé était
+    // jusqu'ici envoyée à la base URL enregistrée, c'est donc bien à ce
+    // destinataire qu'elle appartient. Le déduire évite de faire ressaisir sa
+    // clé à qui n'a rien changé, sans jamais élargir sa portée.
+    final storedDestination = values[5];
+    final apiKeyDestination = hasApiKey
+        ? (storedDestination == null || storedDestination.isEmpty
+              ? personalApiDestination(provider.resolveBaseUrl(baseUrl))
+              : storedDestination)
+        : '';
 
     return PersonalApiSettings(
       providerId: provider.id,
-      baseUrl: provider.custom ? storedBaseUrl : '',
+      baseUrl: baseUrl,
       model: values[2] ?? '',
       apiKeyPersistence: persistence,
       useInChat: values[4] == 'true' && hasApiKey,
       hasApiKey: hasApiKey,
+      apiKeyDestination: apiKeyDestination,
     );
   }
 
@@ -126,6 +162,10 @@ class PersonalApiSettingsStore {
         value: settings.apiKeyPersistence.name,
       ),
       _storage.write(key: _useInChatKey, value: settings.useInChat.toString()),
+      _storage.write(
+        key: _apiKeyDestinationKey,
+        value: settings.apiKeyDestination,
+      ),
     ]);
   }
 }

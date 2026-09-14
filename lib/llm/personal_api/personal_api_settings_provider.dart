@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
@@ -39,10 +40,20 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     final provider = personalApiProviderById(providerId);
     final keyStore = ref.read(apiKeyStoreProvider);
     final trimmedKey = apiKey?.trim() ?? '';
-    final providerChanged = current.providerId != provider.id;
 
-    var hasApiKey = current.hasApiKey && !providerChanged;
-    if (providerChanged && trimmedKey.isEmpty) {
+    // Une clé appartient à un destinataire, pas seulement à un fournisseur :
+    // « Personnalisé » garde son identifiant quand la base URL change d'hôte
+    // ou de chemin. Réutiliser la clé sur ce seul critère l'aurait envoyée
+    // ailleurs.
+    final nextDestination = personalApiDestination(
+      provider.resolveBaseUrl(baseUrl.trim()),
+    );
+    final destinationChanged =
+        current.providerId != provider.id ||
+        current.apiKeyDestination != nextDestination;
+
+    var hasApiKey = current.hasApiKey && !destinationChanged;
+    if (destinationChanged && trimmedKey.isEmpty) {
       await keyStore.delete(personalApiProviderId);
       hasApiKey = false;
     }
@@ -77,6 +88,7 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
       apiKeyPersistence: persistence,
       useInChat: useInChat && hasApiKey && model.trim().isNotEmpty,
       hasApiKey: hasApiKey,
+      apiKeyDestination: hasApiKey ? nextDestination : '',
     );
 
     if (provider.custom && !isAllowedPersonalApiBaseUrl(next.baseUrl)) {
@@ -94,12 +106,24 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     required String providerId,
     required String baseUrl,
     String? apiKey,
+    // Injecté par les tests, qui vérifient à quel hôte la clé est envoyée.
+    http.Client? client,
   }) async {
     final provider = personalApiProviderById(providerId);
     final current = state.value ?? const PersonalApiSettings();
     var key = apiKey?.trim() ?? '';
 
-    if (key.isEmpty && current.providerId == provider.id && current.hasApiKey) {
+    // Même règle qu'à l'enregistrement, et elle compte davantage ici : la
+    // récupération des modèles part avant tout enregistrement, donc avec la
+    // base URL en cours de saisie.
+    final requestedDestination = personalApiDestination(
+      provider.resolveBaseUrl(baseUrl.trim()),
+    );
+    if (key.isEmpty &&
+        current.providerId == provider.id &&
+        current.hasApiKey &&
+        current.apiKeyDestination.isNotEmpty &&
+        current.apiKeyDestination == requestedDestination) {
       key =
           await ref
               .read(apiKeyStoreProvider)
@@ -120,6 +144,7 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
       provider: provider,
       apiKey: key,
       customBaseUrl: baseUrl,
+      client: client,
     );
   }
 
@@ -134,7 +159,11 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
   Future<PersonalApiSettings> deleteApiKey() async {
     final current = state.requireValue;
     await ref.read(apiKeyStoreProvider).delete(personalApiProviderId);
-    final next = current.copyWith(hasApiKey: false, useInChat: false);
+    final next = current.copyWith(
+      hasApiKey: false,
+      useInChat: false,
+      apiKeyDestination: '',
+    );
     await ref.read(personalApiSettingsStoreProvider).save(next);
     state = AsyncData<PersonalApiSettings>(next);
     return next;
