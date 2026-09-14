@@ -250,6 +250,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void dispose() {
     unawaited(_dictation?.stop());
     WidgetsBinding.instance.removeObserver(this);
+    // L'écouteur part avant l'arrêt : `stop()` remet l'observable à zéro, et
+    // le rappel toucherait alors un écran en cours de destruction.
+    _speech?.speaking.removeListener(_onSpeakingChanged);
     unawaited(_speech?.stop());
     _editController.dispose();
     _generationEpoch += 1;
@@ -402,12 +405,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Type explicite : sans lui, `??=` rend une référence nullable et chaque
     // appel derrière réclamerait un `!`.
     final Speech speech = _speech ?? ref.read(speechProvider);
-    _speech = speech;
-    final started = await speech.toggle(message.content);
+    if (_speech == null) {
+      _speech = speech;
+      // Le service est la seule source de vérité. La lecture s'achève d'elle
+      // même à la fin du texte, sans que personne n'appelle `stop()` : sans
+      // cette écoute, le bouton resterait allumé après la dernière syllabe,
+      // et le rappuyer relancerait la lecture au lieu de l'arrêter.
+      speech.speaking.addListener(_onSpeakingChanged);
+    }
+    // Le moteur vocal n'est monté qu'ici : c'est `speaking` qui préviendra,
+    // au démarrage comme à la fin.
+    await speech.toggle(message.content);
+  }
+
+  void _onSpeakingChanged() {
     if (!mounted) {
       return;
     }
-    setState(() => _speakingText = started ? speech.speaking : null);
+    setState(() => _speakingText = _speech?.speaking.value);
   }
 
   /// Rejoue la demande qui a produit [index], en remplaçant la réponse.

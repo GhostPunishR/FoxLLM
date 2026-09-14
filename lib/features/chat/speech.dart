@@ -1,6 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
@@ -19,14 +20,18 @@ class Speech {
   final FlutterTts _tts;
   bool _configured = false;
 
+  final ValueNotifier<String?> _speaking = ValueNotifier<String?>(null);
+
   /// Texte en cours de lecture, `null` au repos.
   ///
   /// Sert à savoir quelle réponse afficher comme parlante, et à distinguer
   /// une seconde demande sur le même message, qui arrête, d'une demande sur
   /// un autre, qui bascule.
-  String? _speaking;
-
-  String? get speaking => _speaking;
+  ///
+  /// Observable, et non simplement lisible : la lecture s'achève d'elle-même
+  /// à la fin du texte, sans que personne n'appelle `stop()`. Un état recopié
+  /// ailleurs resterait allumé après la dernière syllabe, faute d'être averti.
+  ValueListenable<String?> get speaking => _speaking;
 
   /// Lit [text], ou s'arrête si c'est déjà lui qui est en cours.
   ///
@@ -37,8 +42,8 @@ class Speech {
     if (trimmed.isEmpty) {
       return false;
     }
-    if (_speaking != null) {
-      final wasSame = _speaking == trimmed;
+    if (_speaking.value != null) {
+      final wasSame = _speaking.value == trimmed;
       await stop();
       if (wasSame) {
         return false;
@@ -50,22 +55,22 @@ class Speech {
         await _tts.setLanguage('fr-FR');
         // La lecture se termine, ou s'interrompt : dans les deux cas, plus
         // rien ne parle et le bouton doit le montrer.
-        _tts.setCompletionHandler(() => _speaking = null);
-        _tts.setCancelHandler(() => _speaking = null);
-        _tts.setErrorHandler((dynamic _) => _speaking = null);
+        _tts.setCompletionHandler(() => _speaking.value = null);
+        _tts.setCancelHandler(() => _speaking.value = null);
+        _tts.setErrorHandler((dynamic _) => _speaking.value = null);
         _configured = true;
       }
-      _speaking = trimmed;
+      _speaking.value = trimmed;
       await _tts.speak(trimmed);
       return true;
     } catch (_) {
-      _speaking = null;
+      _speaking.value = null;
       return false;
     }
   }
 
   Future<void> stop() async {
-    _speaking = null;
+    _speaking.value = null;
     try {
       await _tts.stop();
     } catch (_) {
@@ -76,6 +81,9 @@ class Speech {
 
 final speechProvider = Provider<Speech>((ref) {
   final speech = Speech();
+  // Seule la lecture est arrêtée, pas l'observable : il vit aussi longtemps
+  // que la portée, et le libérer pendant qu'un écran s'en détache encore
+  // ferait échouer le retrait de son écouteur.
   ref.onDispose(speech.stop);
   return speech;
 });
