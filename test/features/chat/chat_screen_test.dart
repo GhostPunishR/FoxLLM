@@ -78,8 +78,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Rechercher dans les chats'), findsOneWidget);
-    expect(find.text('Aujourd’hui'), findsOneWidget);
+    expect(find.text('Chats'), findsOneWidget);
     expect(find.text('Aucune conversation'), findsOneWidget);
+    // Sans conversation, aucune tranche de date n'a de raison d'être affichée.
+    expect(find.text('Aujourd’hui'), findsNothing);
     expect(find.text('Paramètres'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

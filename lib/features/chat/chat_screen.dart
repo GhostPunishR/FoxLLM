@@ -20,6 +20,7 @@ import 'package:foxllm/features/chat/attachments/attachment_store.dart';
 import 'package:foxllm/features/chat/chat_backend_host.dart';
 import 'package:foxllm/features/chat/chat_modes.dart';
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
+import 'package:foxllm/features/chat/conversations/conversation_date.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
 import 'package:foxllm/features/chat/dictation.dart';
 import 'package:foxllm/features/chat/markdown/message_markdown.dart';

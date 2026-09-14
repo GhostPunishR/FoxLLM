@@ -6,8 +6,9 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 Le fil de discussion devient utilisable au quotidien : chaque réponse porte sa
 barre d'actions et ses sources, un message envoyé se modifie, la barre du haut
-annonce le fil ouvert, et le composeur ne fait plus surgir de bouton sous le
-doigt. La suite de tests passe de 216 à 315 cas.
+annonce le fil ouvert, le composeur ne fait plus surgir de bouton sous le doigt,
+et le menu latéral date enfin les conversations pour ce qu'elles sont. La suite
+de tests passe de 216 à 332 cas.
 
 ### Ajouts
 
@@ -117,6 +118,23 @@ doigt. La suite de tests passe de 216 à 315 cas.
 
 ### Corrections
 
+- **datation des conversations dans le menu latéral** : passé minuit, une
+  conversation de la veille se retrouvait sous un intitulé annonçant « 7
+  jours ». Le classement était juste, mais il n'y avait que trois tranches et
+  celle du milieu ramassait tout ce qui n'était plus du jour, de la veille au
+  septième jour. Il y en a maintenant cinq, dont chacune dit ce qu'elle
+  couvre : Aujourd'hui, Hier, 7 derniers jours, 30 derniers jours, Plus tôt.
+  Une tranche vide ne s'affiche plus : un « Aujourd'hui » sans rien dessous,
+  posé au-dessus des fils d'hier, laissait croire qu'ils dataient du jour. Le
+  bouton « + » garde son en-tête, désormais intitulé « Chats », qui ne prétend
+  dater personne. Chaque ligne porte en outre sa date exacte : l'heure pour
+  aujourd'hui et hier, le jour et le mois dans l'année, et l'année au delà ;
+- les tranches se recalculent **au passage de minuit**. Une application laissée
+  ouverte la nuit continuait de classer d'après la veille jusqu'à ce qu'autre
+  chose provoque une reconstruction. Les jours se comptent de minuit à minuit
+  et non par tranches de vingt-quatre heures, et l'heure n'est relevée qu'une
+  fois par affichage : deux relevés encadrant minuit rangeaient deux
+  conversations de la même minute dans deux tranches différentes ;
 - **accumulation de sauvegardes sur stockage lent** : le regroupement espaçait
   les écritures mais chaque déclenchement partait sans attendre le précédent.
   Le magasin sérialisait bien les écritures physiques, mais les instantanés
@@ -194,12 +212,13 @@ doigt. La suite de tests passe de 216 à 315 cas.
 
 ### Tests
 
-- 216 à 315 cas sur l'ensemble de la version. Origine des clés API et migration
+- 216 à 332 cas sur l'ensemble de la version. Origine des clés API et migration
   des réglages, regroupement des écritures et propagation des échecs, envoi
   annulé par un changement de fil, pièces jointes liées au brouillon, barre
   d'actions absente pendant la génération, lecture des trois formats de
   citation, modification d'un message envoyé, rangée du composeur dans ses
-  quatre états, file d'attente et titre de la barre du haut. Les tests d'écran
+  quatre états, file d'attente, titre de la barre du haut, tranches de dates du
+  menu latéral et date portée par chaque conversation. Les tests d'écran
   ont été vérifiés contre le code d'origine : ils échouent bien là où le
   correctif manque ;
 - `packages/foxllm_native/tool/asan/run.sh` rejoue la vérification native :
