@@ -41,14 +41,16 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     final keyStore = ref.read(apiKeyStoreProvider);
     final trimmedKey = apiKey?.trim() ?? '';
 
-    // Une clé appartient à un serveur, pas seulement à un fournisseur :
-    // « Personnalisé » garde son identifiant quand la base URL change d'hôte.
-    // Réutiliser la clé sur ce seul critère l'aurait envoyée au nouvel hôte.
-    final nextOrigin = personalApiOrigin(
+    // Une clé appartient à un destinataire, pas seulement à un fournisseur :
+    // « Personnalisé » garde son identifiant quand la base URL change d'hôte
+    // ou de chemin. Réutiliser la clé sur ce seul critère l'aurait envoyée
+    // ailleurs.
+    final nextDestination = personalApiDestination(
       provider.resolveBaseUrl(baseUrl.trim()),
     );
     final destinationChanged =
-        current.providerId != provider.id || current.apiKeyOrigin != nextOrigin;
+        current.providerId != provider.id ||
+        current.apiKeyDestination != nextDestination;
 
     var hasApiKey = current.hasApiKey && !destinationChanged;
     if (destinationChanged && trimmedKey.isEmpty) {
@@ -86,7 +88,7 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
       apiKeyPersistence: persistence,
       useInChat: useInChat && hasApiKey && model.trim().isNotEmpty,
       hasApiKey: hasApiKey,
-      apiKeyOrigin: hasApiKey ? nextOrigin : '',
+      apiKeyDestination: hasApiKey ? nextDestination : '',
     );
 
     if (provider.custom && !isAllowedPersonalApiBaseUrl(next.baseUrl)) {
@@ -114,14 +116,14 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     // Même règle qu'à l'enregistrement, et elle compte davantage ici : la
     // récupération des modèles part avant tout enregistrement, donc avec la
     // base URL en cours de saisie.
-    final requestedOrigin = personalApiOrigin(
+    final requestedDestination = personalApiDestination(
       provider.resolveBaseUrl(baseUrl.trim()),
     );
     if (key.isEmpty &&
         current.providerId == provider.id &&
         current.hasApiKey &&
-        current.apiKeyOrigin.isNotEmpty &&
-        current.apiKeyOrigin == requestedOrigin) {
+        current.apiKeyDestination.isNotEmpty &&
+        current.apiKeyDestination == requestedDestination) {
       key =
           await ref
               .read(apiKeyStoreProvider)
@@ -160,7 +162,7 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     final next = current.copyWith(
       hasApiKey: false,
       useInChat: false,
-      apiKeyOrigin: '',
+      apiKeyDestination: '',
     );
     await ref.read(personalApiSettingsStoreProvider).save(next);
     state = AsyncData<PersonalApiSettings>(next);

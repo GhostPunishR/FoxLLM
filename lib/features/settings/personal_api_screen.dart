@@ -82,11 +82,12 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     super.dispose();
   }
 
-  /// Vrai quand la clé enregistrée vise bien le serveur actuellement saisi.
+  /// Vrai quand la clé enregistrée vise bien l'adresse actuellement saisie.
   ///
   /// La base URL du champ compte autant que le fournisseur : sur
-  /// « Personnalisé », en changer d'hôte désigne un autre destinataire, à qui
-  /// la clé précédente ne doit pas être envoyée sans nouvelle saisie.
+  /// « Personnalisé », en changer l'hôte ou le chemin désigne un autre
+  /// destinataire, à qui la clé précédente ne doit pas être envoyée sans
+  /// nouvelle saisie.
   bool _hasStoredKeyForCurrentDestination() {
     final current = ref.read(personalApiSettingsProvider).value;
     return _matchesStoredKeyDestination(current);
@@ -98,10 +99,11 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
         current.providerId != _providerId) {
       return false;
     }
-    final origin = personalApiOrigin(
+    final destination = personalApiDestination(
       _provider.resolveBaseUrl(_baseUrlController.text.trim()),
     );
-    return current.apiKeyOrigin.isNotEmpty && current.apiKeyOrigin == origin;
+    return current.apiKeyDestination.isNotEmpty &&
+        current.apiKeyDestination == destination;
   }
 
   String _currentModel() {

@@ -12,7 +12,7 @@ void main() {
         providerId: 'openai',
         model: 'example-model',
         hasApiKey: true,
-        apiKeyOrigin: 'https://api.openai.com:443',
+        apiKeyDestination: 'https://api.openai.com:443/v1',
       );
 
       expect(configured.isConfigured, isTrue);
@@ -36,7 +36,7 @@ void main() {
         baseUrl: 'https://example.com/v1',
         model: 'example-model',
         hasApiKey: true,
-        apiKeyOrigin: 'https://example.com:443',
+        apiKeyDestination: 'https://example.com:443/v1',
       );
       expect(configuredCustom.isConfigured, isTrue);
     });

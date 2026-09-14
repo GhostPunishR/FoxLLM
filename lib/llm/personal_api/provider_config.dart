@@ -38,22 +38,28 @@ String normalizeBaseUrl(String value) {
   return normalized;
 }
 
-/// Serveur auquel une base URL confie la clé API : schéma, hôte et port
-/// effectif, en minuscules.
+/// Destinataire auquel une base URL confie la clé API : schéma, hôte, port
+/// effectif et chemin.
 ///
-/// C'est cette origine, et non la base URL entière, qui décide si une clé
-/// enregistrée peut être réutilisée. Le chemin n'en fait pas partie : passer
-/// de `/v1` à `/v1/` ou à `/openai/v1` reste le même serveur, alors que
-/// changer d'hôte ou de port désigne un destinataire différent, à qui la clé
-/// précédente ne doit jamais être envoyée.
+/// C'est ce destinataire, et non la base URL littérale, qui décide si une clé
+/// enregistrée peut être réutilisée. Deux écritures d'une même adresse s'y
+/// ramènent (barre finale, port par défaut explicite, casse de l'hôte), alors
+/// que changer d'hôte, de port, de schéma ou de chemin désigne quelqu'un
+/// d'autre, à qui la clé précédente ne doit jamais être envoyée.
+///
+/// Le chemin compte parce qu'une passerelle peut router chaque préfixe vers un
+/// fournisseur différent : `/openai/v1` et `/anthropic/v1` sur le même hôte ne
+/// partagent pas forcément les mêmes identifiants.
 ///
 /// Rend une chaîne vide quand la valeur n'est pas une URL absolue exploitable.
-String personalApiOrigin(String baseUrl) {
+String personalApiDestination(String baseUrl) {
   final uri = Uri.tryParse(normalizeBaseUrl(baseUrl));
   if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
     return '';
   }
   // `Uri.port` rend déjà le port par défaut du schéma quand il est absent :
-  // `https://h` et `https://h:443` désignent donc bien la même origine.
-  return '${uri.scheme.toLowerCase()}://${uri.host.toLowerCase()}:${uri.port}';
+  // `https://h` et `https://h:443` désignent donc le même destinataire. Le
+  // chemin garde sa casse, contrairement à l'hôte : HTTP le distingue.
+  return '${uri.scheme.toLowerCase()}://${uri.host.toLowerCase()}:${uri.port}'
+      '${uri.path}';
 }

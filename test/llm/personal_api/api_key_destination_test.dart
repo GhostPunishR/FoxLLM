@@ -112,39 +112,67 @@ PersonalApiSettings _configuredForA({
     apiKeyPersistence: persistence,
     useInChat: true,
     hasApiKey: true,
-    apiKeyOrigin: personalApiOrigin(_serverA),
+    apiKeyDestination: personalApiDestination(_serverA),
   );
 }
 
 void main() {
-  group('personalApiOrigin', () {
-    test('ignore le chemin, la barre finale et la casse de l’hôte', () {
-      const reference = 'https://api.example.com:443';
-      expect(personalApiOrigin('https://api.example.com/v1'), reference);
-      expect(personalApiOrigin('https://api.example.com/v1/'), reference);
-      expect(personalApiOrigin('https://API.Example.com/v2'), reference);
-      expect(personalApiOrigin('https://api.example.com:443/v1'), reference);
-      expect(personalApiOrigin(' https://api.example.com/v1 '), reference);
+  group('personalApiDestination', () {
+    test('ramène les écritures équivalentes d’une même adresse', () {
+      const reference = 'https://api.example.com:443/v1';
+      expect(personalApiDestination('https://api.example.com/v1'), reference);
+      expect(personalApiDestination('https://api.example.com/v1/'), reference);
+      expect(personalApiDestination('https://api.example.com/v1//'), reference);
+      expect(personalApiDestination('https://API.Example.com/v1'), reference);
+      expect(
+        personalApiDestination('https://api.example.com:443/v1'),
+        reference,
+      );
+      expect(personalApiDestination(' https://api.example.com/v1 '), reference);
     });
 
     test('distingue l’hôte, le port et le schéma', () {
       expect(
-        personalApiOrigin('https://a.example.com/v1'),
-        isNot(personalApiOrigin('https://b.example.com/v1')),
+        personalApiDestination('https://a.example.com/v1'),
+        isNot(personalApiDestination('https://b.example.com/v1')),
       );
       expect(
-        personalApiOrigin('http://127.0.0.1:11434/v1'),
-        isNot(personalApiOrigin('http://127.0.0.1:8080/v1')),
+        personalApiDestination('http://127.0.0.1:11434/v1'),
+        isNot(personalApiDestination('http://127.0.0.1:8080/v1')),
       );
       expect(
-        personalApiOrigin('http://192.168.1.5/v1'),
-        isNot(personalApiOrigin('https://192.168.1.5/v1')),
+        personalApiDestination('http://192.168.1.5/v1'),
+        isNot(personalApiDestination('https://192.168.1.5/v1')),
+      );
+    });
+
+    test('distingue aussi le chemin', () {
+      // Une passerelle peut router chaque préfixe vers un fournisseur
+      // différent : même hôte ne veut pas dire mêmes identifiants.
+      expect(
+        personalApiDestination('https://passerelle.example.com/openai/v1'),
+        isNot(
+          personalApiDestination('https://passerelle.example.com/anthropic/v1'),
+        ),
+      );
+      expect(
+        personalApiDestination('https://api.example.com/v1'),
+        isNot(personalApiDestination('https://api.example.com/v2')),
+      );
+      expect(
+        personalApiDestination('https://api.example.com'),
+        isNot(personalApiDestination('https://api.example.com/v1')),
+      );
+      // Le chemin garde sa casse : HTTP la distingue, contrairement à l'hôte.
+      expect(
+        personalApiDestination('https://api.example.com/V1'),
+        isNot(personalApiDestination('https://api.example.com/v1')),
       );
     });
 
     test('rend une chaîne vide pour une valeur inexploitable', () {
-      expect(personalApiOrigin(''), isEmpty);
-      expect(personalApiOrigin('serveur-sans-schema/v1'), isEmpty);
+      expect(personalApiDestination(''), isEmpty);
+      expect(personalApiDestination('serveur-sans-schema/v1'), isEmpty);
     });
   });
 
@@ -253,6 +281,63 @@ void main() {
     });
   });
 
+  group('chemin seul', () {
+    test('changer de chemin n’envoie pas la clé au nouveau préfixe', () async {
+      final keys = _MemoryKeyStore()..device[personalApiProviderId] = _keyForA;
+      final store = _MemorySettingsStore(_configuredForA());
+      final container = _container(keys: keys, store: store);
+      final client = _RecordingClient();
+
+      await container.read(personalApiSettingsProvider.future);
+
+      await expectLater(
+        container
+            .read(personalApiSettingsProvider.notifier)
+            .fetchModels(
+              providerId: 'custom',
+              // Même hôte, autre préfixe de routage.
+              baseUrl: 'https://serveur-a.example.com/autre/v1',
+              client: client,
+            ),
+        throwsA(isA<StateError>()),
+      );
+
+      expect(client.requests, isEmpty);
+    });
+
+    test('changer de chemin à l’enregistrement oublie la clé', () async {
+      final keys = _MemoryKeyStore()..device[personalApiProviderId] = _keyForA;
+      final store = _MemorySettingsStore(_configuredForA());
+      final container = _container(keys: keys, store: store);
+
+      await container.read(personalApiSettingsProvider.future);
+
+      final next = await container
+          .read(personalApiSettingsProvider.notifier)
+          .save(
+            providerId: 'custom',
+            baseUrl: 'https://serveur-a.example.com/autre/v1',
+            model: 'modele',
+            persistence: ApiKeyPersistence.device,
+            useInChat: true,
+          );
+
+      expect(next.hasApiKey, isFalse);
+      expect(next.isConfigured, isFalse);
+      expect(keys.device, isEmpty);
+    });
+
+    test('des réglages dont le chemin a changé sont incomplets', () {
+      final stale = _configuredForA().copyWith(
+        baseUrl: 'https://serveur-a.example.com/autre/v1',
+      );
+
+      expect(stale.hasApiKey, isTrue);
+      expect(stale.hasApiKeyForCurrentDestination, isFalse);
+      expect(stale.isConfigured, isFalse);
+    });
+  });
+
   group('enregistrement', () {
     test('changer de serveur oublie la clé au lieu de la reconduire', () async {
       final keys = _MemoryKeyStore()..device[personalApiProviderId] = _keyForA;
@@ -272,7 +357,7 @@ void main() {
           );
 
       expect(next.hasApiKey, isFalse);
-      expect(next.apiKeyOrigin, isEmpty);
+      expect(next.apiKeyDestination, isEmpty);
       expect(next.useInChat, isFalse, reason: 'le chat ne peut plus émettre');
       expect(next.isConfigured, isFalse);
       expect(keys.device, isEmpty, reason: 'la clé du serveur A est effacée');
@@ -319,7 +404,7 @@ void main() {
           );
 
       expect(next.hasApiKey, isTrue);
-      expect(next.apiKeyOrigin, personalApiOrigin(_serverB));
+      expect(next.apiKeyDestination, personalApiDestination(_serverB));
       expect(keys.device[personalApiProviderId], 'cle-du-serveur-b');
     });
   });
@@ -342,27 +427,31 @@ void main() {
       final loaded = await PersonalApiSettingsStore().load(keyStore: keys);
 
       expect(loaded.hasApiKey, isTrue);
-      expect(loaded.apiKeyOrigin, personalApiOrigin(_serverA));
+      expect(loaded.apiKeyDestination, personalApiDestination(_serverA));
       expect(loaded.isConfigured, isTrue);
       expect(loaded.useInChat, isTrue);
     });
 
-    test('l’origine déduite ne couvre que le serveur enregistré', () async {
-      FlutterSecureStorage.setMockInitialValues(<String, String>{
-        'foxllm.personal_api.provider': 'custom',
-        'foxllm.personal_api.base_url': _serverA,
-        'foxllm.personal_api.model': 'modele',
-        'foxllm.personal_api.persistence': 'device',
-        'foxllm.personal_api.use_in_chat': 'true',
-      });
-      final keys = _MemoryKeyStore()..device[personalApiProviderId] = _keyForA;
+    test(
+      'le destinataire déduit ne couvre que l’adresse enregistrée',
+      () async {
+        FlutterSecureStorage.setMockInitialValues(<String, String>{
+          'foxllm.personal_api.provider': 'custom',
+          'foxllm.personal_api.base_url': _serverA,
+          'foxllm.personal_api.model': 'modele',
+          'foxllm.personal_api.persistence': 'device',
+          'foxllm.personal_api.use_in_chat': 'true',
+        });
+        final keys = _MemoryKeyStore()
+          ..device[personalApiProviderId] = _keyForA;
 
-      final loaded = await PersonalApiSettingsStore().load(keyStore: keys);
+        final loaded = await PersonalApiSettingsStore().load(keyStore: keys);
 
-      expect(loaded.copyWith(baseUrl: _serverB).isConfigured, isFalse);
-    });
+        expect(loaded.copyWith(baseUrl: _serverB).isConfigured, isFalse);
+      },
+    );
 
-    test('sans clé enregistrée, aucune origine n’est déduite', () async {
+    test('sans clé enregistrée, aucun destinataire n’est déduit', () async {
       FlutterSecureStorage.setMockInitialValues(<String, String>{
         'foxllm.personal_api.provider': 'custom',
         'foxllm.personal_api.base_url': _serverA,
@@ -376,16 +465,16 @@ void main() {
       );
 
       expect(loaded.hasApiKey, isFalse);
-      expect(loaded.apiKeyOrigin, isEmpty);
+      expect(loaded.apiKeyDestination, isEmpty);
     });
   });
 
   group('chat et test de connexion', () {
-    test('des réglages dont l’origine ne correspond plus sont incomplets', () {
+    test('des réglages dont l’adresse ne correspond plus sont incomplets', () {
       final stale = _configuredForA().copyWith(baseUrl: _serverB);
 
       expect(stale.hasApiKey, isTrue);
-      expect(stale.hasApiKeyForCurrentOrigin, isFalse);
+      expect(stale.hasApiKeyForCurrentDestination, isFalse);
       expect(
         stale.isConfigured,
         isFalse,
@@ -393,7 +482,7 @@ void main() {
       );
     });
 
-    test('une origine absente ne vaut pas accord', () {
+    test('un destinataire absent ne vaut pas accord', () {
       const withoutOrigin = PersonalApiSettings(
         providerId: 'custom',
         baseUrl: _serverA,

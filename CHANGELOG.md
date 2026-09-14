@@ -16,10 +16,12 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   serveur change. Le fournisseur « Personnalisé » garde le même identifiant
   d'une base URL à l'autre, si bien que la clé du serveur précédent pouvait
   partir vers le nouveau, y compris à la récupération des modèles, avant tout
-  enregistrement. La réutilisation dépend maintenant du fournisseur **et** de
-  l'origine du serveur, schéma, hôte et port effectif ; une réécriture
-  équivalente de l'URL ne change rien, un changement d'hôte impose de ressaisir
-  la clé. Les installations existantes conservent la leur ;
+  enregistrement. La réutilisation dépend maintenant du fournisseur **et** du
+  destinataire, c'est-à-dire schéma, hôte, port effectif et chemin. Une
+  réécriture équivalente de l'URL ne change rien ; changer d'hôte, de port, de
+  schéma ou de chemin impose de ressaisir la clé, parce qu'une passerelle peut
+  router chaque préfixe vers un fournisseur différent. Les installations
+  existantes conservent la leur ;
 - **envoi pendant le chargement d'un modèle** : l'identité de l'envoi est prise
   avant la première attente et vérifiée après chacune. Ouvrir un autre fil ou
   en créer un pendant l'ouverture du GGUF faisait repartir l'ancien texte avec
