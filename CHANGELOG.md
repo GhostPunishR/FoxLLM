@@ -2,6 +2,27 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
+## [Non publié]
+
+### Corrections
+
+- **bouton de lecture à voix haute bloqué** : une fois la réponse lue en
+  entier, le bouton restait allumé comme si la voix parlait encore. L'écran
+  gardait sa propre copie de l'état, posée au démarrage de la lecture, et rien
+  ne la remettait à zéro : la lecture s'achève d'elle-même à la fin du texte,
+  sans que personne n'appelle `stop()`. Le service prévenait bien de la fin,
+  mais pour lui seul. Conséquence moins visible et plus gênante : rappuyer sur
+  ce bouton bloqué relançait la lecture au lieu de l'arrêter, puisque le
+  service, lui, se savait au repos. L'état du service est désormais observable
+  et le bouton le suit, au lieu d'en garder une copie ;
+- **threads du moteur local** : `llama_context_default_params` en pose quatre
+  quel que soit l'appareil, et llama.cpp note lui-même « TODO: better default »
+  à cet endroit. Le compte tombait juste par hasard sur un téléphone à huit
+  cœurs, mais il sursouscrivait un appareil à deux cœurs et n'utilisait qu'un
+  tiers d'une tablette à douze. La règle appliquée est celle de llama.cpp pour
+  ARM et Android : tous les cœurs jusqu'à quatre, la moitié au delà. Rien ne
+  change sur un téléphone à huit cœurs, qui reste à quatre.
+
 ## [0.1.3] - 2026-09-14
 
 Le fil de discussion devient utilisable au quotidien : chaque réponse porte sa
