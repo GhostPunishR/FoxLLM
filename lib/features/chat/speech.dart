@@ -20,6 +20,13 @@ class Speech {
   final FlutterTts _tts;
   bool _configured = false;
 
+  /// Identifie le démarrage en cours.
+  ///
+  /// Préparer la voix demande un aller-retour avec Android. Un arrêt survenu
+  /// pendant cette attente ne trouvait rien à arrêter, et la lecture partait
+  /// quand même une fois l'attente finie.
+  int _epoch = 0;
+
   final ValueNotifier<String?> _speaking = ValueNotifier<String?>(null);
 
   /// Texte en cours de lecture, `null` au repos.
@@ -50,9 +57,17 @@ class Speech {
       }
     }
 
+    // Ce démarrage précis. Tout ce qui survient après une attente n'est
+    // appliqué que s'il est encore d'actualité.
+    final epoch = ++_epoch;
+    bool stale() => epoch != _epoch;
+
     try {
       if (!_configured) {
         await _tts.setLanguage('fr-FR');
+        if (stale()) {
+          return false;
+        }
         // La lecture se termine, ou s'interrompt : dans les deux cas, plus
         // rien ne parle et le bouton doit le montrer.
         _tts.setCompletionHandler(() => _speaking.value = null);
@@ -60,16 +75,30 @@ class Speech {
         _tts.setErrorHandler((dynamic _) => _speaking.value = null);
         _configured = true;
       }
+      if (stale()) {
+        return false;
+      }
       _speaking.value = trimmed;
       await _tts.speak(trimmed);
+      if (stale()) {
+        // L'arrêt est arrivé pendant le démarrage : la voix a beau être
+        // partie, elle se tait tout de suite.
+        _speaking.value = null;
+        await _tts.stop();
+        return false;
+      }
       return true;
     } catch (_) {
-      _speaking.value = null;
+      if (!stale()) {
+        _speaking.value = null;
+      }
       return false;
     }
   }
 
+  /// Arrête la lecture, et annule un démarrage encore en attente.
   Future<void> stop() async {
+    _epoch += 1;
     _speaking.value = null;
     try {
       await _tts.stop();

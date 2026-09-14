@@ -1,6 +1,8 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -144,6 +146,89 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('relâcher pendant la préparation n’ouvre pas le micro', (
+    tester,
+  ) async {
+    final dictation = _FakeDictation()..holdInitialize = true;
+    await _pumpChat(tester, dictation);
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byTooltip('Maintenir pour dicter')),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    // L'initialisation n'est pas revenue : le micro n'est pas encore ouvert,
+    // et c'est exactement le moment où le relâchement doit compter.
+    expect(dictation.listening, isFalse);
+    await gesture.up();
+    await tester.pump();
+
+    dictation.releaseInitialize();
+    await tester.pumpAndSettle();
+
+    expect(
+      dictation.listening,
+      isFalse,
+      reason: 'l’écoute s’ouvrait après le relâchement',
+    );
+    // Rien à annoncer : l'utilisateur a lui-même relâché.
+    expect(find.textContaining('besoin du micro'), findsNothing);
+    expect(find.textContaining('Aucune reconnaissance'), findsNothing);
+    expect(find.text('Parle, je t’écoute…'), findsNothing);
+  });
+
+  testWidgets('quitter l’écran pendant la préparation n’ouvre pas le micro', (
+    tester,
+  ) async {
+    final dictation = _FakeDictation()..holdInitialize = true;
+    await _pumpChat(tester, dictation);
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byTooltip('Maintenir pour dicter')),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await gesture.up();
+    await tester.pump();
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pump();
+    dictation.releaseInitialize();
+    await tester.pumpAndSettle();
+
+    expect(dictation.listening, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
+  group('service réel', _serviceTests);
+}
+
+/// Le service réel, sans micro : la plateforme est absente du banc, donc
+/// `initialize()` échoue. Ce qui se vérifie ici est l'ordre des décisions, et
+/// non la reconnaissance elle-même.
+void _serviceTests() {
+  test('un arrêt pendant la préparation annule le démarrage', () async {
+    final dictation = Dictation();
+
+    final pending = dictation.start(onText: (_) {});
+    // Le relâchement arrive avant que l'initialisation ne revienne. L'ancien
+    // garde sur `isListening` ne voyait alors rien à arrêter.
+    await dictation.stop();
+
+    expect(await pending, DictationStatus.cancelled);
+    expect(dictation.isListening, isFalse);
+  });
+
+  test('sans arrêt, l’échec de préparation est bien signalé', () async {
+    final dictation = Dictation();
+
+    expect(
+      await dictation.start(onText: (_) {}),
+      DictationStatus.unavailable,
+      reason: 'une annulation ne doit pas masquer une vraie panne',
+    );
+  });
 }
 
 Future<void> _pumpChat(WidgetTester tester, Dictation dictation) async {
@@ -174,6 +259,14 @@ class _FakeDictation implements Dictation {
   bool listening = false;
   void Function(String text)? _onText;
 
+  /// Vanne : le test décide quand l'initialisation revient, pour reproduire
+  /// un relâchement survenu pendant la préparation.
+  bool holdInitialize = false;
+  final _initGate = Completer<void>();
+  int _epoch = 0;
+
+  void releaseInitialize() => _initGate.complete();
+
   @override
   bool get isListening => listening;
 
@@ -182,6 +275,13 @@ class _FakeDictation implements Dictation {
     required void Function(String text) onText,
     String localeId = 'fr_FR',
   }) async {
+    final epoch = ++_epoch;
+    if (holdInitialize) {
+      await _initGate.future;
+    }
+    if (epoch != _epoch) {
+      return DictationStatus.cancelled;
+    }
     if (status != DictationStatus.listening) {
       return status;
     }
@@ -193,7 +293,10 @@ class _FakeDictation implements Dictation {
   void emit(String text) => _onText?.call(text);
 
   @override
-  Future<void> stop() async => listening = false;
+  Future<void> stop() async {
+    _epoch += 1;
+    listening = false;
+  }
 }
 
 class _EmptyStore implements ConversationStore {

@@ -79,14 +79,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Speech? _speech;
 
   /// Message utilisateur en cours de modification, et son brouillon.
+  ///
+  /// L'indice seul ne suffit pas à désigner un message : il vaut pour le fil
+  /// affiché au moment où la modification a commencé. Ouvrir un autre fil
+  /// faisait porter le texte saisi sur son message de même rang.
   int? _editingIndex;
+  int? _editingConversationId;
+
+  /// Contenu du message au début de la modification.
+  ///
+  /// Vérifié à la validation : la structure du fil a pu changer entre-temps,
+  /// et l'indice désignerait alors un autre message.
+  String? _editingOriginal;
   final _editController = TextEditingController();
 
   /// Messages écrits pendant une réponse, envoyés chacun à leur tour.
   ///
   /// Écrire pendant que le modèle répond est courant : plutôt que de refuser
   /// l'envoi ou d'interrompre la réponse en cours, le message attend son tour.
-  final List<_QueuedMessage> _queued = <_QueuedMessage>[];
+  final List<_Outgoing> _queued = <_Outgoing>[];
 
   /// Identifie le brouillon courant, texte et pièces jointes ensemble.
   ///
@@ -121,6 +132,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     WidgetsBinding.instance.addObserver(this);
     unawaited(_restoreSession());
   }
+
+  /// Relecture de l'historique, attendue avant toute mutation.
+  ///
+  /// Elle remplace la liste en mémoire : un envoi parti avant elle serait
+  /// effacé par son arrivée, et la liste vide du lancement écraserait le
+  /// fichier si une sauvegarde partait entre-temps.
+  ///
+  /// Porte sur l'historique seul, et non sur le reste de la restauration : le
+  /// chemin du dernier modèle est sans rapport avec la liste des
+  /// conversations, et un envoi n'a aucune raison de l'attendre.
+  final _historyRestored = Completer<void>();
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -158,20 +180,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final List<ChatConversation> conversations;
     try {
       conversations = await ref.read(conversationStoreProvider).load();
-    } catch (_) {
+    } catch (error) {
+      // Le fichier existe mais ne se lit pas. Tout enregistrement ultérieur
+      // le remplacerait par ce que l'écran a en mémoire, c'est-à-dire par
+      // rien : mieux vaut ne plus rien écrire et le dire.
+      _persister.abandon();
+      if (mounted) {
+        _showSnack(
+          'Lecture de l’historique impossible : les conversations de cette '
+          'session ne seront pas enregistrées. ($error)',
+        );
+      }
+      _openHistoryGate();
       return;
     }
     if (mounted && conversations.isNotEmpty) {
       setState(() {
-        _conversations
-          ..clear()
-          ..addAll(conversations);
+        // Un envoi attend la relecture, la liste est donc vide ici. L'insérer
+        // devant plutôt que remplacer garde les deux si cela changeait.
+        _conversations.insertAll(0, conversations);
         _nextConversationId =
-            conversations
-                .map((conversation) => conversation.id)
-                .reduce((a, b) => a > b ? a : b) +
+            <int>[
+              _nextConversationId - 1,
+              ...conversations.map((conversation) => conversation.id),
+            ].reduce((a, b) => a > b ? a : b) +
             1;
       });
+    }
+    // L'historique est en place : les écritures peuvent partir, y compris
+    // celles demandées pendant l'attente.
+    _persister.release();
+    _openHistoryGate();
+  }
+
+  /// Libère les envois qui attendaient la relecture, réussie ou non.
+  ///
+  /// Une lecture en échec ne doit pas bloquer l'application : elle interdit
+  /// les écritures, pas l'usage.
+  void _openHistoryGate() {
+    if (!_historyRestored.isCompleted) {
+      _historyRestored.complete();
     }
   }
 
@@ -207,6 +255,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (wasActive) {
       _dropQueue();
       _stopSpeaking();
+      _forgetEdit();
     }
     if (wasActive && _isGenerating) {
       _generationEpoch += 1;
@@ -288,8 +337,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// Ne réveille pas le moteur vocal s'il n'a jamais servi : il n'est monté
   /// qu'au premier appui sur le bouton de lecture.
   void _stopSpeaking() {
+    // Pas de garde sur « une lecture est en cours » : pendant la préparation
+    // de la voix, rien ne parle encore, et c'est précisément le moment où
+    // l'annulation doit passer. Le service, lui, sait l'invalider.
     final speech = _speech;
-    if (speech == null || speech.speaking.value == null) {
+    if (speech == null) {
       return;
     }
     unawaited(speech.stop());
@@ -340,6 +392,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _generationEpoch += 1;
     _dropQueue();
     _stopSpeaking();
+    _forgetEdit();
     if (_isGenerating) {
       await ref.read(chatBackendProvider).stop();
     }
@@ -360,6 +413,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _generationEpoch += 1;
     _dropQueue();
     _stopSpeaking();
+    _forgetEdit();
     if (_isGenerating) {
       await ref.read(chatBackendProvider).stop();
     }
@@ -466,26 +520,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _showSnack('Attends la fin de la réponse en cours.');
       return;
     }
-    // Seule la lecture d'un message qui s'en va doit cesser : écouter une
-    // réponse plus haute dans le fil n'a rien à voir avec celle qu'on rejoue.
-    final speaking = _speech?.speaking.value;
-    if (speaking != null &&
-        _messages
-            .skip(userIndex)
-            .any((message) => message.content.trim() == speaking)) {
-      _stopSpeaking();
-    }
-
-    setState(() {
-      _messages.removeRange(userIndex, _messages.length);
-      // Les pièces jointes repartent avec le message : leurs fichiers sont
-      // encore là, et `_send` les rattachera au nouveau message.
-      _pendingAttachments
-        ..clear()
-        ..addAll(attachments);
-      _syncActiveConversation();
-    });
-    await _startSend(text.trim(), fromComposer: false);
+    // Rien n'est retiré ici. La coupe voyage avec l'envoi et n'a lieu qu'une
+    // fois celui-ci validé : tronquer d'abord amputait définitivement la
+    // conversation quand l'envoi était ensuite refusé, faute de modèle chargé
+    // par exemple, sans même que la demande parte.
+    //
+    // Les pièces jointes repartent avec le message plutôt que par le
+    // brouillon : leurs fichiers sont encore là, et le brouillon en cours
+    // d'écriture ne doit pas être touché.
+    await _startSend(
+      _Outgoing(
+        text: text.trim(),
+        attachments: List<ChatAttachment>.of(attachments),
+        conversationId: _activeConversationId,
+        replaceFrom: userIndex,
+      ),
+    );
   }
 
   /// Rattache à la dernière réponse les sources relevées par le moteur.
@@ -592,18 +642,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
     _editController.text = _messages[index].content;
-    setState(() => _editingIndex = index);
+    setState(() {
+      _editingIndex = index;
+      _editingConversationId = _activeConversationId;
+      _editingOriginal = _messages[index].content;
+    });
   }
 
   void _cancelEdit() {
-    setState(() => _editingIndex = null);
-    _editController.clear();
+    setState(_forgetEdit);
     FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  /// Oublie la modification en cours, sans reconstruire l'écran.
+  ///
+  /// À appeler dès qu'on quitte le fil édité : la modification n'a plus de
+  /// message à désigner, et son texte ne doit pas se reporter ailleurs.
+  void _forgetEdit() {
+    _editingIndex = null;
+    _editingConversationId = null;
+    _editingOriginal = null;
+    _editController.clear();
   }
 
   Future<void> _submitEdit() async {
     final index = _editingIndex;
-    if (index == null || index >= _messages.length) {
+    // L'édition ne vaut que pour le fil et le message où elle a commencé.
+    // L'écran a pu changer entre-temps : autre conversation, fil rejoué,
+    // message supprimé. Dans tous ces cas, la validation est abandonnée
+    // plutôt qu'appliquée à un message qui n'est pas celui qu'on modifiait.
+    if (index == null ||
+        _editingConversationId != _activeConversationId ||
+        index >= _messages.length ||
+        _messages[index].role != ChatRole.user ||
+        _messages[index].content != _editingOriginal) {
+      setState(_forgetEdit);
+      FocusManager.instance.primaryFocus?.unfocus();
       return;
     }
     final text = _editController.text.trim();
@@ -611,26 +685,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (text.isEmpty && attachments.isEmpty) {
       return;
     }
-    setState(() => _editingIndex = null);
-    _editController.clear();
+    setState(_forgetEdit);
     FocusManager.instance.primaryFocus?.unfocus();
     await _resendFrom(index, text, attachments);
   }
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty && _pendingAttachments.isEmpty) {
+    final attachments = List<ChatAttachment>.of(_pendingAttachments);
+    if (text.isEmpty && attachments.isEmpty) {
       return;
     }
 
     if (_isGenerating || _sending) {
       // Une réponse est en cours : le message prend la file plutôt que de
-      // disparaître ou d'interrompre ce qui s'écrit.
+      // disparaître ou d'interrompre ce qui s'écrit. Ses pièces jointes
+      // partent avec lui, elles ne restent pas dans le brouillon.
+      //
+      // Il ne vient plus du composeur une fois mis en attente : le brouillon
+      // est vidé ici, et celui qu'on écrira d'ici son départ appartient à
+      // l'utilisateur.
       setState(() {
         _queued.add(
-          _QueuedMessage(
+          _Outgoing(
             text: text,
-            attachments: List<ChatAttachment>.of(_pendingAttachments),
+            attachments: attachments,
+            conversationId: _activeConversationId,
           ),
         );
         _inputController.clear();
@@ -639,7 +719,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
-    await _startSend(text, fromComposer: true);
+    await _startSend(
+      _Outgoing(
+        text: text,
+        attachments: attachments,
+        conversationId: _activeConversationId,
+        fromComposer: true,
+      ),
+    );
   }
 
   /// Envoie le premier message en attente, si la voie est libre.
@@ -650,36 +737,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (!mounted || _queued.isEmpty || _isGenerating || _sending) {
       return;
     }
+    // Le message quitte la file le temps de son envoi, puis y revient en tête
+    // s'il est refusé : une préparation impossible, faute de modèle par
+    // exemple, ne doit pas le perdre. Le retirer après coup ne marcherait pas,
+    // l'envoi relançant lui-même le défilement avant de rendre la main.
+    //
+    // Un refus n'est pas réessayé tout seul : le défilement s'arrête là,
+    // plutôt que de vider la file en boucle sur la même erreur.
     final next = _queued.removeAt(0);
-    setState(() {
-      _pendingAttachments
-        ..clear()
-        ..addAll(next.attachments);
-    });
-    await _startSend(next.text, fromComposer: false);
+    final sent = await _startSend(next);
+    if (!sent && mounted) {
+      setState(() => _queued.insert(0, next));
+    }
   }
 
-  Future<void> _startSend(String text, {required bool fromComposer}) async {
+  /// Lance [outgoing]. Rend `true` seulement s'il a rejoint le fil.
+  ///
+  /// La valeur rendue est ce qui permet à la file de ne retirer un message
+  /// qu'une fois parti : un refus le laisse là où il est.
+  Future<bool> _startSend(_Outgoing outgoing) async {
     // `_isGenerating` n'est levé qu'une fois la requête partie : sans ce
     // second verrou, deux appuis rapprochés pendant l'ouverture du modèle ou
     // la lecture des réglages lanceraient deux envois, dont un serait perdu.
-    if ((text.isEmpty && _pendingAttachments.isEmpty) ||
-        _isGenerating ||
-        _sending) {
-      return;
+    if (outgoing.isEmpty || _isGenerating || _sending) {
+      return false;
     }
+    // Le verrou est posé avant la moindre attente : pendant la relecture, un
+    // second appui doit rejoindre la file plutôt que lancer un envoi parallèle.
     _sending = true;
+    var outcome = _SendOutcome.refused;
     try {
-      await _send(text, fromComposer: fromComposer);
+      // La relecture remplace la liste des conversations : écrire dedans
+      // avant son retour ferait disparaître ce message à son arrivée.
+      await _historyRestored.future;
+      if (!mounted) {
+        return false;
+      }
+      outcome = await _send(outgoing);
     } finally {
       _sending = false;
     }
     // La file repart une fois la voie libre, jamais depuis le `finally` : le
-    // verrou d'envoi y est encore posé.
-    await _drainQueue();
+    // verrou d'envoi y est encore posé. Un envoi refusé arrête le défilement
+    // plutôt que de le relancer en boucle, et une réponse en échec ne doit pas
+    // l'enchaîner comme si elle avait abouti.
+    if (outcome == _SendOutcome.sent) {
+      await _drainQueue();
+    }
+    return outcome != _SendOutcome.refused;
   }
 
-  Future<void> _send(String text, {required bool fromComposer}) async {
+  /// Prépare, valide, puis seulement alors modifie le fil.
+  ///
+  /// Rend `true` si le message a rejoint la conversation. Tout ce qui peut
+  /// refuser l'envoi (modèle absent, mode incompatible, pièce jointe refusée,
+  /// changement de fil) est vérifié avant la moindre mutation : une
+  /// régénération refusée tronquait sinon la conversation pour rien.
+  Future<_SendOutcome> _send(_Outgoing outgoing) async {
+    final text = outgoing.text;
     final backend = ref.read(chatBackendProvider);
 
     // Identité de cet envoi, prise avant la moindre attente. Le chargement du
@@ -687,9 +802,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // ouvrir un autre fil ou en créer un : l'envoi reprenait alors avec
     // l'ancien texte et le nouvel historique.
     final generationEpoch = ++_generationEpoch;
-    // Nul tant que le fil n'existe pas ; renseigné dès sa création ci-dessous,
-    // pour que le garde suive le fil où le message vient d'être écrit.
-    var conversationId = _activeConversationId;
+    // Le fil visé est celui d'où l'envoi est parti, pas celui affiché au
+    // moment d'aboutir.
+    var conversationId = outgoing.conversationId;
+    if (conversationId != _activeConversationId) {
+      return _SendOutcome.refused;
+    }
     bool stillCurrent() =>
         mounted &&
         generationEpoch == _generationEpoch &&
@@ -701,21 +819,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       final restorable = _restorableModelPath;
       if (restorable == null) {
         _showModelRequired();
-        return;
+        return _SendOutcome.refused;
       }
       if (!await _restoreModel(backend, restorable)) {
-        return;
+        return _SendOutcome.refused;
       }
       if (!stillCurrent()) {
         // Fil abandonné pendant le chargement. Le brouillon de celui qui est
         // à l'écran maintenant appartient à l'utilisateur : on n'y touche pas.
-        return;
+        return _SendOutcome.refused;
       }
     }
 
-    final attachments = List<ChatAttachment>.of(_pendingAttachments);
+    final attachments = outgoing.attachments;
+    // La coupe d'une régénération ou d'une modification se calcule ici, sans
+    // toucher au fil : rien n'est retiré tant que l'envoi n'est pas validé.
+    final kept = outgoing.replaceFrom == null
+        ? _messages
+        : _messages.take(outgoing.replaceFrom!);
     final history = <ChatMessage>[
-      ..._messages,
+      ...kept,
       ChatMessage(role: ChatRole.user, content: text, attachments: attachments),
     ];
 
@@ -732,7 +855,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'La recherche web demande une API personnelle Google Gemini. '
         'Désactive-la ou change de fournisseur.',
       );
-      return;
+      return _SendOutcome.refused;
     }
 
     // Réflexion et personnalisation parlent au modèle de la même façon : une
@@ -757,10 +880,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ];
     } on UnsupportedAttachmentException catch (error) {
       _showSnack(error.message);
-      return;
+      return _SendOutcome.refused;
     }
     if (!stillCurrent()) {
-      return;
+      return _SendOutcome.refused;
+    }
+
+    // Validé : la lecture d'un message sur le point de disparaître s'arrête.
+    if (outgoing.replaceFrom case final from?) {
+      final speaking = _speech?.speaking.value;
+      if (speaking != null &&
+          _messages
+              .skip(from)
+              .any((message) => message.content.trim() == speaking)) {
+        _stopSpeaking();
+      }
     }
 
     setState(() {
@@ -773,13 +907,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _isGenerating = true;
       _syncActiveConversation();
     });
-    if (fromComposer) {
+    if (outgoing.fromComposer) {
+      // Le brouillon n'est vidé qu'une fois le message parti : un envoi
+      // refusé laisse de quoi le reprendre.
       _inputController.clear();
+      _pendingAttachments.clear();
     }
-    _pendingAttachments.clear();
     _scrollToBottom();
 
     var response = '';
+    var failed = false;
     try {
       final settings = GenerationSettings(
         maxTokens: modes.reasoning
@@ -793,7 +930,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       )) {
         response += chunk;
         if (!stillCurrent()) {
-          return;
+          // Le message a bien rejoint son fil : seule la suite est abandonnée.
+          return _SendOutcome.sent;
         }
         setState(() {
           _messages[_messages.length - 1] = ChatMessage.assistant(response);
@@ -813,10 +951,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     } catch (error) {
       if (!stillCurrent()) {
-        return;
+        return _SendOutcome.sent;
       }
+      // Le texte déjà reçu est conservé : seule la bulle restée vide s'en va.
       _removeEmptyAssistantPlaceholder();
       _showSnack('Génération impossible : $error');
+      failed = true;
     } finally {
       if (stillCurrent()) {
         setState(() {
@@ -825,6 +965,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       }
     }
+    return failed ? _SendOutcome.failed : _SendOutcome.sent;
   }
 
   /// Ouvre le modèle mémorisé. Rend `false` si le chargement a échoué ou si
@@ -1035,6 +1176,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (status == DictationStatus.listening) {
       return;
     }
+    if (status == DictationStatus.cancelled) {
+      // Le micro a été relâché pendant la préparation : l'utilisateur sait ce
+      // qu'il a fait, il n'y a rien à lui annoncer.
+      return;
+    }
 
     setState(() => _isDictating = false);
     _showSnack(
@@ -1065,6 +1211,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
     setState(() => _isDictating = false);
+    // L'arrêt part même si le micro n'est pas encore ouvert : c'est ce qui
+    // annule une préparation en cours.
     await _dictation?.stop();
   }
 

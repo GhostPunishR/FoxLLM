@@ -14,6 +14,22 @@ import 'package:foxllm/llm/personal_api/provider_config.dart';
 
 typedef HttpClientFactory = http.Client Function();
 
+/// Échec annoncé dans le flux d'une réponse pourtant acceptée.
+///
+/// Un HTTP 200 n'engage que l'ouverture du flux : le fournisseur peut ensuite
+/// y annoncer un échec. Sans ce type, un filtrage qui ne garde que le texte
+/// faisait passer cet échec pour une fin normale, et la réponse partielle
+/// pour une réponse complète.
+class PersonalApiStreamException implements Exception {
+  const PersonalApiStreamException(this.message, {this.code});
+
+  final String message;
+  final String? code;
+
+  @override
+  String toString() => code == null ? message : '$message ($code)';
+}
+
 /// Erreur renvoyée par un fournisseur distant sur une réponse non 2xx.
 class PersonalApiHttpException implements Exception {
   const PersonalApiHttpException({
@@ -70,6 +86,25 @@ abstract class HttpStreamingBackend implements LlmBackend {
   Iterable<Citation> extractCitations(Map<String, dynamic> event) =>
       const <Citation>[];
 
+  /// Échec annoncé par un évènement SSE décodé, ou `null`.
+  ///
+  /// `null` par défaut : tous les fournisseurs n'annoncent pas leurs échecs
+  /// dans le flux.
+  PersonalApiStreamException? extractFailure(Map<String, dynamic> event) =>
+      null;
+
+  /// Raison d'une réponse écourtée, ou `null` si elle est allée au bout.
+  ///
+  /// Ce n'est pas un échec : le texte reçu est bon, il est seulement
+  /// incomplet. La distinction évite de jeter ce texte comme une erreur, et
+  /// de le présenter comme une réponse entière.
+  String? extractIncomplete(Map<String, dynamic> event) => null;
+
+  /// Raison pour laquelle la dernière réponse s'est arrêtée avant la fin.
+  String? get incompleteReason => _incompleteReason;
+
+  String? _incompleteReason;
+
   /// Sources relevées pendant la dernière génération, sans doublon et dans
   /// leur ordre d'apparition.
   ///
@@ -97,6 +132,7 @@ abstract class HttpStreamingBackend implements LlmBackend {
     _activeGenerations.add(generation);
     // Les sources appartiennent à la réponse en cours, pas à la précédente.
     _citations.clear();
+    _incompleteReason = null;
 
     try {
       try {
@@ -151,6 +187,17 @@ abstract class HttpStreamingBackend implements LlmBackend {
           final decoded = jsonDecode(payload);
           if (decoded is! Map<String, dynamic>) {
             continue;
+          }
+
+          // L'échec est regardé avant le texte : un évènement qui annonce
+          // l'abandon de la réponse ne doit pas être lu comme une fin propre.
+          final failure = extractFailure(decoded);
+          if (failure != null) {
+            throw failure;
+          }
+          final incomplete = extractIncomplete(decoded);
+          if (incomplete != null) {
+            _incompleteReason = incomplete;
           }
 
           for (final citation in extractCitations(decoded)) {

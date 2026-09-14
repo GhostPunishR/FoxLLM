@@ -203,12 +203,60 @@ class _Composer extends StatelessWidget {
   }
 }
 
-/// Message écrit pendant une réponse, en attente de son tour.
-class _QueuedMessage {
-  const _QueuedMessage({required this.text, required this.attachments});
+/// Issue d'un envoi.
+///
+/// Distingue trois cas que l'appelant ne doit pas confondre : un refus avant
+/// toute mutation, un message parti et abouti, et un message parti dont la
+/// réponse a échoué. Seul le deuxième autorise la file à enchaîner.
+enum _SendOutcome {
+  /// Rien n'a été modifié : le message reste récupérable tel quel.
+  refused,
+
+  /// Le message a rejoint le fil et la réponse s'est terminée.
+  sent,
+
+  /// Le message a rejoint le fil, mais la réponse a échoué.
+  failed,
+}
+
+/// Un envoi figé, avec tout ce qu'il lui faut pour aboutir.
+///
+/// Texte, pièces jointes et fil de destination voyagent ensemble. Le brouillon
+/// du composeur n'est plus le véhicule des envois : la file et la régénération
+/// s'en servaient comme d'un espace de travail, ce qui écrasait ce que
+/// l'utilisateur était en train d'écrire ailleurs.
+///
+/// Figé avant la moindre attente : le chargement d'un modèle dure plusieurs
+/// secondes, pendant lesquelles le brouillon et le fil affiché peuvent changer.
+class _Outgoing {
+  const _Outgoing({
+    required this.text,
+    required this.attachments,
+    required this.conversationId,
+    this.replaceFrom,
+    this.fromComposer = false,
+  });
 
   final String text;
   final List<ChatAttachment> attachments;
+
+  /// Fil visé, ou `null` quand il reste à créer.
+  ///
+  /// Vérifié au moment de valider : un envoi préparé dans un fil ne doit pas
+  /// atterrir dans celui qu'on a ouvert entre-temps.
+  final int? conversationId;
+
+  /// Indice à partir duquel la suite du fil est remplacée.
+  ///
+  /// Renseigné par une régénération ou une modification. La coupe n'a lieu
+  /// qu'au moment de valider l'envoi : la faire avant tronquait la
+  /// conversation même quand l'envoi était ensuite refusé.
+  final int? replaceFrom;
+
+  /// L'envoi vient du composeur, dont le texte est à vider une fois parti.
+  final bool fromComposer;
+
+  bool get isEmpty => text.isEmpty && attachments.isEmpty;
 }
 
 /// Pièce jointe du brouillon : aperçu, nom, taille et retrait.

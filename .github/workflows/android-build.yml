@@ -45,16 +45,26 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
+      # Aucun secret de signature n'est exposé ici : ce travail s'exécute sur
+      # des propositions de modification, donc sur du code non vérifié. Il
+      # atteste que l'application compile, pas qu'elle est distribuable. La
+      # version signée est produite par `android-release.yml`.
       - name: Build arm64 ${{ matrix.mode }} APK
         run: flutter build apk --${{ matrix.mode }} --target-platform android-arm64
 
-      - name: Verify APK
-        run: test -f build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
+      - name: Locate APK
+        shell: bash
+        run: |
+          # Sans clé de distribution, Gradle nomme l'APK release « unsigned ».
+          apk=$(ls build/app/outputs/flutter-apk/app-${{ matrix.mode }}*.apk \
+            | head -1)
+          test -n "$apk"
+          echo "FOXLLM_APK=$apk" >> "$GITHUB_ENV"
 
       - name: Verify llama.cpp native engine is packaged
         shell: bash
         run: |
-          apk=build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
+          apk="$FOXLLM_APK"
           unzip -l "$apk" | tee /tmp/apk-files.txt
           grep -F 'lib/arm64-v8a/libfoxllm_native.so' /tmp/apk-files.txt
           unzip -p "$apk" \
@@ -64,10 +74,34 @@ jobs:
           nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_reset_stop'
           nm -D --defined-only /tmp/libfoxllm_native.so | grep -F 'foxllm_engine_apply_chat_template'
 
+      # Le manifeste fusionné est le seul qui compte : une dépendance peut y
+      # réintroduire `allowBackup`, que la fusion résoudrait en notre défaveur
+      # sans rien signaler. La politique de confidentialité promet l'inverse.
+      - name: Verify backups stay disabled in the merged manifest
+        shell: bash
+        run: |
+          apk="$FOXLLM_APK"
+          aapt2=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
+          "$aapt2" dump xmltree --file AndroidManifest.xml "$apk" \
+            > /tmp/merged-manifest.txt
+          grep -F 'allowBackup' /tmp/merged-manifest.txt
+          # `allowBackup` doit valoir faux, quelle que soit la dépendance qui
+          # aurait voulu le contraire.
+          if grep -E 'allowBackup.*=.*\(type 0x12\)0xffffffff' \
+            /tmp/merged-manifest.txt; then
+            echo 'allowBackup vaut vrai dans le manifeste fusionné.' >&2
+            exit 1
+          fi
+          grep -F 'dataExtractionRules' /tmp/merged-manifest.txt
+
+      # Le nom dit ce que l'artefact est : une vérification de compilation.
+      # Il n'est pas signé pour la distribution et ne doit pas être installé
+      # comme une version publiée : une application installée avec une clé de
+      # développement ne peut pas être mise à jour ensuite par la vraie.
       - name: Upload ${{ matrix.mode }} APK
         uses: actions/upload-artifact@v4
         with:
-          name: foxllm-${{ matrix.mode }}-apk
-          path: build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk
+          name: foxllm-${{ matrix.mode }}-non-distribuable
+          path: build/app/outputs/flutter-apk/app-${{ matrix.mode }}*.apk
           if-no-files-found: error
           retention-days: 14

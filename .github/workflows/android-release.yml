@@ -1,0 +1,109 @@
+name: Android Release
+
+# Produit l'APK signé pour la distribution.
+#
+# Séparé de `android-build.yml` à dessein : ce travail a accès aux secrets de
+# signature, il ne doit donc jamais s'exécuter sur du code venu d'une
+# proposition de modification. Seuls un lancement manuel et une étiquette de
+# version le déclenchent, tous deux réservés au dépôt lui-même.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: APK signé
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # L'environnement porte les secrets et peut exiger une approbation
+    # manuelle avant toute signature.
+    environment: distribution
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
+
+      - name: Vérifier que les secrets de signature sont présents
+        env:
+          KEYSTORE: ${{ secrets.FOXLLM_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.FOXLLM_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FOXLLM_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FOXLLM_RELEASE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          # Seule leur présence est vérifiée : aucune valeur n'est affichée.
+          missing=
+          for name in KEYSTORE STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -n "$missing" ]; then
+            echo "Secrets de signature manquants :$missing" >&2
+            echo "Voir RELEASING.md pour les renseigner." >&2
+            exit 1
+          fi
+
+      - name: Restaurer la clé de signature
+        env:
+          KEYSTORE: ${{ secrets.FOXLLM_RELEASE_KEYSTORE_BASE64 }}
+        shell: bash
+        run: |
+          printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/foxllm.jks"
+          chmod 600 "$RUNNER_TEMP/foxllm.jks"
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build arm64 release APK
+        env:
+          FOXLLM_RELEASE_KEYSTORE: ${{ runner.temp }}/foxllm.jks
+          FOXLLM_RELEASE_STORE_PASSWORD: ${{ secrets.FOXLLM_RELEASE_STORE_PASSWORD }}
+          FOXLLM_RELEASE_KEY_ALIAS: ${{ secrets.FOXLLM_RELEASE_KEY_ALIAS }}
+          FOXLLM_RELEASE_KEY_PASSWORD: ${{ secrets.FOXLLM_RELEASE_KEY_PASSWORD }}
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Vérifier la signature de l'APK
+        shell: bash
+        run: |
+          apk=build/app/outputs/flutter-apk/app-release.apk
+          test -f "$apk"
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)
+          # Échoue si l'APK est non signé ou signé avec une autre clé.
+          "$apksigner" verify --print-certs "$apk" | tee /tmp/certs.txt
+          # La clé de développement d'Android est publique : sa présence ici
+          # signifierait que la distribution n'est pas signée pour de bon.
+          if grep -qi 'CN=Android Debug' /tmp/certs.txt; then
+            echo 'APK signé avec la clé de développement : distribution refusée.' >&2
+            exit 1
+          fi
+
+      - name: Effacer la clé de signature
+        if: always()
+        run: rm -f "$RUNNER_TEMP/foxllm.jks"
+
+      - name: Upload signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: foxllm-release-signe
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 90

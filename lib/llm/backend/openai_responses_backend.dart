@@ -132,6 +132,61 @@ class OpenAiResponsesBackend extends HttpStreamingBackend {
     return Citation(url: url.trim(), title: title is String ? title : '');
   }
 
+  /// Échecs annoncés dans un flux pourtant ouvert en HTTP 200.
+  ///
+  /// Deux formes, décrites par le SDK officiel : `error`, qui porte le message
+  /// à plat, et `response.failed`, qui range l'erreur sous la réponse
+  /// abandonnée. Sans ce traitement, le filtrage ne gardant que le texte
+  /// faisait passer les deux pour une fin normale.
+  @override
+  PersonalApiStreamException? extractFailure(Map<String, dynamic> event) {
+    switch (event['type']) {
+      case 'error':
+        return PersonalApiStreamException(
+          _text(event['message']) ?? 'Le fournisseur a signalé une erreur.',
+          code: _text(event['code']),
+        );
+      case 'response.failed':
+        final response = event['response'];
+        final error = response is Map<Object?, Object?>
+            ? response['error']
+            : null;
+        final details = error is Map<Object?, Object?> ? error : null;
+        return PersonalApiStreamException(
+          _text(details?['message']) ?? 'La réponse a échoué.',
+          code: _text(details?['code']),
+        );
+      default:
+        return null;
+    }
+  }
+
+  /// Réponse arrêtée avant sa fin, avec la raison donnée par le fournisseur.
+  ///
+  /// Le texte reçu reste bon : ce n'est pas une erreur, mais la réponse n'est
+  /// pas entière pour autant.
+  @override
+  String? extractIncomplete(Map<String, dynamic> event) {
+    if (event['type'] != 'response.incomplete') {
+      return null;
+    }
+    final response = event['response'];
+    final details = response is Map<Object?, Object?>
+        ? response['incomplete_details']
+        : null;
+    final reason = details is Map<Object?, Object?> ? details['reason'] : null;
+    return _text(reason) ?? 'raison non précisée';
+  }
+
+  /// Une chaîne non vide, ou `null`.
+  static String? _text(Object? value) {
+    if (value is! String) {
+      return null;
+    }
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   @override
   Iterable<String> extractDeltas(Map<String, dynamic> event) sync* {
     // Le flux porte une douzaine de types d'évènements : création, appels

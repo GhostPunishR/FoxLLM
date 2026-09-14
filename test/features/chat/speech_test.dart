@@ -1,6 +1,8 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -157,6 +159,56 @@ void main() {
 
       expect(tts.stopCalls, 1);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('un arrêt annule un démarrage en attente', () {
+    test(
+      'la voix ne part pas si l’arrêt survient pendant la préparation',
+      () async {
+        final tts = _FakeTts()..holdSetLanguage = true;
+        final speech = Speech(tts: tts);
+
+        final pending = speech.toggle('Bonjour');
+        // La préparation n'est pas revenue : rien ne parle encore, et c'est
+        // justement le moment où l'arrêt doit compter.
+        expect(speech.speaking.value, isNull);
+        await speech.stop();
+
+        tts.releaseSetLanguage();
+        expect(await pending, isFalse);
+        expect(tts.spoken, isEmpty, reason: 'aucune lecture tardive');
+        expect(speech.speaking.value, isNull);
+      },
+    );
+
+    test('un démarrage abouti trop tard est coupé aussitôt', () async {
+      final tts = _FakeTts()..holdSpeak = true;
+      final speech = Speech(tts: tts);
+
+      final pending = speech.toggle('Bonjour');
+      await Future<void>.delayed(Duration.zero);
+      await speech.stop();
+      tts.releaseSpeak();
+
+      expect(await pending, isFalse);
+      expect(speech.speaking.value, isNull);
+      // La voix est bien partie côté Android : il faut la taire.
+      expect(tts.stopCalls, greaterThanOrEqualTo(2));
+    });
+
+    test('deux demandes rapprochées ne laissent que la dernière', () async {
+      final tts = _FakeTts()..holdSetLanguage = true;
+      final speech = Speech(tts: tts);
+
+      final first = speech.toggle('Premier');
+      final second = speech.toggle('Second');
+      tts.releaseSetLanguage();
+
+      expect(await first, isFalse);
+      expect(await second, isTrue);
+      expect(tts.spoken, <String>['Second']);
+      expect(speech.speaking.value, 'Second');
     });
   });
 
@@ -341,6 +393,16 @@ class _FakeTts extends FlutterTts {
   final List<String> spoken = <String>[];
   int stopCalls = 0;
 
+  /// Vannes : le test décide quand la préparation ou la lecture revient.
+  bool holdSetLanguage = false;
+  bool holdSpeak = false;
+  final _languageGate = Completer<void>();
+  final _speakGate = Completer<void>();
+
+  void releaseSetLanguage() => _languageGate.complete();
+
+  void releaseSpeak() => _speakGate.complete();
+
   VoidCallback? _onCompletion;
   VoidCallback? _onCancel;
   ErrorHandler? _onError;
@@ -362,11 +424,19 @@ class _FakeTts extends FlutterTts {
   void setErrorHandler(ErrorHandler handler) => _onError = handler;
 
   @override
-  Future<dynamic> setLanguage(String language) async => 1;
+  Future<dynamic> setLanguage(String language) async {
+    if (holdSetLanguage) {
+      await _languageGate.future;
+    }
+    return 1;
+  }
 
   @override
   Future<dynamic> speak(String text, {bool focus = false}) async {
     spoken.add(text);
+    if (holdSpeak) {
+      await _speakGate.future;
+    }
     return 1;
   }
 

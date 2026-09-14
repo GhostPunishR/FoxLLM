@@ -86,12 +86,20 @@ void main() {
     expect(await store.load(), hasLength(ConversationStore.maxConversations));
   });
 
-  test('un fichier corrompu ne bloque pas l’ouverture du chat', () async {
+  test('un fichier corrompu est signalé, pas confondu avec un vide', () async {
     final file = File(
       '${tempDirectory.path}${Platform.pathSeparator}conversations.json',
     );
     await file.writeAsString('{ ceci n’est pas du JSON');
 
+    // Rendre une liste vide laisserait l'appelant écrire cette liste vide
+    // par-dessus le fichier : l'échec doit se distinguer d'un historique
+    // réellement vide. L'écran, lui, s'ouvre quand même.
+    await expectLater(store.load(), throwsA(isA<ConversationLoadException>()));
+    expect(await file.exists(), isTrue, reason: 'le fichier n’est pas touché');
+  });
+
+  test('un fichier absent est un historique vide, pas un échec', () async {
     expect(await store.load(), isEmpty);
   });
 

@@ -12,6 +12,19 @@ import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 
 typedef ConversationDirectoryProvider = Future<Directory> Function();
 
+/// Le fichier d'historique existe mais n'a pas pu être lu.
+///
+/// À distinguer d'un historique réellement vide : sur un échec de lecture, la
+/// liste en mémoire ne dit rien de ce que contient le fichier.
+class ConversationLoadException implements Exception {
+  const ConversationLoadException(this.cause);
+
+  final Object cause;
+
+  @override
+  String toString() => 'Historique illisible : $cause';
+}
+
 /// Enregistre l'historique des conversations dans le stockage privé de
 /// l'application, sous forme d'un unique fichier JSON.
 ///
@@ -66,10 +79,12 @@ class ConversationStore {
         (left, right) => right.updatedAt.compareTo(left.updatedAt),
       );
       return conversations;
-    } catch (_) {
-      // Historique illisible : on repart d'une liste vide plutôt que d'empêcher
-      // l'ouverture du chat.
-      return <ChatConversation>[];
+    } catch (error, stackTrace) {
+      // Le fichier existe mais ne se lit pas : ce n'est pas un historique
+      // vide, et le confondre avec un historique vide ferait écrire cette
+      // liste vide par-dessus. L'appelant décide quoi en faire ; l'ouverture
+      // du chat, elle, n'est pas empêchée.
+      Error.throwWithStackTrace(ConversationLoadException(error), stackTrace);
     }
   }
 
@@ -155,6 +170,20 @@ class ConversationPersister {
   bool _dirty = false;
   bool _disposed = false;
 
+  /// Rien ne part tant que l'historique n'a pas été relu.
+  ///
+  /// La liste en mémoire est vide au lancement. L'écrire à ce moment, sur un
+  /// passage en arrière-plan ou un premier envoi, remplacerait le fichier par
+  /// cette liste vide. Les demandes reçues pendant l'attente ne sont pas
+  /// perdues : elles partent à la libération, avec l'état d'alors.
+  bool _held = true;
+
+  /// La relecture a échoué : la liste en mémoire ne dit rien de ce que
+  /// contient le fichier, et l'écrire le détruirait.
+  ///
+  /// Distinct d'un historique réellement vide, qui lui peut être écrit.
+  bool _abandoned = false;
+
   /// Une écriture est partie et n'est pas revenue.
   ///
   /// Tant qu'elle dure, les changements marquent l'état comme modifié sans
@@ -178,6 +207,29 @@ class ConversationPersister {
 
   /// Nombre d'écritures réellement lancées, pour les tests.
   int writeCount = 0;
+
+  /// Autorise les écritures : l'historique a été relu.
+  void release() {
+    if (_disposed || _abandoned) {
+      return;
+    }
+    _held = false;
+    _startIfIdle();
+  }
+
+  /// Interdit définitivement les écritures : l'historique n'a pas pu être lu.
+  ///
+  /// Mieux vaut ne plus rien enregistrer que remplacer un fichier existant par
+  /// une liste vide qui ne vient que de l'échec de sa lecture.
+  void abandon() {
+    _abandoned = true;
+    _held = true;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  /// Vrai tant qu'aucune écriture n'est permise.
+  bool get isHeld => _held;
 
   /// Note un changement sans importance immédiate : l'écriture part au plus
   /// une fois par [interval].
@@ -215,7 +267,7 @@ class ConversationPersister {
   void _startIfIdle() {
     _timer?.cancel();
     _timer = null;
-    if (!_dirty || _writing) {
+    if (!_dirty || _writing || _held) {
       return;
     }
     unawaited(_write());
@@ -239,7 +291,7 @@ class ConversationPersister {
       }
     } finally {
       _writing = false;
-      if (_dirty) {
+      if (_dirty && !_held) {
         if (_urgent || _disposed) {
           // Une demande explicite, ou la dernière écriture après fermeture.
           unawaited(_write());
