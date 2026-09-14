@@ -29,7 +29,7 @@ void main() {
     );
     expect(find.text('Réflexion'), findsOneWidget);
     expect(find.text('Rechercher'), findsOneWidget);
-    expect(find.text('Message ou maintenir pour parler'), findsOneWidget);
+    expect(find.text('Demander à FoxLLM'), findsOneWidget);
     expect(find.byTooltip('Menu'), findsOneWidget);
     expect(find.byTooltip('Nouveau chat'), findsOneWidget);
     expect(tester.takeException(), isNull);

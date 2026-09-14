@@ -81,6 +81,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   int? _editingIndex;
   final _editController = TextEditingController();
 
+  /// Messages écrits pendant une réponse, envoyés chacun à leur tour.
+  ///
+  /// Écrire pendant que le modèle répond est courant : plutôt que de refuser
+  /// l'envoi ou d'interrompre la réponse en cours, le message attend son tour.
+  final List<_QueuedMessage> _queued = <_QueuedMessage>[];
+
   /// Identifie le brouillon courant, texte et pièces jointes ensemble.
   ///
   /// Change dès qu'on quitte un fil : une sélection de fichier encore en
@@ -197,6 +203,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
 
     final wasActive = _activeConversationId == id;
+    if (wasActive) {
+      _dropQueue();
+    }
     if (wasActive && _isGenerating) {
       _generationEpoch += 1;
       await ref.read(chatBackendProvider).stop();
@@ -258,11 +267,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void _clearDraft() {
     _draftEpoch += 1;
     _inputController.clear();
-    if (_pendingAttachments.isEmpty) {
-      return;
-    }
     final abandoned = List<ChatAttachment>.of(_pendingAttachments);
     _pendingAttachments.clear();
+    _deleteUnreferencedAttachments(abandoned);
+    _dropQueue();
+  }
+
+  /// Abandonne les messages en attente : ils appartiennent au fil quitté.
+  ///
+  /// À appeler avant la moindre attente. Quitter un fil commence par arrêter
+  /// le moteur, et cet arrêt termine la réponse en cours : la file repartirait
+  /// alors toute seule, dans le fil suivant.
+  void _dropQueue() {
+    if (_queued.isEmpty) {
+      return;
+    }
+    final abandoned = <ChatAttachment>[
+      for (final queued in _queued) ...queued.attachments,
+    ];
+    _queued.clear();
     _deleteUnreferencedAttachments(abandoned);
   }
 
@@ -293,6 +316,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _newChat() async {
     _generationEpoch += 1;
+    _dropQueue();
     if (_isGenerating) {
       await ref.read(chatBackendProvider).stop();
     }
@@ -311,6 +335,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   Future<void> _selectConversation(int id) async {
     _generationEpoch += 1;
+    _dropQueue();
     if (_isGenerating) {
       await ref.read(chatBackendProvider).stop();
     }
@@ -546,8 +571,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     await _resendFrom(index, text, attachments);
   }
 
-  Future<void> _sendMessage() =>
-      _startSend(_inputController.text.trim(), fromComposer: true);
+  Future<void> _sendMessage() async {
+    final text = _inputController.text.trim();
+    if (text.isEmpty && _pendingAttachments.isEmpty) {
+      return;
+    }
+
+    if (_isGenerating || _sending) {
+      // Une réponse est en cours : le message prend la file plutôt que de
+      // disparaître ou d'interrompre ce qui s'écrit.
+      setState(() {
+        _queued.add(
+          _QueuedMessage(
+            text: text,
+            attachments: List<ChatAttachment>.of(_pendingAttachments),
+          ),
+        );
+        _inputController.clear();
+        _pendingAttachments.clear();
+      });
+      return;
+    }
+
+    await _startSend(text, fromComposer: true);
+  }
+
+  /// Envoie le premier message en attente, si la voie est libre.
+  ///
+  /// Un seul par appel : l'envoi déclenché ici rappellera cette méthode à son
+  /// tour, ce qui vide la file dans l'ordre sans boucle d'attente.
+  Future<void> _drainQueue() async {
+    if (!mounted || _queued.isEmpty || _isGenerating || _sending) {
+      return;
+    }
+    final next = _queued.removeAt(0);
+    setState(() {
+      _pendingAttachments
+        ..clear()
+        ..addAll(next.attachments);
+    });
+    await _startSend(next.text, fromComposer: false);
+  }
 
   Future<void> _startSend(String text, {required bool fromComposer}) async {
     // `_isGenerating` n'est levé qu'une fois la requête partie : sans ce
@@ -564,6 +628,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } finally {
       _sending = false;
     }
+    // La file repart une fois la voie libre, jamais depuis le `finally` : le
+    // verrou d'envoi y est encore posé.
+    await _drainQueue();
   }
 
   Future<void> _send(String text, {required bool fromComposer}) async {

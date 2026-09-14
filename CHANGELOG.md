@@ -23,14 +23,37 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   intact ;
 - la lecture à voix haute et le partage passent par les services d'Android
   (`flutter_tts`, `share_plus`). Comme pour la dictée, FoxLLM ne transporte
-  aucun son et n'en conserve aucun.
+  aucun son et n'en conserve aucun ;
+- **mise en attente d'un message écrit pendant une réponse** : plutôt que de
+  refuser l'envoi ou d'interrompre ce qui s'écrit, le message prend la file et
+  part tout seul dès la réponse terminée. Plusieurs messages partent dans leur
+  ordre. Quitter le fil abandonne sa file : les messages en attente
+  appartiennent à la conversation où ils ont été écrits.
+
+### Modifications
+
+- **le composeur garde deux boutons en toute circonstance.** Le bouton de
+  droite prend le rôle du moment plutôt que d'en faire apparaître un
+  troisième : micro au repos, envoi dès qu'on écrit, arrêt pendant une
+  réponse, mise en attente si on écrit pendant une réponse. Un bouton
+  surgissant à la première frappe déplaçait les deux autres sous le doigt,
+  juste avant qu'on les vise. La dictée garde son bouton jusqu'au
+  relâchement : la parole remplit le champ, et laisser le brouillon l'emporter
+  aurait fait disparaître le bouton qui attend le relâchement, micro ouvert ;
+- **texte du champ de saisie** : « Demander à FoxLLM » au repos, « Mettre un
+  message en attente… » pendant une réponse, « Parle, je t'écoute… » pendant
+  la dictée.
 
 ### Notes
 
 - le pouce haut et le pouce bas restent **sur l'appareil** : FoxLLM n'a pas de
   serveur à qui transmettre un avis, et n'en aura pas. C'est un repère
   personnel, conservé avec la conversation, pour retrouver une bonne réponse
-  dans un long fil.
+  dans un long fil ;
+- conséquence des deux boutons : la dictée ne démarre plus que sur un champ
+  vide, puisque le micro cède sa place à l'envoi dès qu'il y a du texte.
+  Compléter une phrase déjà écrite passe désormais par le micro du clavier
+  Android.
 
 ### Corrections
 
