@@ -155,6 +155,20 @@ class ConversationPersister {
   bool _dirty = false;
   bool _disposed = false;
 
+  /// Une écriture est partie et n'est pas revenue.
+  ///
+  /// Tant qu'elle dure, les changements marquent l'état comme modifié sans
+  /// prendre de nouvel instantané : un stockage lent accumulait sinon autant
+  /// de copies de tout l'historique qu'il y avait eu de demandes.
+  bool _writing = false;
+
+  /// Une demande explicite attend, par opposition à un simple fragment.
+  ///
+  /// Distingue ce qui doit partir dès que possible (fin de génération, arrêt,
+  /// navigation, renommage, suppression, fermeture) de ce qui peut attendre le
+  /// prochain intervalle.
+  bool _urgent = false;
+
   /// Vrai depuis le dernier échec non suivi d'une réussite.
   ///
   /// Sert à n'avertir qu'une fois : pendant une génération, une panne de
@@ -172,49 +186,82 @@ class ConversationPersister {
       return;
     }
     _dirty = true;
-    _timer ??= Timer(interval, _writeIfNeeded);
+    _timer ??= Timer(interval, _onTimer);
   }
 
-  /// Écrit l'état courant sans attendre.
+  /// Demande une écriture dès que possible.
   ///
   /// À utiliser pour tout ce qui doit être conservé même si l'application
   /// s'arrête juste après : fin de génération, arrêt, erreur, navigation,
-  /// renommage, suppression. L'appel écrit même sans planification en
-  /// attente, sinon un changement ponctuel comme un renommage ne partirait
-  /// jamais.
+  /// renommage, suppression. L'appel vaut même sans planification en attente,
+  /// sinon un changement ponctuel comme un renommage ne partirait jamais.
+  ///
+  /// Si une écriture est en cours, la demande n'est pas perdue : elle part
+  /// dès son retour, avec l'état d'alors.
   void flush() {
-    _dirty = true;
-    _writeIfNeeded();
-  }
-
-  void _writeIfNeeded() {
-    _timer?.cancel();
-    _timer = null;
-    if (!_dirty || _disposed) {
+    if (_disposed) {
       return;
     }
-    _dirty = false;
-    writeCount++;
-    unawaited(
-      _save(_snapshot()).then(
-        (_) => _failing = false,
-        onError: (Object error) {
-          if (_failing) {
-            return;
-          }
-          _failing = true;
-          _onError?.call(error);
-        },
-      ),
-    );
+    _dirty = true;
+    _urgent = true;
+    _startIfIdle();
   }
 
-  /// Écrit ce qui reste en attente, puis n'accepte plus rien.
-  void dispose() {
-    _writeIfNeeded();
-    _disposed = true;
+  void _onTimer() {
+    _timer = null;
+    _startIfIdle();
+  }
+
+  void _startIfIdle() {
     _timer?.cancel();
     _timer = null;
+    if (!_dirty || _writing) {
+      return;
+    }
+    unawaited(_write());
+  }
+
+  Future<void> _write() async {
+    // L'instantané est pris ici, jamais à la demande : une écriture différée
+    // porte donc l'état du moment où elle part, et ne peut pas réintroduire
+    // une conversation supprimée entre-temps.
+    _dirty = false;
+    _urgent = false;
+    _writing = true;
+    writeCount++;
+    try {
+      await _save(_snapshot());
+      _failing = false;
+    } catch (error) {
+      if (!_failing) {
+        _failing = true;
+        _onError?.call(error);
+      }
+    } finally {
+      _writing = false;
+      if (_dirty) {
+        if (_urgent || _disposed) {
+          // Une demande explicite, ou la dernière écriture après fermeture.
+          unawaited(_write());
+        } else {
+          // Simples fragments : on garde la cadence au lieu d'enchaîner.
+          _timer ??= Timer(interval, _onTimer);
+        }
+      }
+    }
+  }
+
+  /// Écrit ce qui reste en attente, puis n'accepte plus de nouvelle demande.
+  ///
+  /// Une écriture déjà partie n'est pas interrompue, et ce qui a changé
+  /// pendant celle-ci part encore : c'est la dernière chance de conserver les
+  /// fragments reçus juste avant la fermeture de l'écran.
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+    _urgent = true;
+    _startIfIdle();
+    _disposed = true;
   }
 }
 

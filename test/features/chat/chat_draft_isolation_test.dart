@@ -113,6 +113,73 @@ void main() {
     });
   });
 
+  group('écran détruit pendant une pièce jointe', () {
+    testWidgets('la copie est effacée même si l’écran a disparu', (
+      tester,
+    ) async {
+      final store = _GatedAttachmentStore();
+      final picker = _GatedPicker()..completeWith(_picked('tardif.txt'));
+      await _pumpChat(tester, attachmentStore: store, picker: picker);
+
+      await _attach(tester);
+      // La copie est en cours d'écriture quand l'écran est remplacé.
+      expect(store.files, isEmpty);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpAndSettle();
+
+      store.release();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'lire ref après démontage levait une exception',
+      );
+      expect(
+        store.files,
+        isEmpty,
+        reason: 'la copie devenue inutile ne reste pas sur l’appareil',
+      );
+      expect(store.deleted, hasLength(1));
+    });
+
+    testWidgets('un échec d’enregistrement après destruction reste muet', (
+      tester,
+    ) async {
+      final store = _GatedAttachmentStore()..failSave = true;
+      final picker = _GatedPicker()..completeWith(_picked('raté.txt'));
+      await _pumpChat(tester, attachmentStore: store, picker: picker);
+
+      await _attach(tester);
+      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpAndSettle();
+
+      store.release();
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('une sélection qui échoue après destruction reste muette', (
+      tester,
+    ) async {
+      final picker = _GatedPicker();
+      await _pumpChat(tester, picker: picker);
+
+      await _attach(tester);
+      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpAndSettle();
+
+      picker.failWith(const AttachmentException('sélecteur indisponible'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+  });
+
   group('cycle de vie', () {
     testWidgets('passer en arrière-plan écrit l’historique en attente', (
       tester,
@@ -336,8 +403,63 @@ class _GatedPicker implements AttachmentPicker {
     }
   }
 
+  void failWith(Object error) {
+    if (!_gate.isCompleted) {
+      _gate.completeError(error);
+    }
+  }
+
   @override
   Future<PickedAttachment?> pick(AttachmentSource source) => _gate.future;
+}
+
+/// Magasin dont l'écriture n'aboutit que sur commande : c'est pendant cette
+/// attente que l'écran peut disparaître.
+class _GatedAttachmentStore extends AttachmentStore {
+  final Map<String, Uint8List> files = <String, Uint8List>{};
+  final List<ChatAttachment> deleted = <ChatAttachment>[];
+  final Completer<void> _gate = Completer<void>();
+
+  /// Fait échouer l'enregistrement au lieu de l'aboutir.
+  bool failSave = false;
+
+  void release() {
+    if (!_gate.isCompleted) {
+      _gate.complete();
+    }
+  }
+
+  @override
+  Future<ChatAttachment> save({
+    required String name,
+    required String mimeType,
+    required Uint8List bytes,
+  }) async {
+    await _gate.future;
+    if (failSave) {
+      throw const AttachmentException('écriture impossible');
+    }
+    final path = '/mémoire/$name';
+    files[path] = bytes;
+    return ChatAttachment(
+      name: name,
+      path: path,
+      mimeType: mimeType,
+      sizeBytes: bytes.length,
+    );
+  }
+
+  @override
+  Future<Uint8List?> read(ChatAttachment attachment) async =>
+      files[attachment.path];
+
+  @override
+  Future<void> delete(Iterable<ChatAttachment> attachments) async {
+    for (final attachment in attachments) {
+      deleted.add(attachment);
+      files.remove(attachment.path);
+    }
+  }
 }
 
 /// Backend dont l'ouverture du GGUF n'aboutit que sur commande.

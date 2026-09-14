@@ -581,6 +581,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   void _showSnack(String message) {
+    // Un échec tardif, revenu après la fermeture de l'écran, n'a plus de
+    // `context` où afficher quoi que ce soit : le message est abandonné
+    // plutôt que de lever une exception par-dessus l'erreur d'origine.
+    if (!mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
@@ -759,9 +765,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Le sélecteur système peut rester ouvert longtemps : le brouillon visé
     // est celui d'avant, pas celui qui sera à l'écran au retour.
     final draftEpoch = _draftEpoch;
+    // Le sélecteur et le magasin sont saisis tant que `ref` est lisible. Le
+    // nettoyage plus bas doit pouvoir effacer la copie même si l'écran a
+    // disparu entre-temps, or `ref` lève une exception une fois démonté : la
+    // copie serait alors restée sur l'appareil sans que rien n'y renvoie.
+    final picker = ref.read(attachmentPickerProvider);
+    final store = ref.read(attachmentStoreProvider);
+
     final PickedAttachment? picked;
     try {
-      picked = await ref.read(attachmentPickerProvider).pick(source);
+      picked = await picker.pick(source);
     } on AttachmentException catch (error) {
       _showSnack(error.message);
       return;
@@ -775,13 +788,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     final ChatAttachment attachment;
     try {
-      attachment = await ref
-          .read(attachmentStoreProvider)
-          .save(
-            name: picked.name,
-            mimeType: picked.mimeType,
-            bytes: picked.bytes,
-          );
+      attachment = await store.save(
+        name: picked.name,
+        mimeType: picked.mimeType,
+        bytes: picked.bytes,
+      );
     } catch (_) {
       _showSnack('Impossible d’enregistrer cette pièce jointe.');
       return;
@@ -789,9 +800,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (!mounted || draftEpoch != _draftEpoch) {
       // Le brouillon visé n'existe plus : la copie ne rejoint pas le fil
       // courant, et le fichier écrit entre-temps ne reste pas sur l'appareil.
-      unawaited(
-        ref.read(attachmentStoreProvider).delete(<ChatAttachment>[attachment]),
-      );
+      unawaited(store.delete(<ChatAttachment>[attachment]));
       return;
     }
     setState(() => _pendingAttachments.add(attachment));

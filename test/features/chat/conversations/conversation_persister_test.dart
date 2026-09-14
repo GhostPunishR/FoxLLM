@@ -1,6 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -134,6 +135,219 @@ void main() {
     });
   });
 
+  group('stockage lent', () {
+    testWidgets('une seule sauvegarde à la fois', (tester) async {
+      final saver = _GatedSaver();
+      final persister = _persister(saver, () => saver.live);
+      addTearDown(persister.dispose);
+
+      persister.flush();
+      expect(saver.started, 1);
+
+      // Plusieurs intervalles de changements pendant l'écriture bloquée.
+      for (var index = 0; index < 3; index++) {
+        persister.schedule();
+        await tester.pump(const Duration(seconds: 3));
+        persister.flush();
+      }
+
+      expect(
+        saver.started,
+        1,
+        reason: 'aucune écriture ne démarre avant la fin de la précédente',
+      );
+
+      saver.completeFirst();
+      await tester.pump();
+
+      expect(saver.started, 2, reason: 'une seule écriture de rattrapage');
+      saver.completeAll();
+      await tester.pump();
+    });
+
+    testWidgets('la sauvegarde suivante porte le dernier état', (tester) async {
+      final saver = _GatedSaver();
+      final persister = _persister(saver, () => saver.live);
+      addTearDown(persister.dispose);
+
+      saver.live = <ChatConversation>[_conversation(1, 'un')];
+      persister.flush();
+
+      // Les états intermédiaires se succèdent pendant l'écriture bloquée.
+      for (final content in <String>['deux', 'trois', 'quatre']) {
+        saver.live = <ChatConversation>[_conversation(1, content)];
+        persister.flush();
+      }
+
+      saver.completeFirst();
+      await tester.pump();
+      saver.completeAll();
+      await tester.pump();
+
+      expect(saver.written, hasLength(2));
+      expect(saver.written.first.single.messages.single.content, 'un');
+      expect(
+        saver.written.last.single.messages.single.content,
+        'quatre',
+        reason: 'les états intermédiaires ne sont pas rejoués',
+      );
+    });
+
+    testWidgets('un fil supprimé pendant l’attente ne revient pas', (
+      tester,
+    ) async {
+      final saver = _GatedSaver();
+      final persister = _persister(saver, () => saver.live);
+      addTearDown(persister.dispose);
+
+      saver.live = <ChatConversation>[
+        _conversation(1, 'bonjour'),
+        _conversation(2, 'salut'),
+      ];
+      persister.flush();
+
+      // Suppression alors que la première écriture n'est pas revenue.
+      saver.live = <ChatConversation>[_conversation(2, 'salut')];
+      persister.flush();
+
+      saver.completeFirst();
+      await tester.pump();
+      saver.completeAll();
+      await tester.pump();
+
+      expect(saver.written.last.map((conversation) => conversation.id), <int>[
+        2,
+      ]);
+    });
+
+    testWidgets('le streaming garde sa cadence après une écriture', (
+      tester,
+    ) async {
+      final saver = _GatedSaver()..autoComplete = true;
+      final persister = _persister(saver, () => saver.live);
+      addTearDown(persister.dispose);
+
+      // Dix secondes de fragments à 20 ms, avec un stockage instantané : la
+      // reprise après écriture ne doit pas enchaîner les sauvegardes.
+      for (var index = 0; index < 500; index++) {
+        persister.schedule();
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      expect(saver.started, lessThanOrEqualTo(6));
+      expect(saver.started, greaterThan(0));
+    });
+
+    testWidgets('la fermeture conserve ce qui a changé pendant l’écriture', (
+      tester,
+    ) async {
+      final saver = _GatedSaver();
+      final persister = _persister(saver, () => saver.live);
+
+      saver.live = <ChatConversation>[_conversation(1, 'avant')];
+      persister.flush();
+
+      // Des fragments arrivent, puis l'écran se ferme, écriture toujours en
+      // cours : c'est la dernière chance de les conserver.
+      saver.live = <ChatConversation>[_conversation(1, 'après')];
+      persister.schedule();
+      persister.dispose();
+
+      expect(saver.started, 1);
+
+      saver.completeFirst();
+      await tester.pump();
+      saver.completeAll();
+      await tester.pump();
+
+      expect(saver.written, hasLength(2));
+      expect(saver.written.last.single.messages.single.content, 'après');
+    });
+
+    testWidgets('la fermeture refuse les demandes qui suivent', (tester) async {
+      final saver = _GatedSaver()..autoComplete = true;
+      final persister = _persister(saver, () => saver.live);
+
+      persister.schedule();
+      persister.dispose();
+      await tester.pump();
+      final afterDispose = saver.started;
+
+      persister.schedule();
+      persister.flush();
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(saver.started, afterDispose);
+    });
+
+    testWidgets('un échec n’empêche pas les sauvegardes suivantes', (
+      tester,
+    ) async {
+      final reported = <Object>[];
+      final saver = _GatedSaver()
+        ..autoComplete = true
+        ..failNext = true;
+      final persister = ConversationPersister(
+        save: saver.save,
+        snapshot: () => saver.live,
+        interval: const Duration(seconds: 2),
+        onError: reported.add,
+      );
+      addTearDown(persister.dispose);
+
+      saver.live = <ChatConversation>[_conversation(1, 'perdu')];
+      persister.flush();
+      await tester.pump();
+
+      expect(reported, hasLength(1));
+      expect(saver.written, isEmpty);
+
+      saver.failNext = false;
+      saver.live = <ChatConversation>[_conversation(1, 'conservé')];
+      persister.flush();
+      await tester.pump();
+
+      expect(saver.written.single.single.messages.single.content, 'conservé');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'aucune erreur asynchrone',
+      );
+    });
+
+    testWidgets('un échec pendant une écriture bloquée n’en perd aucune', (
+      tester,
+    ) async {
+      final reported = <Object>[];
+      final saver = _GatedSaver()..failNext = true;
+      final persister = ConversationPersister(
+        save: saver.save,
+        snapshot: () => saver.live,
+        interval: const Duration(seconds: 2),
+        onError: reported.add,
+      );
+      addTearDown(persister.dispose);
+
+      persister.flush();
+      saver.live = <ChatConversation>[_conversation(1, 'après l’échec')];
+      persister.flush();
+
+      saver.failNext = false;
+      saver.completeFirst();
+      await tester.pump();
+      saver.completeAll();
+      await tester.pump();
+
+      expect(reported, hasLength(1));
+      expect(
+        saver.written.single.single.messages.single.content,
+        'après l’échec',
+        reason: 'la demande faite pendant l’échec n’est pas perdue',
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('échec d’enregistrement', () {
     testWidgets('l’échec est signalé une fois, pas à chaque fragment', (
       tester,
@@ -246,4 +460,68 @@ void main() {
       expect(reloaded.single.messages.single.content, 'conservé');
     });
   });
+}
+
+ConversationPersister _persister(
+  _GatedSaver saver,
+  List<ChatConversation> Function() snapshot,
+) {
+  return ConversationPersister(
+    save: saver.save,
+    snapshot: snapshot,
+    interval: const Duration(seconds: 2),
+    onError: (_) {},
+  );
+}
+
+/// Sauvegarde dont la fin est commandée, pour tenir une écriture ouverte.
+class _GatedSaver {
+  final List<Completer<void>> _gates = <Completer<void>>[];
+
+  /// États réellement écrits, dans l'ordre.
+  final List<List<ChatConversation>> written = <List<ChatConversation>>[];
+
+  /// État courant, que le persister lira au moment d'écrire.
+  List<ChatConversation> live = <ChatConversation>[_conversation(1, 'x')];
+
+  /// Nombre d'écritures démarrées : la mesure qui compte ici.
+  int started = 0;
+
+  /// Termine chaque écriture sans attendre d'ordre.
+  bool autoComplete = false;
+
+  /// Fait échouer la prochaine écriture.
+  bool failNext = false;
+
+  Future<void> save(List<ChatConversation> conversations) async {
+    started++;
+    final failing = failNext;
+    if (!autoComplete) {
+      final gate = Completer<void>();
+      _gates.add(gate);
+      await gate.future;
+    }
+    if (failing) {
+      throw const FileSystemException('disque plein');
+    }
+    written.add(conversations);
+  }
+
+  /// Libère la plus ancienne écriture encore ouverte.
+  void completeFirst() {
+    for (final gate in _gates) {
+      if (!gate.isCompleted) {
+        gate.complete();
+        return;
+      }
+    }
+  }
+
+  void completeAll() {
+    for (final gate in _gates) {
+      if (!gate.isCompleted) {
+        gate.complete();
+      }
+    }
+  }
 }

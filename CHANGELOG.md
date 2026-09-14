@@ -6,6 +6,26 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ### Corrections
 
+- **accumulation de sauvegardes sur stockage lent** : le regroupement espaçait
+  les écritures mais chaque déclenchement partait sans attendre le précédent.
+  Le magasin sérialisait bien les écritures physiques, mais les instantanés
+  s'empilaient dans sa file : quatre demandes pendant une écriture lente
+  produisaient quatre copies de tout l'historique. Le regroupeur ne tient plus
+  qu'une écriture à la fois ; ce qui change pendant celle-ci marque l'état sans
+  prendre d'instantané, et repart groupé à son retour, avec l'état d'alors. Une
+  demande explicite pendant une écriture n'est pas perdue, et les simples
+  fragments gardent leur cadence au lieu d'enchaîner les écritures ;
+- **`ref` lu après destruction de l'écran** : quand une copie de pièce jointe
+  aboutissait après la fermeture de l'écran, le nettoyage passait encore par
+  `ref`, qui lève une exception une fois le widget démonté. Le fichier restait
+  alors sur l'appareil sans que rien n'y renvoie. Le magasin et le sélecteur
+  sont saisis avant la première attente, tant que `ref` est lisible. Les deux
+  branches d'erreur de la sélection et de l'enregistrement étaient exposées de
+  la même façon : `_showSnack` abandonne désormais le message quand l'écran a
+  disparu, au lieu d'empiler une exception par-dessus l'erreur d'origine.
+
+### Corrections
+
 - **moteur natif** : la boucle de décodage confiait au batch un pointeur vers
   un jeton déclaré dans le corps de la boucle. `llama_batch_get_one` ne copie
   pas : `llama_decode` relisait donc au tour suivant une variable sortie de sa
