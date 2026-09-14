@@ -5,8 +5,16 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:foxllm/llm/model/chat_attachment.dart';
+import 'package:foxllm/llm/model/citation.dart';
 
 enum ChatRole { system, user, assistant }
+
+/// Avis de l'utilisateur sur une réponse.
+///
+/// Purement local : FoxLLM n'a pas de serveur à qui l'envoyer. C'est un
+/// repère personnel, conservé avec la conversation, pas un retour transmis
+/// à qui que ce soit.
+enum MessageRating { none, up, down }
 
 class ChatMessage {
   const ChatMessage({
@@ -14,6 +22,8 @@ class ChatMessage {
     required this.content,
     this.attachments = const <ChatAttachment>[],
     this.images = const <InlineImage>[],
+    this.citations = const <Citation>[],
+    this.rating = MessageRating.none,
   });
 
   const ChatMessage.system(String content)
@@ -37,15 +47,25 @@ class ChatMessage {
   /// rejoindre l'historique enregistré, qui grossirait à chaque message.
   final List<InlineImage> images;
 
+  /// Sources consultées par le modèle, quand il a cherché sur le web.
+  final List<Citation> citations;
+
+  /// Avis local de l'utilisateur, conservé avec la conversation.
+  final MessageRating rating;
+
   ChatMessage copyWith({
     String? content,
     List<ChatAttachment>? attachments,
     List<InlineImage>? images,
+    List<Citation>? citations,
+    MessageRating? rating,
   }) => ChatMessage(
     role: role,
     content: content ?? this.content,
     attachments: attachments ?? this.attachments,
     images: images ?? this.images,
+    citations: citations ?? this.citations,
+    rating: rating ?? this.rating,
   );
 
   Map<String, Object> toApiJson() {

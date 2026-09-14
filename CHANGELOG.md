@@ -4,6 +4,34 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [Non publié]
 
+### Ajouts
+
+- **barre d'actions sous chaque réponse terminée** : copier, noter, lire à voix
+  haute, partager, et un menu pour régénérer la réponse ou en sélectionner le
+  texte. Elle n'apparaît qu'une fois la réponse complète : pendant la
+  génération, il n'y a rien de complet à copier, à lire ni à partager ;
+- **sources citées, affichées à droite de cette barre**. Quand le mode
+  Recherche est actif, OpenAI et Gemini indiquent les pages consultées :
+  l'API Responses au fil du texte, Gemini dans ses métadonnées d'ancrage. Les
+  deux formats sont relevés, dédoublonnés dans leur ordre d'apparition, et
+  conservés avec la conversation. Un moteur local ou un fournisseur sans outil
+  de recherche n'affiche rien, faute d'avoir quoi que ce soit à citer ;
+- **modification d'un message envoyé** : un appui long ouvre Copier,
+  Sélectionner le texte, Modifier le message et Partager. La modification se
+  fait sur place, à la ligne du message ; l'envoi remplace la suite du fil par
+  la nouvelle réponse. Le brouillon en cours d'écriture dans le composer reste
+  intact ;
+- la lecture à voix haute et le partage passent par les services d'Android
+  (`flutter_tts`, `share_plus`). Comme pour la dictée, FoxLLM ne transporte
+  aucun son et n'en conserve aucun.
+
+### Notes
+
+- le pouce haut et le pouce bas restent **sur l'appareil** : FoxLLM n'a pas de
+  serveur à qui transmettre un avis, et n'en aura pas. C'est un repère
+  personnel, conservé avec la conversation, pour retrouver une bonne réponse
+  dans un long fil.
+
 ### Corrections
 
 - **accumulation de sauvegardes sur stockage lent** : le regroupement espaçait

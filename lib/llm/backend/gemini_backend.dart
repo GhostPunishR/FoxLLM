@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:foxllm/llm/backend/llm_http.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 
@@ -103,6 +104,44 @@ class GeminiBackend extends HttpStreamingBackend {
         'Accept': 'text/event-stream',
       })
       ..body = jsonEncode(body);
+  }
+
+  @override
+  Iterable<Citation> extractCitations(Map<String, dynamic> event) sync* {
+    // Gemini range ses sources dans les métadonnées d'ancrage du candidat,
+    // à côté du texte et non dedans.
+    final candidates = event['candidates'];
+    if (candidates is! List || candidates.isEmpty) {
+      return;
+    }
+    final candidate = candidates.first;
+    if (candidate is! Map<String, dynamic>) {
+      return;
+    }
+    final metadata = candidate['groundingMetadata'];
+    if (metadata is! Map<String, dynamic>) {
+      return;
+    }
+    final chunks = metadata['groundingChunks'];
+    if (chunks is! List) {
+      return;
+    }
+
+    for (final chunk in chunks) {
+      if (chunk is! Map<Object?, Object?>) {
+        continue;
+      }
+      final web = chunk['web'];
+      if (web is! Map<Object?, Object?>) {
+        continue;
+      }
+      final uri = web['uri'];
+      if (uri is! String || uri.trim().isEmpty) {
+        continue;
+      }
+      final title = web['title'];
+      yield Citation(url: uri.trim(), title: title is String ? title : '');
+    }
   }
 
   @override

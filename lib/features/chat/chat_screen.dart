@@ -6,9 +6,12 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:foxllm/core/storage/last_model_store.dart';
+import 'package:foxllm/core/ui/external_link.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/ui/fox_mark.dart';
 import 'package:foxllm/features/chat/attachments/attachment_picker.dart';
@@ -20,11 +23,13 @@ import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
 import 'package:foxllm/features/chat/dictation.dart';
 import 'package:foxllm/features/chat/markdown/message_markdown.dart';
+import 'package:foxllm/features/chat/speech.dart';
 import 'package:foxllm/features/local_models/local_models_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
 import 'package:foxllm/llm/model/chat_attachment.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/llm/personal_api/personal_api_chat_backend.dart';
@@ -64,6 +69,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   bool _isGenerating = false;
   bool _sending = false;
+
+  /// Réponse actuellement lue à voix haute, `null` au repos.
+  String? _speakingText;
+
+  /// Synthèse vocale retenue dès son premier usage : `ref` n'est plus lisible
+  /// dans `dispose()`, et la lecture doit s'arrêter avec l'écran.
+  Speech? _speech;
+
+  /// Message utilisateur en cours de modification, et son brouillon.
+  int? _editingIndex;
+  final _editController = TextEditingController();
 
   /// Identifie le brouillon courant, texte et pièces jointes ensemble.
   ///
@@ -224,6 +240,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   void dispose() {
     unawaited(_dictation?.stop());
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_speech?.stop());
+    _editController.dispose();
     _generationEpoch += 1;
     // Quitter l'écran en pleine génération ne doit pas perdre les fragments
     // déjà reçus mais pas encore écrits.
@@ -318,8 +336,220 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _scrollToBottom();
   }
 
-  Future<void> _sendMessage() async {
-    final text = _inputController.text.trim();
+  // ---- actions d'un message ------------------------------------------------
+
+  void _copyMessage(ChatMessage message) {
+    Clipboard.setData(ClipboardData(text: message.content));
+    _showSnack('Réponse copiée.');
+  }
+
+  Future<void> _shareMessage(ChatMessage message) async {
+    if (message.content.trim().isEmpty) {
+      return;
+    }
+    try {
+      await SharePlus.instance.share(ShareParams(text: message.content));
+    } catch (_) {
+      _showSnack('Partage impossible depuis cet appareil.');
+    }
+  }
+
+  /// Note une réponse, ou retire la note si on appuie deux fois.
+  ///
+  /// L'avis reste sur l'appareil : FoxLLM n'a pas de serveur à qui
+  /// l'envoyer, et n'en aura pas. C'est un repère pour retrouver une bonne
+  /// réponse dans un long fil, pas un retour transmis à quiconque.
+  void _rateMessage(int index, MessageRating rating) {
+    if (index < 0 || index >= _messages.length) {
+      return;
+    }
+    final current = _messages[index];
+    setState(() {
+      _messages[index] = current.copyWith(
+        rating: current.rating == rating ? MessageRating.none : rating,
+      );
+      _syncActiveConversation();
+    });
+  }
+
+  Future<void> _speakMessage(ChatMessage message) async {
+    // Type explicite : sans lui, `??=` rend une référence nullable et chaque
+    // appel derrière réclamerait un `!`.
+    final Speech speech = _speech ?? ref.read(speechProvider);
+    _speech = speech;
+    final started = await speech.toggle(message.content);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _speakingText = started ? speech.speaking : null);
+  }
+
+  /// Rejoue la demande qui a produit [index], en remplaçant la réponse.
+  Future<void> _regenerate(int index) async {
+    final userIndex = index - 1;
+    if (userIndex < 0 || _messages[userIndex].role != ChatRole.user) {
+      return;
+    }
+    final question = _messages[userIndex];
+    await _resendFrom(userIndex, question.content, question.attachments);
+  }
+
+  /// Repart du message utilisateur [userIndex], que la suite du fil soit
+  /// devenue obsolète parce qu'il a été modifié ou parce qu'on rejoue.
+  Future<void> _resendFrom(
+    int userIndex,
+    String text,
+    List<ChatAttachment> attachments,
+  ) async {
+    if (_isGenerating || _sending) {
+      _showSnack('Attends la fin de la réponse en cours.');
+      return;
+    }
+    setState(() {
+      _messages.removeRange(userIndex, _messages.length);
+      // Les pièces jointes repartent avec le message : leurs fichiers sont
+      // encore là, et `_send` les rattachera au nouveau message.
+      _pendingAttachments
+        ..clear()
+        ..addAll(attachments);
+      _syncActiveConversation();
+    });
+    await _startSend(text.trim(), fromComposer: false);
+  }
+
+  /// Rattache à la dernière réponse les sources relevées par le moteur.
+  ///
+  /// Le contrat des moteurs ne transporte que du texte : les citations sont
+  /// relevées de côté pendant le flux, puis reprises ici pour être
+  /// conservées avec le message.
+  void _attachCitations(LocalLlmBackend backend) {
+    if (backend is! PersonalApiChatBackend) {
+      return;
+    }
+    final citations = backend.citations;
+    if (citations.isEmpty || _messages.isEmpty) {
+      return;
+    }
+    final last = _messages.length - 1;
+    if (_messages[last].role != ChatRole.assistant) {
+      return;
+    }
+    setState(() {
+      _messages[last] = _messages[last].copyWith(
+        citations: List<Citation>.of(citations),
+      );
+      _syncActiveConversation();
+    });
+  }
+
+  /// Liste les pages consultées par le modèle pour cette réponse.
+  void _showSources(ChatMessage message) {
+    final fox = context.fox;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: fox.surfaceRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                message.citations.length == 1
+                    ? '1 source'
+                    : '${message.citations.length} sources',
+                style: TextStyle(
+                  color: fox.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: message.citations.length,
+                  itemBuilder: (context, index) {
+                    final citation = message.citations[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: Text(
+                        citation.label,
+                        style: TextStyle(color: fox.textPrimary, fontSize: 15),
+                      ),
+                      subtitle: Text(
+                        citation.host,
+                        style: TextStyle(color: fox.textTertiary, fontSize: 13),
+                      ),
+                      trailing: Icon(
+                        Icons.open_in_new_rounded,
+                        size: 18,
+                        color: fox.textTertiary,
+                      ),
+                      onTap: () => unawaited(_openCitation(citation)),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCitation(Citation citation) async {
+    final uri = Uri.tryParse(citation.url);
+    // `openExternalLink` refuse déjà tout ce qui n'est pas http ou https :
+    // une adresse citée par un modèle reste du texte non vérifié.
+    if (uri == null || !await openExternalLink(uri)) {
+      if (mounted) {
+        _showSnack('Impossible d’ouvrir cette source.');
+      }
+    }
+  }
+
+  // ---- modification d'un message utilisateur -------------------------------
+
+  void _startEdit(int index) {
+    if (index < 0 || index >= _messages.length) {
+      return;
+    }
+    _editController.text = _messages[index].content;
+    setState(() => _editingIndex = index);
+  }
+
+  void _cancelEdit() {
+    setState(() => _editingIndex = null);
+    _editController.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  Future<void> _submitEdit() async {
+    final index = _editingIndex;
+    if (index == null || index >= _messages.length) {
+      return;
+    }
+    final text = _editController.text.trim();
+    final attachments = List<ChatAttachment>.of(_messages[index].attachments);
+    if (text.isEmpty && attachments.isEmpty) {
+      return;
+    }
+    setState(() => _editingIndex = null);
+    _editController.clear();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _resendFrom(index, text, attachments);
+  }
+
+  Future<void> _sendMessage() =>
+      _startSend(_inputController.text.trim(), fromComposer: true);
+
+  Future<void> _startSend(String text, {required bool fromComposer}) async {
     // `_isGenerating` n'est levé qu'une fois la requête partie : sans ce
     // second verrou, deux appuis rapprochés pendant l'ouverture du modèle ou
     // la lecture des réglages lanceraient deux envois, dont un serait perdu.
@@ -330,13 +560,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     _sending = true;
     try {
-      await _send(text);
+      await _send(text, fromComposer: fromComposer);
     } finally {
       _sending = false;
     }
   }
 
-  Future<void> _send(String text) async {
+  Future<void> _send(String text, {required bool fromComposer}) async {
     final backend = ref.read(chatBackendProvider);
 
     // Identité de cet envoi, prise avant la moindre attente. Le chargement du
@@ -430,7 +660,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _isGenerating = true;
       _syncActiveConversation();
     });
-    _inputController.clear();
+    if (fromComposer) {
+      _inputController.clear();
+    }
     _pendingAttachments.clear();
     _scrollToBottom();
 
@@ -459,8 +691,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         _scrollToBottom();
       }
 
-      if (stillCurrent() && response.isEmpty) {
-        _removeEmptyAssistantPlaceholder();
+      if (stillCurrent()) {
+        if (response.isEmpty) {
+          _removeEmptyAssistantPlaceholder();
+        } else {
+          _attachCitations(backend);
+        }
       }
     } catch (error) {
       if (!stillCurrent()) {
@@ -855,6 +1091,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   : _MessageList(
                       messages: _messages,
                       controller: _scrollController,
+                      isGenerating: _isGenerating,
+                      speakingText: _speakingText,
+                      editingIndex: _editingIndex,
+                      editController: _editController,
+                      actions: _MessageActions(
+                        onCopy: _copyMessage,
+                        onRate: _rateMessage,
+                        onSpeak: (message) => unawaited(_speakMessage(message)),
+                        onShare: (message) => unawaited(_shareMessage(message)),
+                        onRegenerate: (index) => unawaited(_regenerate(index)),
+                        onShowSources: _showSources,
+                        onEdit: _startEdit,
+                        onCancelEdit: _cancelEdit,
+                        onSubmitEdit: () => unawaited(_submitEdit()),
+                      ),
                     ),
             ),
           ),

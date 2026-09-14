@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:foxllm/llm/backend/llm_http.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 
@@ -94,6 +95,41 @@ class OpenAiResponsesBackend extends HttpStreamingBackend {
           <String, Object>{'type': 'input_image', 'image_url': image.dataUrl},
       ],
     };
+  }
+
+  @override
+  Iterable<Citation> extractCitations(Map<String, dynamic> event) sync* {
+    // Les citations arrivent au fil du texte, dans leur propre évènement.
+    if (event['type'] != 'response.output_text.annotation.added') {
+      return;
+    }
+    final citation = _citationFrom(event['annotation']);
+    if (citation != null) {
+      yield citation;
+    }
+  }
+
+  /// Lit une annotation `url_citation`.
+  ///
+  /// L'API Responses pose l'adresse et le titre à plat sur l'annotation, là
+  /// où `chat/completions` les range sous une clé `url_citation`. Les deux
+  /// formes sont acceptées : plusieurs fournisseurs compatibles imitent la
+  /// seconde.
+  static Citation? _citationFrom(Object? annotation) {
+    if (annotation is! Map<Object?, Object?>) {
+      return null;
+    }
+    if (annotation['type'] != 'url_citation') {
+      return null;
+    }
+    final nested = annotation['url_citation'];
+    final source = nested is Map<Object?, Object?> ? nested : annotation;
+    final url = source['url'];
+    if (url is! String || url.trim().isEmpty) {
+      return null;
+    }
+    final title = source['title'];
+    return Citation(url: url.trim(), title: title is String ? title : '');
   }
 
   @override
