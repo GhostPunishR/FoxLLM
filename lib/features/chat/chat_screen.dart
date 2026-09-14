@@ -206,6 +206,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final wasActive = _activeConversationId == id;
     if (wasActive) {
       _dropQueue();
+      _stopSpeaking();
     }
     if (wasActive && _isGenerating) {
       _generationEpoch += 1;
@@ -277,6 +278,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _dropQueue();
   }
 
+  /// Coupe la lecture à voix haute, quand le message lu quitte l'écran.
+  ///
+  /// La voix d'Android ne s'arrête pas parce que la bulle disparaît : un fil
+  /// quitté continuait de se faire lire, et plus rien ne permettait de
+  /// l'interrompre, puisque le bouton qui l'aurait fait était parti avec le
+  /// message.
+  ///
+  /// Ne réveille pas le moteur vocal s'il n'a jamais servi : il n'est monté
+  /// qu'au premier appui sur le bouton de lecture.
+  void _stopSpeaking() {
+    final speech = _speech;
+    if (speech == null || speech.speaking.value == null) {
+      return;
+    }
+    unawaited(speech.stop());
+  }
+
   /// Abandonne les messages en attente : ils appartiennent au fil quitté.
   ///
   /// À appeler avant la moindre attente. Quitter un fil commence par arrêter
@@ -321,6 +339,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _newChat() async {
     _generationEpoch += 1;
     _dropQueue();
+    _stopSpeaking();
     if (_isGenerating) {
       await ref.read(chatBackendProvider).stop();
     }
@@ -340,6 +359,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   Future<void> _selectConversation(int id) async {
     _generationEpoch += 1;
     _dropQueue();
+    _stopSpeaking();
     if (_isGenerating) {
       await ref.read(chatBackendProvider).stop();
     }
@@ -446,6 +466,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _showSnack('Attends la fin de la réponse en cours.');
       return;
     }
+    // Seule la lecture d'un message qui s'en va doit cesser : écouter une
+    // réponse plus haute dans le fil n'a rien à voir avec celle qu'on rejoue.
+    final speaking = _speech?.speaking.value;
+    if (speaking != null &&
+        _messages
+            .skip(userIndex)
+            .any((message) => message.content.trim() == speaking)) {
+      _stopSpeaking();
+    }
+
     setState(() {
       _messages.removeRange(userIndex, _messages.length);
       // Les pièces jointes repartent avec le message : leurs fichiers sont
