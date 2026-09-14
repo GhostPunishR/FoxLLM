@@ -6,6 +6,15 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ### Corrections
 
+- **la voix continuait après le message** : quitter un fil pendant une lecture
+  à voix haute n'arrêtait pas la synthèse d'Android. La bulle disparaissait,
+  mais la voix poursuivait, et plus rien ne permettait de l'interrompre :
+  le bouton qui l'aurait fait était parti avec le message. La lecture cesse
+  désormais dès que le message lu quitte l'écran, par les quatre chemins qui
+  l'y font disparaître : nouveau chat, ouverture d'un autre fil, suppression
+  du fil affiché, et régénération ou modification qui remplace la réponse.
+  Écouter une réponse plus haute dans le fil pendant qu'on en régénère une
+  autre ne l'interrompt pas, faute de raison ;
 - **bouton de lecture à voix haute bloqué** : une fois la réponse lue en
   entier, le bouton restait allumé comme si la voix parlait encore. L'écran
   gardait sa propre copie de l'état, posée au démarrage de la lecture, et rien

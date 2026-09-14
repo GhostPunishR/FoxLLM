@@ -159,6 +159,155 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  group('la voix s’arrête quand le message quitte l’écran', () {
+    testWidgets('changer de conversation coupe la lecture', (tester) async {
+      final tts = _FakeTts();
+      await _pumpTwoThreads(tester, tts);
+
+      await tester.tap(find.byTooltip('Lire à voix haute'));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Arrêter la lecture'), findsOneWidget);
+
+      await _openThread(tester, 'Autre fil');
+
+      // Le fil quitté continuait de se faire lire, et plus aucun bouton ne
+      // permettait de l'interrompre : il était parti avec le message.
+      expect(tts.stopCalls, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('un nouveau chat coupe la lecture', (tester) async {
+      final tts = _FakeTts();
+      await _pumpAnswer(tester, tts);
+
+      await tester.tap(find.byTooltip('Lire à voix haute'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Nouveau chat'));
+      await tester.pumpAndSettle();
+
+      expect(tts.stopCalls, 1);
+    });
+
+    testWidgets('supprimer le fil affiché coupe la lecture', (tester) async {
+      final tts = _FakeTts();
+      await _pumpTwoThreads(tester, tts);
+
+      await tester.tap(find.byTooltip('Lire à voix haute'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Actions de la conversation').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Supprimer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Supprimer'));
+      await tester.pumpAndSettle();
+
+      expect(tts.stopCalls, 1);
+    });
+
+    testWidgets('régénérer la réponse lue coupe la lecture', (tester) async {
+      final tts = _FakeTts();
+      await _pumpAnswer(tester, tts);
+
+      await tester.tap(find.byTooltip('Lire à voix haute'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Plus'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Régénérer la réponse'));
+      await tester.pumpAndSettle();
+
+      expect(tts.stopCalls, 1);
+      expect(find.byTooltip('Lire à voix haute'), findsOneWidget);
+    });
+
+    testWidgets('régénérer laisse parler une autre réponse', (tester) async {
+      final tts = _FakeTts();
+      await _pumpAnswer(tester, tts);
+      // Un second échange : la première réponse reste en place au-dessus.
+      await tester.enterText(find.byType(TextField).first, 'Seconde question');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Envoyer'));
+      await tester.pumpAndSettle();
+
+      // On écoute la première réponse, puis on régénère la seconde.
+      await tester.tap(find.byTooltip('Lire à voix haute').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Plus').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Régénérer la réponse'));
+      await tester.pumpAndSettle();
+
+      // Celle qu'on écoute n'a pas bougé : rien ne justifie de la couper.
+      expect(tts.stopCalls, 0);
+      expect(find.byTooltip('Arrêter la lecture'), findsOneWidget);
+    });
+  });
+}
+
+/// Affiche deux fils enregistrés, le premier ouvert et lisible.
+Future<void> _pumpTwoThreads(WidgetTester tester, _FakeTts tts) async {
+  await tester.binding.setSurfaceSize(const Size(420, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        localLlmBackendProvider.overrideWithValue(_ScriptedBackend()),
+        conversationStoreProvider.overrideWithValue(
+          _SeededStore(<ChatConversation>[
+            ChatConversation(
+              id: 1,
+              title: 'Fil écouté',
+              updatedAt: DateTime.now(),
+              messages: <ChatMessage>[
+                const ChatMessage.user('Ma question'),
+                const ChatMessage.assistant('Réponse à lire'),
+              ],
+            ),
+            ChatConversation(
+              id: 2,
+              title: 'Autre fil',
+              updatedAt: DateTime.now(),
+              messages: <ChatMessage>[const ChatMessage.user('Ailleurs')],
+            ),
+          ]),
+        ),
+        speechProvider.overrideWithValue(Speech(tts: tts)),
+      ],
+      child: const MaterialApp(home: ChatScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  await _openThread(tester, 'Fil écouté');
+}
+
+/// Ouvre un fil depuis le menu latéral.
+Future<void> _openThread(WidgetTester tester, String title) async {
+  await tester.tap(find.byTooltip('Menu'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(title).last);
+  await tester.pumpAndSettle();
+}
+
+class _SeededStore implements ConversationStore {
+  _SeededStore(this.seed);
+
+  final List<ChatConversation> seed;
+
+  @override
+  Future<List<ChatConversation>> load() async => seed;
+
+  @override
+  Future<void> save(List<ChatConversation> conversations) async {}
+
+  @override
+  Future<void> clear() async {}
 }
 
 /// Affiche un chat portant une réponse terminée, prête à être lue.
@@ -267,11 +416,21 @@ class _ScriptedBackend implements LocalLlmBackend {
   @override
   Future<void> unloadModel() async {}
 
+  int _answers = 0;
+
   @override
   Stream<String> generate({
     required List<ChatMessage> messages,
     GenerationSettings settings = const GenerationSettings(),
-  }) => Stream<String>.value('Réponse à lire');
+  }) {
+    // Des réponses distinctes : la lecture en cours est repérée par son
+    // texte, donc deux réponses identiques seraient indiscernables et le
+    // test ne prouverait rien.
+    _answers += 1;
+    return Stream<String>.value(
+      _answers == 1 ? 'Réponse à lire' : 'Réponse numéro $_answers',
+    );
+  }
 
   @override
   Future<void> stop() async {}
