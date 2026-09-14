@@ -1,0 +1,249 @@
+// Copyright © 2026 GhostPunishR
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
+import 'package:foxllm/features/chat/conversations/conversation_store.dart';
+import 'package:foxllm/llm/model/chat_message.dart';
+
+ChatConversation _conversation(int id, String content) {
+  return ChatConversation(
+    id: id,
+    title: 'fil $id',
+    updatedAt: DateTime(2026, 1, 1),
+    messages: <ChatMessage>[ChatMessage.assistant(content)],
+  );
+}
+
+void main() {
+  group('regroupement des écritures', () {
+    testWidgets('une rafale de fragments ne déclenche qu’une écriture', (
+      tester,
+    ) async {
+      final written = <List<ChatConversation>>[];
+      var live = <ChatConversation>[_conversation(1, '')];
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async =>
+            written.add(conversations),
+        snapshot: () => List<ChatConversation>.of(live),
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      // Cinquante fragments, comme une génération locale ordinaire.
+      for (var index = 0; index < 50; index++) {
+        live = <ChatConversation>[_conversation(1, 'a' * (index + 1))];
+        persister.schedule();
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      expect(written.length, lessThanOrEqualTo(1));
+
+      // La fin de génération impose l'état définitif.
+      persister.flush();
+      expect(written.last.single.messages.single.content, 'a' * 50);
+    });
+
+    testWidgets('la fréquence reste bornée sur une longue génération', (
+      tester,
+    ) async {
+      var writes = 0;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async => writes++,
+        snapshot: () => <ChatConversation>[_conversation(1, 'x')],
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      // Dix secondes de fragments à 20 ms : cinq cents appels.
+      for (var index = 0; index < 500; index++) {
+        persister.schedule();
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      expect(writes, lessThanOrEqualTo(6));
+      expect(writes, greaterThan(0), reason: 'il faut bien écrire parfois');
+    });
+
+    testWidgets('une écriture différée ne ressuscite pas un fil supprimé', (
+      tester,
+    ) async {
+      final written = <List<ChatConversation>>[];
+      var live = <ChatConversation>[
+        _conversation(1, 'bonjour'),
+        _conversation(2, 'salut'),
+      ];
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async =>
+            written.add(conversations),
+        snapshot: () => List<ChatConversation>.of(live),
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      persister.schedule();
+      // Suppression avant que l'écriture différée ne parte.
+      live = <ChatConversation>[_conversation(2, 'salut')];
+      persister.flush();
+
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(written, hasLength(1));
+      expect(written.single.map((conversation) => conversation.id), <int>[
+        2,
+      ], reason: 'l’état est relu au moment d’écrire, pas figé avant');
+    });
+
+    testWidgets('un changement ponctuel part même sans planification', (
+      tester,
+    ) async {
+      var writes = 0;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async => writes++,
+        snapshot: () => <ChatConversation>[_conversation(1, 'renommé')],
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      // Un renommage n'est précédé d'aucun `schedule()`.
+      persister.flush();
+
+      expect(writes, 1);
+    });
+
+    testWidgets('la fermeture écrit ce qui restait en attente', (tester) async {
+      var writes = 0;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async => writes++,
+        snapshot: () => <ChatConversation>[_conversation(1, 'partiel')],
+        interval: const Duration(seconds: 2),
+      );
+
+      persister.schedule();
+      persister.dispose();
+
+      expect(writes, 1, reason: 'les fragments reçus ne sont pas perdus');
+
+      // Plus rien ne part après la fermeture.
+      persister.schedule();
+      persister.flush();
+      await tester.pump(const Duration(seconds: 5));
+      expect(writes, 1);
+    });
+  });
+
+  group('échec d’enregistrement', () {
+    testWidgets('l’échec est signalé une fois, pas à chaque fragment', (
+      tester,
+    ) async {
+      final reported = <Object>[];
+      var fail = true;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async {
+          if (fail) {
+            throw const FileSystemException('disque plein');
+          }
+        },
+        snapshot: () => <ChatConversation>[_conversation(1, 'x')],
+        interval: const Duration(seconds: 2),
+        onError: reported.add,
+      );
+      addTearDown(persister.dispose);
+
+      for (var index = 0; index < 5; index++) {
+        persister.flush();
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+
+      expect(reported, hasLength(1), reason: 'un seul avertissement');
+
+      // Le disque revient : l'avertissement se réarme pour la prochaine fois.
+      fail = false;
+      persister.flush();
+      await tester.pump(const Duration(milliseconds: 10));
+      fail = true;
+      persister.flush();
+      await tester.pump(const Duration(milliseconds: 10));
+
+      expect(reported, hasLength(2));
+    });
+
+    testWidgets('la file continue de servir après un échec', (tester) async {
+      final written = <String>[];
+      var fail = true;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async {
+          if (fail) {
+            throw const FileSystemException('disque plein');
+          }
+          written.add(conversations.single.messages.single.content);
+        },
+        snapshot: () => <ChatConversation>[_conversation(1, 'après')],
+        interval: const Duration(seconds: 2),
+        onError: (_) {},
+      );
+      addTearDown(persister.dispose);
+
+      persister.flush();
+      await tester.pump(const Duration(milliseconds: 10));
+      fail = false;
+      persister.flush();
+      await tester.pump(const Duration(milliseconds: 10));
+
+      expect(written, <String>['après']);
+    });
+  });
+
+  group('ConversationStore.save', () {
+    late Directory directory;
+
+    setUp(() async {
+      directory = await Directory.systemTemp.createTemp('foxllm-store-test');
+    });
+
+    tearDown(() async {
+      if (directory.existsSync()) {
+        await directory.delete(recursive: true);
+      }
+    });
+
+    test('un échec d’écriture remonte à l’appelant', () async {
+      // Dossier supprimé : l'écriture du fichier temporaire échoue.
+      final store = ConversationStore(
+        applicationSupportDirectory: () async =>
+            Directory('${directory.path}/absent'),
+      );
+
+      await expectLater(
+        store.save(<ChatConversation>[_conversation(1, 'perdu')]),
+        throwsA(isA<FileSystemException>()),
+      );
+    });
+
+    test('la sauvegarde suivante aboutit malgré l’échec précédent', () async {
+      var useMissingDirectory = true;
+      final store = ConversationStore(
+        applicationSupportDirectory: () async => useMissingDirectory
+            ? Directory('${directory.path}/absent')
+            : directory,
+      );
+
+      await expectLater(
+        store.save(<ChatConversation>[_conversation(1, 'perdu')]),
+        throwsA(isA<FileSystemException>()),
+      );
+
+      useMissingDirectory = false;
+      await expectLater(
+        store.save(<ChatConversation>[_conversation(2, 'conservé')]),
+        completes,
+      );
+
+      final reloaded = await store.load();
+      expect(reloaded.single.id, 2);
+      expect(reloaded.single.messages.single.content, 'conservé');
+    });
+  });
+}

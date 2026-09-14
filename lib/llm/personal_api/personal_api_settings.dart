@@ -25,6 +25,7 @@ class PersonalApiSettings {
     this.apiKeyPersistence = ApiKeyPersistence.device,
     this.useInChat = false,
     this.hasApiKey = false,
+    this.apiKeyOrigin = '',
   });
 
   final String providerId;
@@ -34,14 +35,29 @@ class PersonalApiSettings {
   final bool useInChat;
   final bool hasApiKey;
 
+  /// Serveur auquel la clé enregistrée a été confiée.
+  ///
+  /// Le seul identifiant du fournisseur ne suffit pas : « Personnalisé » garde
+  /// le même identifiant quand la base URL change d'hôte. Sans cette origine,
+  /// la clé du serveur précédent partirait vers le nouveau.
+  final String apiKeyOrigin;
+
   PersonalApiProvider get provider => personalApiProviderById(providerId);
 
   String get effectiveBaseUrl => provider.resolveBaseUrl(baseUrl);
 
+  /// Origine visée par les réglages courants.
+  String get origin => personalApiOrigin(effectiveBaseUrl);
+
+  /// Vrai quand la clé enregistrée appartient bien au serveur actuellement
+  /// configuré, donc quand elle peut lui être envoyée.
+  bool get hasApiKeyForCurrentOrigin =>
+      hasApiKey && apiKeyOrigin.isNotEmpty && apiKeyOrigin == origin;
+
   bool get isConfigured =>
       effectiveBaseUrl.trim().isNotEmpty &&
       model.trim().isNotEmpty &&
-      hasApiKey;
+      hasApiKeyForCurrentOrigin;
 
   ProviderConfig toProviderConfig() => ProviderConfig(
     id: personalApiProviderId,
@@ -58,6 +74,7 @@ class PersonalApiSettings {
     ApiKeyPersistence? apiKeyPersistence,
     bool? useInChat,
     bool? hasApiKey,
+    String? apiKeyOrigin,
   }) {
     return PersonalApiSettings(
       providerId: providerId ?? this.providerId,
@@ -66,6 +83,7 @@ class PersonalApiSettings {
       apiKeyPersistence: apiKeyPersistence ?? this.apiKeyPersistence,
       useInChat: useInChat ?? this.useInChat,
       hasApiKey: hasApiKey ?? this.hasApiKey,
+      apiKeyOrigin: apiKeyOrigin ?? this.apiKeyOrigin,
     );
   }
 }
@@ -79,6 +97,7 @@ class PersonalApiSettingsStore {
   static const _modelKey = 'foxllm.personal_api.model';
   static const _persistenceKey = 'foxllm.personal_api.persistence';
   static const _useInChatKey = 'foxllm.personal_api.use_in_chat';
+  static const _apiKeyOriginKey = 'foxllm.personal_api.api_key_origin';
 
   final FlutterSecureStorage _storage;
 
@@ -89,6 +108,7 @@ class PersonalApiSettingsStore {
       _storage.read(key: _modelKey),
       _storage.read(key: _persistenceKey),
       _storage.read(key: _useInChatKey),
+      _storage.read(key: _apiKeyOriginKey),
     ]);
 
     final persistence = values[3] == ApiKeyPersistence.session.name
@@ -105,14 +125,27 @@ class PersonalApiSettingsStore {
       persistence: persistence,
     );
     final hasApiKey = apiKey != null && apiKey.trim().isNotEmpty;
+    final baseUrl = provider.custom ? storedBaseUrl : '';
+
+    // Réglages écrits avant que l'origine soit conservée : la clé était
+    // jusqu'ici envoyée à la base URL enregistrée, c'est donc bien à cette
+    // origine qu'elle appartient. La déduire évite de faire ressaisir sa clé
+    // à qui n'a rien changé, sans jamais élargir sa portée.
+    final storedOrigin = values[5];
+    final apiKeyOrigin = hasApiKey
+        ? (storedOrigin == null || storedOrigin.isEmpty
+              ? personalApiOrigin(provider.resolveBaseUrl(baseUrl))
+              : storedOrigin)
+        : '';
 
     return PersonalApiSettings(
       providerId: provider.id,
-      baseUrl: provider.custom ? storedBaseUrl : '',
+      baseUrl: baseUrl,
       model: values[2] ?? '',
       apiKeyPersistence: persistence,
       useInChat: values[4] == 'true' && hasApiKey,
       hasApiKey: hasApiKey,
+      apiKeyOrigin: apiKeyOrigin,
     );
   }
 
@@ -126,6 +159,7 @@ class PersonalApiSettingsStore {
         value: settings.apiKeyPersistence.name,
       ),
       _storage.write(key: _useInChatKey, value: settings.useInChat.toString()),
+      _storage.write(key: _apiKeyOriginKey, value: settings.apiKeyOrigin),
     ]);
   }
 }

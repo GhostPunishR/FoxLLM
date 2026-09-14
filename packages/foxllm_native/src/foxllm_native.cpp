@@ -259,6 +259,18 @@ bool generate_internal(
     int32_t position = 0;
     const int32_t generation_limit = required_tokens + predict_tokens;
 
+    // `llama_batch_get_one` ne copie pas : le batch garde le pointeur qu'on
+    // lui donne, et `llama_decode` le relit au tour suivant. Le jeton doit
+    // donc vivre hors du corps de la boucle. Déclaré à l'intérieur, il en
+    // sortait avant d'être lu, ce qu'AddressSanitizer signale en
+    // `stack-use-after-scope`.
+    //
+    // Les deux autres pointeurs confiés à un batch vivent déjà assez
+    // longtemps : `prompt_tokens` est un vecteur de la fonction, jamais
+    // réalloué après coup, et `decoder_start_token` est déclaré avant la
+    // boucle.
+    llama_token sampled_token = LLAMA_TOKEN_NULL;
+
     while (position + batch.n_tokens < generation_limit) {
         if (instance->stop_requested.load()) {
             break;
@@ -270,12 +282,12 @@ bool generate_internal(
         }
 
         position += batch.n_tokens;
-        llama_token token = llama_sampler_sample(sampler.get(), context.get(), -1);
-        if (llama_vocab_is_eog(vocab, token)) {
+        sampled_token = llama_sampler_sample(sampler.get(), context.get(), -1);
+        if (llama_vocab_is_eog(vocab, sampled_token)) {
             break;
         }
 
-        const std::string piece = token_to_piece(vocab, token);
+        const std::string piece = token_to_piece(vocab, sampled_token);
         if (collected_response != nullptr) {
             collected_response->append(piece);
         }
@@ -286,7 +298,7 @@ bool generate_internal(
                 user_data);
         }
 
-        batch = llama_batch_get_one(&token, 1);
+        batch = llama_batch_get_one(&sampled_token, 1);
     }
 
     instance->last_error.clear();

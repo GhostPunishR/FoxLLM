@@ -37,3 +37,23 @@ String normalizeBaseUrl(String value) {
   }
   return normalized;
 }
+
+/// Serveur auquel une base URL confie la clé API : schéma, hôte et port
+/// effectif, en minuscules.
+///
+/// C'est cette origine, et non la base URL entière, qui décide si une clé
+/// enregistrée peut être réutilisée. Le chemin n'en fait pas partie : passer
+/// de `/v1` à `/v1/` ou à `/openai/v1` reste le même serveur, alors que
+/// changer d'hôte ou de port désigne un destinataire différent, à qui la clé
+/// précédente ne doit jamais être envoyée.
+///
+/// Rend une chaîne vide quand la valeur n'est pas une URL absolue exploitable.
+String personalApiOrigin(String baseUrl) {
+  final uri = Uri.tryParse(normalizeBaseUrl(baseUrl));
+  if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+    return '';
+  }
+  // `Uri.port` rend déjà le port par défaut du schéma quand il est absent :
+  // `https://h` et `https://h:443` désignent donc bien la même origine.
+  return '${uri.scheme.toLowerCase()}://${uri.host.toLowerCase()}:${uri.port}';
+}

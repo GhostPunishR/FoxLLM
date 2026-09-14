@@ -74,14 +74,27 @@ class ConversationStore {
   }
 
   /// Enregistre l'historique, les écritures successives étant sérialisées.
+  ///
+  /// La future rendue porte le sort de cette écriture précise : un disque
+  /// plein ou un dossier devenu illisible remonte à l'appelant, au lieu de
+  /// laisser croire que les messages sont conservés. La file, elle, survit à
+  /// l'échec et traite les enregistrements suivants.
   Future<void> save(List<ChatConversation> conversations) {
     final snapshot = conversations
         .take(maxConversations)
         .map((conversation) => conversation.toJson())
         .toList(growable: false);
 
-    _pending = _pending.then((_) => _write(snapshot)).catchError((Object _) {});
-    return _pending;
+    final result = Completer<void>();
+    _pending = _pending
+        .then((_) => _write(snapshot))
+        .then(
+          (_) => result.complete(),
+          // L'erreur part vers l'appelant ; la chaîne, elle, repart saine.
+          onError: (Object error, StackTrace stackTrace) =>
+              result.completeError(error, stackTrace),
+        );
+    return result.future;
   }
 
   Future<void> _write(List<Map<String, Object?>> snapshot) async {
@@ -108,6 +121,100 @@ class ConversationStore {
     if (await file.exists()) {
       await file.delete();
     }
+  }
+}
+
+/// Regroupe les enregistrements de l'historique.
+///
+/// Chaque fragment reçu pendant une génération modifie la conversation
+/// active. Enregistrer à chacun revenait à réencoder tout l'historique et à
+/// réécrire le fichier des dizaines de fois par seconde, pour un état
+/// intermédiaire que personne ne relira.
+///
+/// L'état n'est pas figé à la planification mais relu au moment d'écrire :
+/// une écriture différée ne peut donc pas ressusciter une conversation
+/// supprimée entre-temps.
+class ConversationPersister {
+  ConversationPersister({
+    required Future<void> Function(List<ChatConversation>) save,
+    required List<ChatConversation> Function() snapshot,
+    this.interval = const Duration(seconds: 2),
+    void Function(Object error)? onError,
+  }) : _save = save,
+       _snapshot = snapshot,
+       _onError = onError;
+
+  final Future<void> Function(List<ChatConversation>) _save;
+  final List<ChatConversation> Function() _snapshot;
+  final void Function(Object error)? _onError;
+
+  /// Écart minimal entre deux écritures différées.
+  final Duration interval;
+
+  Timer? _timer;
+  bool _dirty = false;
+  bool _disposed = false;
+
+  /// Vrai depuis le dernier échec non suivi d'une réussite.
+  ///
+  /// Sert à n'avertir qu'une fois : pendant une génération, une panne de
+  /// disque ferait sinon apparaître le même message à chaque groupe de
+  /// fragments.
+  bool _failing = false;
+
+  /// Nombre d'écritures réellement lancées, pour les tests.
+  int writeCount = 0;
+
+  /// Note un changement sans importance immédiate : l'écriture part au plus
+  /// une fois par [interval].
+  void schedule() {
+    if (_disposed) {
+      return;
+    }
+    _dirty = true;
+    _timer ??= Timer(interval, _writeIfNeeded);
+  }
+
+  /// Écrit l'état courant sans attendre.
+  ///
+  /// À utiliser pour tout ce qui doit être conservé même si l'application
+  /// s'arrête juste après : fin de génération, arrêt, erreur, navigation,
+  /// renommage, suppression. L'appel écrit même sans planification en
+  /// attente, sinon un changement ponctuel comme un renommage ne partirait
+  /// jamais.
+  void flush() {
+    _dirty = true;
+    _writeIfNeeded();
+  }
+
+  void _writeIfNeeded() {
+    _timer?.cancel();
+    _timer = null;
+    if (!_dirty || _disposed) {
+      return;
+    }
+    _dirty = false;
+    writeCount++;
+    unawaited(
+      _save(_snapshot()).then(
+        (_) => _failing = false,
+        onError: (Object error) {
+          if (_failing) {
+            return;
+          }
+          _failing = true;
+          _onError?.call(error);
+        },
+      ),
+    );
+  }
+
+  /// Écrit ce qui reste en attente, puis n'accepte plus rien.
+  void dispose() {
+    _writeIfNeeded();
+    _disposed = true;
+    _timer?.cancel();
+    _timer = null;
   }
 }
 

@@ -73,6 +73,14 @@ flutter build apk --release
 `llama.cpp` (b10903) est compilé et lié statiquement par le build hook du
 package natif : rien à installer de plus que le SDK Flutter et le NDK Android.
 
+La boucle de décodage native confie au batch un pointeur vers le jeton
+échantillonné, que `llama_decode` relit au tour suivant. Ni la compilation ni
+une génération sans modèle ne couvrent ce scénario :
+`packages/foxllm_native/tool/asan/run.sh` compile llama.cpp et le moteur sous
+AddressSanitizer, fabrique un GGUF de test et génère réellement des tokens. Une
+dizaine de minutes, hors intégration continue, à lancer après toute retouche de
+cette boucle.
+
 ```text
 lib/
 ├── main.dart         amorçage et widget racine
