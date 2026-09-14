@@ -118,6 +118,13 @@ de tests passe de 216 à 332 cas.
 
 ### Corrections
 
+- **threads du moteur local** : `llama_context_default_params` en pose quatre
+  quel que soit l'appareil, et llama.cpp note lui-même « TODO: better default »
+  à cet endroit. Le compte tombait juste par hasard sur un téléphone à huit
+  cœurs, mais il sursouscrivait un appareil à deux cœurs et n'utilisait qu'un
+  tiers d'une tablette à douze. La règle appliquée est celle de llama.cpp pour
+  ARM et Android : tous les cœurs jusqu'à quatre, la moitié au delà. Rien ne
+  change sur un téléphone à huit cœurs, qui reste à quatre ;
 - **datation des conversations dans le menu latéral** : passé minuit, une
   conversation de la veille se retrouvait sous un intitulé annonçant « 7
   jours ». Le classement était juste, mais il n'y avait que trois tranches et

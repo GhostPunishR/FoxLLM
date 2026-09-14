@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <memory>
 #include <mutex>
+#include <thread>
 #include <vector>
 #endif
 
@@ -76,6 +77,26 @@ std::string chatml_prompt(
 }
 
 #ifdef FOXLLM_WITH_LLAMA_CPP
+
+// Nombre de threads de calcul, faute de valeur par défaut utilisable.
+//
+// `llama_context_default_params` en pose quatre quel que soit l'appareil, et
+// llama.cpp note lui-même « TODO: better default » à cet endroit. Sur un
+// téléphone à huit cœurs le compte tombe juste par hasard, mais il
+// sursouscrit un appareil à deux cœurs et n'utilise qu'un tiers d'une tablette
+// à douze.
+//
+// La règle appliquée ici est celle que llama.cpp retient pour ARM et Android :
+// tous les cœurs jusqu'à quatre, la moitié au delà. Les cœurs lents d'un SoC
+// mobile ne l'accélèrent pas, car ggml répartit chaque couche en parts égales
+// et attend la plus lente.
+int32_t math_thread_count() {
+    const unsigned int cores = std::thread::hardware_concurrency();
+    if (cores == 0) {
+        return 4;
+    }
+    return static_cast<int32_t>(cores <= 4 ? cores : cores / 2);
+}
 
 std::once_flag backend_once;
 
@@ -203,6 +224,16 @@ bool generate_internal(
     context_params.n_ctx = static_cast<uint32_t>(required_tokens + predict_tokens);
     context_params.n_batch = static_cast<uint32_t>(required_tokens);
     context_params.no_perf = true;
+
+    // La lecture du prompt et l'écriture de la réponse ne sollicitent pas la
+    // machine de la même façon : la première est du calcul matriciel qui
+    // profite des cœurs, la seconde relit tous les poids par jeton et bute sur
+    // la bande passante mémoire. llama.cpp leur donne néanmoins le même compte
+    // sur mobile, faute qu'ajouter des threads au décodage y gagne quoi que ce
+    // soit.
+    const int32_t threads = math_thread_count();
+    context_params.n_threads = threads;
+    context_params.n_threads_batch = threads;
 
     std::unique_ptr<llama_context, decltype(&llama_free)> context(
         llama_init_from_model(instance->model, context_params),
