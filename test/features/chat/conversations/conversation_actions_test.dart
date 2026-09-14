@@ -31,8 +31,16 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Renommer'));
     await tester.pumpAndSettle();
 
-    // Seul le titre change : le message d'origine reste dans le fil.
-    expect(find.text('Recette de tarte'), findsOneWidget);
+    // Seul le titre change : le message d'origine reste dans le fil. Le
+    // nouveau nom se lit en haut de l'écran comme dans le menu latéral.
+    expect(find.text('Recette de tarte'), findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('chat-content')),
+        matching: find.text('Ma question'),
+      ),
+      findsOneWidget,
+    );
     expect(store.lastSaved.single.title, 'Recette de tarte');
     expect(store.lastSaved.single.messages.first.content, 'Ma question');
     expect(tester.takeException(), isNull);

@@ -176,7 +176,7 @@ void main() {
       await _send(tester, 'Ma question');
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.text('Ma question'));
+      await tester.longPress(_inThread('Ma question'));
       await tester.pumpAndSettle();
 
       expect(find.text('Copier'), findsOneWidget);
@@ -198,7 +198,7 @@ void main() {
       expect(find.text('Première réponse'), findsOneWidget);
 
       backend.chunks = <String>['Deuxième réponse'];
-      await tester.longPress(find.text('Question initiale'));
+      await tester.longPress(_inThread('Question initiale'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Modifier le message'));
       await tester.pumpAndSettle();
@@ -207,9 +207,11 @@ void main() {
       await tester.tap(find.text('Envoyer'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Question initiale'), findsNothing);
+      // Le titre du fil garde le message d'origine : il se renomme à la
+      // main, et le réécrire ici effacerait un nom choisi.
+      expect(_inThread('Question initiale'), findsNothing);
       expect(find.text('Première réponse'), findsNothing);
-      expect(find.text('Question corrigée'), findsOneWidget);
+      expect(_inThread('Question corrigée'), findsOneWidget);
       expect(find.text('Deuxième réponse'), findsOneWidget);
       expect(backend.calls.last.last.content, 'Question corrigée');
     });
@@ -227,7 +229,7 @@ void main() {
       await tester.enterText(find.byType(TextField).last, 'Brouillon en cours');
       await tester.pump();
 
-      await tester.longPress(find.text('Question'));
+      await tester.longPress(_inThread('Question'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Modifier le message'));
       await tester.pumpAndSettle();
@@ -253,7 +255,7 @@ void main() {
       await _send(tester, 'Question');
       await tester.pumpAndSettle();
 
-      await tester.longPress(find.text('Question'));
+      await tester.longPress(_inThread('Question'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Modifier le message'));
       await tester.pumpAndSettle();
@@ -262,7 +264,7 @@ void main() {
       await tester.tap(find.text('Annuler'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Question'), findsOneWidget);
+      expect(_inThread('Question'), findsOneWidget);
       expect(find.text('Réponse'), findsOneWidget);
       expect(backend.calls, hasLength(1));
     });
@@ -378,3 +380,10 @@ class _ScriptedBackend implements LocalLlmBackend {
   @override
   Future<void> dispose() async {}
 }
+
+/// Le texte tel qu'il apparaît dans le fil, et non le titre repris en haut de
+/// l'écran : la barre du haut reprend le premier message de la conversation.
+Finder _inThread(String text) => find.descendant(
+  of: find.byKey(const ValueKey<String>('chat-content')),
+  matching: find.text(text),
+);

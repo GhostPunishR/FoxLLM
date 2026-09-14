@@ -820,6 +820,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     _activeConversationId = conversation.id;
   }
 
+  /// Titre de la barre du haut : celui du fil ouvert, sinon le nom de l'app.
+  ///
+  /// Le fil n'existe qu'à partir du premier message : avant, il n'y a aucun
+  /// titre à donner, et inventer un « Nouvelle conversation » n'apprendrait
+  /// rien de plus que l'écran déjà vide.
+  String get _topBarTitle {
+    final id = _activeConversationId;
+    final conversation = id == null ? null : _conversationById(id);
+    return conversation?.title ?? 'FoxLLM';
+  }
+
   String _conversationTitle(String value) {
     final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (normalized.length <= 42) {
@@ -1147,6 +1158,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Barre opaque : le fil de messages s'arrête dessous au lieu de
           // défiler derrière les deux boutons, où le texte devenait illisible.
           _ChatTopBar(
+            title: _topBarTitle,
             onMenu: () => _scaffoldKey.currentState?.openDrawer(),
             onNewChat: () => unawaited(_newChat()),
           ),

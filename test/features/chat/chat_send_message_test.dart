@@ -41,7 +41,7 @@ void main() {
     await _send(tester, 'Bonjour');
     await tester.pumpAndSettle();
 
-    expect(find.text('Bonjour'), findsOneWidget);
+    expect(_inThread('Bonjour'), findsOneWidget);
     expect(find.text('Salut toi !'), findsOneWidget);
     // Le backend reçoit l'historique, pas seulement le dernier message brut.
     expect(backend.generateCalls.single.map((m) => m.content), <String>[
@@ -115,7 +115,7 @@ void main() {
 
     expect(find.textContaining('Génération impossible'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('Bonjour'), findsOneWidget);
+    expect(_inThread('Bonjour'), findsOneWidget);
     expect(find.byTooltip('Arrêter'), findsNothing);
   });
 
@@ -128,7 +128,7 @@ void main() {
     await _send(tester, 'Bonjour');
     await tester.pumpAndSettle();
 
-    expect(find.text('Bonjour'), findsOneWidget);
+    expect(_inThread('Bonjour'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -323,3 +323,10 @@ class _FakeChatBackend implements LocalLlmBackend {
   @override
   Future<void> dispose() async {}
 }
+
+/// Le texte tel qu'il apparaît dans le fil, et non le titre repris en haut de
+/// l'écran : la barre du haut reprend le premier message de la conversation.
+Finder _inThread(String text) => find.descendant(
+  of: find.byKey(const ValueKey<String>('chat-content')),
+  matching: find.text(text),
+);

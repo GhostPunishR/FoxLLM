@@ -342,7 +342,7 @@ void main() {
 
       // Le fil montre le fichier, pas son contenu.
       expect(find.text('rapport.txt'), findsOneWidget);
-      expect(find.text('Résume ceci'), findsOneWidget);
+      expect(_inThread('Résume ceci'), findsOneWidget);
       expect(find.textContaining('contenu du fichier'), findsNothing);
 
       // Le modèle, lui, reçoit bien le contenu.
@@ -559,3 +559,10 @@ class _IdleBackend implements LocalLlmBackend {
   @override
   Future<void> dispose() async {}
 }
+
+/// Le texte tel qu'il apparaît dans le fil, et non le titre repris en haut de
+/// l'écran : la barre du haut reprend le premier message de la conversation.
+Finder _inThread(String text) => find.descendant(
+  of: find.byKey(const ValueKey<String>('chat-content')),
+  matching: find.text(text),
+);
