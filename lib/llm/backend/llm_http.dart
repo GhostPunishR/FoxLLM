@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 
@@ -62,6 +63,23 @@ abstract class HttpStreamingBackend implements LlmBackend {
   /// Fragments de texte portés par un évènement SSE décodé.
   Iterable<String> extractDeltas(Map<String, dynamic> event);
 
+  /// Sources citées par un évènement SSE décodé.
+  ///
+  /// Vide par défaut : seuls les fournisseurs dotés d'un outil de recherche
+  /// en produisent, et leur format diffère autant que celui du texte.
+  Iterable<Citation> extractCitations(Map<String, dynamic> event) =>
+      const <Citation>[];
+
+  /// Sources relevées pendant la dernière génération, sans doublon et dans
+  /// leur ordre d'apparition.
+  ///
+  /// Le contrat des moteurs ne transporte que du texte. Plutôt que d'y mêler
+  /// un second type d'évènement, ce qui toucherait chaque moteur et chaque
+  /// appelant, les citations sont relevées de côté et lues à la fin.
+  List<Citation> get citations => List<Citation>.unmodifiable(_citations);
+
+  final List<Citation> _citations = <Citation>[];
+
   /// Message d'erreur quand aucune clé API n'est configurée.
   String get missingApiKeyMessage =>
       'Aucune clé API configurée pour $displayName.';
@@ -77,6 +95,8 @@ abstract class HttpStreamingBackend implements LlmBackend {
 
     final generation = _HttpGeneration();
     _activeGenerations.add(generation);
+    // Les sources appartiennent à la réponse en cours, pas à la précédente.
+    _citations.clear();
 
     try {
       try {
@@ -133,6 +153,9 @@ abstract class HttpStreamingBackend implements LlmBackend {
             continue;
           }
 
+          for (final citation in extractCitations(decoded)) {
+            addCitation(_citations, citation);
+          }
           yield* Stream<String>.fromIterable(extractDeltas(decoded));
         }
       } catch (_) {

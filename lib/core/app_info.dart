@@ -8,7 +8,7 @@
 library;
 
 /// Version de l'application, tenue en phase avec `pubspec.yaml` par un test.
-const foxLlmVersion = '0.1.2';
+const foxLlmVersion = '0.1.3';
 
 /// Titulaire des droits, affiché dans « À propos » et porté par chaque fichier
 /// source sous forme d'identifiant SPDX.

@@ -14,6 +14,85 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
 void main() {
+  testWidgets('le titre suit le fil ouvert', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          localLlmBackendProvider.overrideWithValue(_ShortAnswerBackend()),
+          conversationStoreProvider.overrideWithValue(_EmptyStore()),
+        ],
+        child: const MaterialApp(home: ChatScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Tant qu'aucun fil n'existe, il n'y a pas de titre à donner.
+    expect(_topBarTitle(tester), 'FoxLLM');
+
+    await tester.enterText(
+      find.byType(TextField),
+      'Comment planter un cerisier',
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Envoyer'));
+    await tester.pumpAndSettle();
+
+    expect(_topBarTitle(tester), 'Comment planter un cerisier');
+
+    // Un nouveau fil repart sans titre.
+    await tester.tap(find.byTooltip('Nouveau chat'));
+    await tester.pumpAndSettle();
+
+    expect(_topBarTitle(tester), 'FoxLLM');
+  });
+
+  testWidgets('un titre trop long est coupé, pas replié', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          localLlmBackendProvider.overrideWithValue(_ShortAnswerBackend()),
+          conversationStoreProvider.overrideWithValue(_EmptyStore()),
+        ],
+        child: const MaterialApp(home: ChatScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byType(TextField),
+      'Explique-moi pourquoi le ciel est bleu et la mer aussi, en détail',
+    );
+    await tester.pump();
+    await tester.tap(find.byTooltip('Envoyer'));
+    await tester.pumpAndSettle();
+
+    final title = _topBarText(tester);
+    expect(title.maxLines, 1);
+    expect(title.overflow, TextOverflow.ellipsis);
+    // Le titre tient entre les deux boutons, sans passer dessous.
+    final titleRect = tester.getRect(find.text(title.data!));
+    expect(
+      titleRect.left,
+      greaterThan(tester.getRect(find.byTooltip('Menu')).right),
+    );
+    expect(
+      titleRect.right,
+      lessThan(tester.getRect(find.byTooltip('Nouveau chat')).left),
+    );
+
+    // La barre du haut garde sa hauteur : le titre ne la fait pas grandir.
+    final menu = tester.getRect(find.byTooltip('Menu'));
+    final newChat = tester.getRect(find.byTooltip('Nouveau chat'));
+    expect(menu.top, newChat.top);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('le fil de messages ne passe jamais sous les boutons du haut', (
     tester,
   ) async {
@@ -65,6 +144,24 @@ void main() {
   });
 }
 
+/// Le texte de la barre du haut : le seul qui soit à hauteur des deux boutons.
+Text _topBarText(WidgetTester tester) {
+  final menu = tester.getRect(find.byTooltip('Menu'));
+  for (final element in find.byType(Text).evaluate()) {
+    final box = element.renderObject;
+    if (box is! RenderBox || !box.hasSize) {
+      continue;
+    }
+    final center = box.localToGlobal(box.size.center(Offset.zero));
+    if (center.dy >= menu.top && center.dy <= menu.bottom) {
+      return element.widget as Text;
+    }
+  }
+  fail('Aucun titre dans la barre du haut.');
+}
+
+String _topBarTitle(WidgetTester tester) => _topBarText(tester).data!;
+
 class _EmptyStore implements ConversationStore {
   @override
   Future<List<ChatConversation>> load() async => <ChatConversation>[];
@@ -74,6 +171,47 @@ class _EmptyStore implements ConversationStore {
 
   @override
   Future<void> clear() async {}
+}
+
+class _ShortAnswerBackend implements LocalLlmBackend {
+  @override
+  String get id => 'short';
+
+  @override
+  String get displayName => 'Backend de test';
+
+  @override
+  String? get loadedModelPath => '/models/test.gguf';
+
+  @override
+  Future<String> get nativeVersion async => 'short/0.0.0';
+
+  @override
+  Future<bool> get isModelLoaded async => true;
+
+  @override
+  Future<FoxLlmModelInfo?> get modelInfo async => null;
+
+  @override
+  Future<FoxLlmGenerationStats?> get lastGenerationStats async => null;
+
+  @override
+  Future<void> loadModel(String path) async {}
+
+  @override
+  Future<void> unloadModel() async {}
+
+  @override
+  Stream<String> generate({
+    required List<ChatMessage> messages,
+    GenerationSettings settings = const GenerationSettings(),
+  }) => Stream<String>.value('ok');
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> dispose() async {}
 }
 
 class _LongAnswerBackend implements LocalLlmBackend {

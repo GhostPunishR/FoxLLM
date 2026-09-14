@@ -7,9 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
 import 'package:foxllm/llm/backend/llm_backend.dart';
+import 'package:foxllm/llm/backend/llm_http.dart';
 import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
@@ -60,6 +62,17 @@ class PersonalApiChatBackend implements LocalLlmBackend {
   /// intégré ; les fournisseurs qui se contentent d'imiter
   /// `chat/completions` n'en ont aucun.
   bool get supportsWebSearch => _settings.provider.supportsWebSearch;
+
+  /// Sources citées par la dernière réponse, quand le fournisseur en donne.
+  ///
+  /// Vide pour un moteur qui ne consulte pas le web : il n'y a alors rien à
+  /// afficher, et surtout rien à laisser croire.
+  List<Citation> get citations {
+    final remote = _remoteBackend;
+    return remote is HttpStreamingBackend
+        ? remote.citations
+        : const <Citation>[];
+  }
 
   @override
   String? get loadedModelPath =>

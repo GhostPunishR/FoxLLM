@@ -33,10 +33,33 @@ class _FoxDrawer extends StatefulWidget {
 class _FoxDrawerState extends State<_FoxDrawer> {
   final _searchController = TextEditingController();
 
+  /// Réveil au prochain minuit, quand les tranches changent de sens.
+  ///
+  /// Sans lui, une application laissée ouverte la nuit continue de classer
+  /// d'après la veille : le fil d'hier soir reste sous « Aujourd'hui » jusqu'à
+  /// ce qu'autre chose provoque une reconstruction.
+  Timer? _midnight;
+
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _scheduleMidnight();
+  }
+
+  void _scheduleMidnight() {
+    _midnight?.cancel();
+    final now = DateTime.now();
+    // Une seconde de marge : un réveil pile à minuit peut se produire une
+    // fraction de seconde trop tôt et relire la date de la veille.
+    final delay =
+        nextMidnight(now).difference(now) + const Duration(seconds: 1);
+    _midnight = Timer(delay, () {
+      if (!mounted) {
+        return;
+      }
+      setState(_scheduleMidnight);
+    });
   }
 
   void _onSearchChanged() {
@@ -47,6 +70,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 
   @override
   void dispose() {
+    _midnight?.cancel();
     _searchController
       ..removeListener(_onSearchChanged)
       ..dispose();
@@ -70,19 +94,19 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     final fox = context.fox;
     final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
     final conversations = _filteredConversations;
-    final today = <ChatConversation>[];
-    final lastWeek = <ChatConversation>[];
-    final older = <ChatConversation>[];
 
+    // Un seul relevé de l'heure pour toute la construction : deux appels
+    // encadrant minuit rangeraient deux conversations de la même minute dans
+    // deux tranches différentes.
+    final now = DateTime.now();
+    final grouped = <ConversationAge, List<ChatConversation>>{};
     for (final conversation in conversations) {
-      final age = _dayDifference(conversation.updatedAt, DateTime.now());
-      if (age <= 0) {
-        today.add(conversation);
-      } else if (age <= 7) {
-        lastWeek.add(conversation);
-      } else {
-        older.add(conversation);
-      }
+      grouped
+          .putIfAbsent(
+            conversationAge(conversation.updatedAt, now),
+            () => <ChatConversation>[],
+          )
+          .add(conversation);
     }
 
     return Drawer(
@@ -127,8 +151,13 @@ class _FoxDrawerState extends State<_FoxDrawer> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
                 children: <Widget>[
+                  // En-tête fixe : il porte le bouton « + », donc il reste
+                  // quoi qu'il arrive. Les tranches de dates, elles, ne
+                  // s'affichent que si elles contiennent quelque chose : un
+                  // « Aujourd'hui » vide au-dessus des conversations d'hier
+                  // laissait croire qu'elles dataient d'aujourd'hui.
                   _DrawerSectionHeader(
-                    label: 'Aujourd’hui',
+                    label: 'Chats',
                     trailing: IconButton(
                       tooltip: 'Nouveau chat',
                       visualDensity: VisualDensity.compact,
@@ -140,7 +169,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                       ),
                     ),
                   ),
-                  if (today.isEmpty && lastWeek.isEmpty && older.isEmpty)
+                  if (grouped.isEmpty)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
                       child: Text(
@@ -150,19 +179,14 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                           fontSize: 16,
                         ),
                       ),
-                    )
-                  else
-                    ...today.map(_conversationTile),
-                  if (lastWeek.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    const _DrawerSectionHeader(label: '7 jours'),
-                    ...lastWeek.map(_conversationTile),
-                  ],
-                  if (older.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 14),
-                    const _DrawerSectionHeader(label: 'Plus tôt'),
-                    ...older.map(_conversationTile),
-                  ],
+                    ),
+                  for (final age in ConversationAge.values)
+                    if (grouped[age] case final section?) ...<Widget>[
+                      const SizedBox(height: 6),
+                      _DrawerSectionHeader(label: age.label),
+                      for (final conversation in section)
+                        _conversationTile(conversation, now),
+                    ],
                 ],
               ),
             ),
@@ -215,7 +239,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     );
   }
 
-  Widget _conversationTile(ChatConversation conversation) {
+  Widget _conversationTile(ChatConversation conversation, DateTime now) {
     final fox = context.fox;
     final selected = conversation.id == widget.activeConversationId;
     return Padding(
@@ -242,6 +266,12 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                // La date exacte, pour que la tranche n'ait pas à tout dire.
+                Text(
+                  conversationStamp(conversation.updatedAt, now),
+                  style: TextStyle(color: fox.textTertiary, fontSize: 13),
                 ),
                 IconButton(
                   tooltip: 'Actions de la conversation',
@@ -347,12 +377,6 @@ class _FoxDrawerState extends State<_FoxDrawer> {
     if (confirmed ?? false) {
       widget.onConversationDeleted(conversation.id);
     }
-  }
-
-  int _dayDifference(DateTime from, DateTime to) {
-    final fromDay = DateTime(from.year, from.month, from.day);
-    final toDay = DateTime(to.year, to.month, to.day);
-    return toDay.difference(fromDay).inDays;
   }
 }
 

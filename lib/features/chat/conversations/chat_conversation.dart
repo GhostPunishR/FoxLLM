@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'package:foxllm/llm/model/chat_attachment.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 
 /// Conversation affichée dans le menu latéral et rechargeable après fermeture.
@@ -33,6 +34,12 @@ class ChatConversation {
               'attachments': message.attachments
                   .map((attachment) => attachment.toJson())
                   .toList(growable: false),
+            if (message.citations.isNotEmpty)
+              'citations': message.citations
+                  .map((citation) => citation.toJson())
+                  .toList(growable: false),
+            if (message.rating != MessageRating.none)
+              'rating': message.rating.name,
           },
         )
         .toList(growable: false),
@@ -86,11 +93,28 @@ class ChatConversation {
         }
       }
 
+      final citations = <Citation>[];
+      final rawCitations = rawMessage['citations'];
+      if (rawCitations is List) {
+        for (final rawCitation in rawCitations) {
+          final citation = Citation.fromJson(rawCitation);
+          if (citation != null) {
+            citations.add(citation);
+          }
+        }
+      }
+
+      final rating = MessageRating.values.where(
+        (value) => value.name == rawMessage['rating'],
+      );
+
       messages.add(
         ChatMessage(
           role: role.first,
           content: content,
           attachments: attachments,
+          citations: citations,
+          rating: rating.isEmpty ? MessageRating.none : rating.first,
         ),
       );
     }

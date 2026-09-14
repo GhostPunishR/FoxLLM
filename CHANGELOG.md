@@ -2,104 +2,42 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
-## [Non publié]
+## [0.1.3] - 2026-09-14
 
-### Corrections
-
-- **accumulation de sauvegardes sur stockage lent** : le regroupement espaçait
-  les écritures mais chaque déclenchement partait sans attendre le précédent.
-  Le magasin sérialisait bien les écritures physiques, mais les instantanés
-  s'empilaient dans sa file : quatre demandes pendant une écriture lente
-  produisaient quatre copies de tout l'historique. Le regroupeur ne tient plus
-  qu'une écriture à la fois ; ce qui change pendant celle-ci marque l'état sans
-  prendre d'instantané, et repart groupé à son retour, avec l'état d'alors. Une
-  demande explicite pendant une écriture n'est pas perdue, et les simples
-  fragments gardent leur cadence au lieu d'enchaîner les écritures ;
-- **`ref` lu après destruction de l'écran** : quand une copie de pièce jointe
-  aboutissait après la fermeture de l'écran, le nettoyage passait encore par
-  `ref`, qui lève une exception une fois le widget démonté. Le fichier restait
-  alors sur l'appareil sans que rien n'y renvoie. Le magasin et le sélecteur
-  sont saisis avant la première attente, tant que `ref` est lisible. Les deux
-  branches d'erreur de la sélection et de l'enregistrement étaient exposées de
-  la même façon : `_showSnack` abandonne désormais le message quand l'écran a
-  disparu, au lieu d'empiler une exception par-dessus l'erreur d'origine.
-
-### Corrections
-
-- **moteur natif** : la boucle de décodage confiait au batch un pointeur vers
-  un jeton déclaré dans le corps de la boucle. `llama_batch_get_one` ne copie
-  pas : `llama_decode` relisait donc au tour suivant une variable sortie de sa
-  portée. Le jeton vit désormais hors de la boucle. Reproduit puis vérifié
-  avec AddressSanitizer, llama.cpp b10903 compilé instrumenté et une vraie
-  génération de vingt-quatre jetons sur un GGUF de test ;
-- **clé API** : une clé enregistrée n'est plus réutilisée quand l'adresse du
-  serveur change. Le fournisseur « Personnalisé » garde le même identifiant
-  d'une base URL à l'autre, si bien que la clé du serveur précédent pouvait
-  partir vers le nouveau, y compris à la récupération des modèles, avant tout
-  enregistrement. La réutilisation dépend maintenant du fournisseur **et** du
-  destinataire, c'est-à-dire schéma, hôte, port effectif et chemin. Une
-  réécriture équivalente de l'URL ne change rien ; changer d'hôte, de port, de
-  schéma ou de chemin impose de ressaisir la clé, parce qu'une passerelle peut
-  router chaque préfixe vers un fournisseur différent. Les installations
-  existantes conservent la leur ;
-- **envoi pendant le chargement d'un modèle** : l'identité de l'envoi est prise
-  avant la première attente et vérifiée après chacune. Ouvrir un autre fil ou
-  en créer un pendant l'ouverture du GGUF faisait repartir l'ancien texte avec
-  le nouvel historique ; l'envoi devenu obsolète est abandonné sans toucher au
-  brouillon du fil courant ;
-- **pièces jointes** : elles suivent le brouillon. Changer de conversation
-  effaçait le texte mais gardait les pièces jointes, qui accompagnaient alors
-  un message d'un autre fil. Les copies devenues inutiles sont effacées, jamais
-  celles d'un message enregistré, et une sélection de fichier qui aboutit après
-  le changement de fil ne s'y invite plus ;
-- **enregistrement de l'historique** : les échecs d'écriture ne sont plus
-  avalés. `save()` remonte l'erreur de son écriture à l'appelant, la file
-  continue de servir les suivantes, et l'utilisateur est averti une fois par
-  panne plutôt qu'à chaque fragment.
-
-### Performances
-
-- l'historique n'est plus réécrit intégralement à chaque fragment reçu. Les
-  enregistrements intermédiaires sont regroupés, au plus un toutes les deux
-  secondes, et l'état est relu au moment d'écrire plutôt que figé à la
-  planification : une écriture différée ne peut donc pas ressusciter une
-  conversation supprimée entre-temps. Fin de génération, arrêt, erreur,
-  navigation, renommage, suppression et fermeture de l'écran écrivent tous
-  sans attendre.
-
-### Tests
-
-- 235 à 266 cas. Origine des clés API et migration des réglages, regroupement
-  des écritures et propagation des échecs, envoi annulé par un changement de
-  fil, pièces jointes liées au brouillon. Les tests d'écran ont été vérifiés
-  contre le code d'origine : ils échouent bien là où le correctif manque ;
-- `packages/foxllm_native/tool/asan/run.sh` rejoue la vérification native :
-  llama.cpp et le moteur compilés sous AddressSanitizer, un GGUF de test
-  fabriqué sur place, et une génération réelle. Hors intégration continue, la
-  compilation instrumentée durant une dizaine de minutes.
-
-### Corrections
-
-- le modèle local ne tient plus les deux rôles de la conversation. Le prompt
-  était assemblé à la main dans un format `<|rôle|>` qui n'appartient à aucun
-  modèle : faute de reconnaître la fin de son tour, le modèle enchaînait en
-  écrivant la réplique de l'utilisateur, puis la suivante, jusqu'à la limite de
-  jetons, balises comprises. Le prompt est désormais construit avec le gabarit
-  de conversation inscrit dans le GGUF, celui-là même pour lequel le modèle a
-  été entraîné : il termine sur son jeton de fin, et `llama.cpp` arrête la
-  boucle ;
-- un filet de sécurité coupe malgré tout la réponse au premier marqueur de fin
-  de tour, pour les GGUF dont le gabarit est inexact ou qui écrivent leurs
-  balises en texte ordinaire plutôt qu'en jetons spéciaux. Douze marqueurs des
-  familles ChatML, Llama 3, Phi et Mistral sont reconnus, y compris arrivés en
-  plusieurs morceaux, sans retarder l'affichage du texte ordinaire ;
-- l'ABI native passe en 0.4.0 avec l'export `foxllm_engine_apply_chat_template`,
-  dont la CI Android vérifie la présence dans la bibliothèque livrée. Un GGUF
-  sans gabarit, ou avec un gabarit que `llama.cpp` ne sait pas appliquer, se
-  replie sur ChatML plutôt que d'échouer.
+Le fil de discussion devient utilisable au quotidien : chaque réponse porte sa
+barre d'actions et ses sources, un message envoyé se modifie, la barre du haut
+annonce le fil ouvert, le composeur ne fait plus surgir de bouton sous le doigt,
+et le menu latéral date enfin les conversations pour ce qu'elles sont. La suite
+de tests passe de 216 à 332 cas.
 
 ### Ajouts
 
+- **titre du fil dans la barre du haut** : le fil ouvert est nommé sans avoir
+  à ouvrir le menu latéral. Tant qu'aucun message n'a été envoyé, la barre
+  affiche le nom de l'application : il n'y a pas encore de fil à nommer ;
+- **barre d'actions sous chaque réponse terminée** : copier, noter, lire à voix
+  haute, partager, et un menu pour régénérer la réponse ou en sélectionner le
+  texte. Elle n'apparaît qu'une fois la réponse complète : pendant la
+  génération, il n'y a rien de complet à copier, à lire ni à partager ;
+- **sources citées, affichées à droite de cette barre**. Quand le mode
+  Recherche est actif, OpenAI et Gemini indiquent les pages consultées :
+  l'API Responses au fil du texte, Gemini dans ses métadonnées d'ancrage. Les
+  deux formats sont relevés, dédoublonnés dans leur ordre d'apparition, et
+  conservés avec la conversation. Un moteur local ou un fournisseur sans outil
+  de recherche n'affiche rien, faute d'avoir quoi que ce soit à citer ;
+- **modification d'un message envoyé** : un appui long ouvre Copier,
+  Sélectionner le texte, Modifier le message et Partager. La modification se
+  fait sur place, à la ligne du message ; l'envoi remplace la suite du fil par
+  la nouvelle réponse. Le brouillon en cours d'écriture dans le composer reste
+  intact ;
+- la lecture à voix haute et le partage passent par les services d'Android
+  (`flutter_tts`, `share_plus`). Comme pour la dictée, FoxLLM ne transporte
+  aucun son et n'en conserve aucun ;
+- **mise en attente d'un message écrit pendant une réponse** : plutôt que de
+  refuser l'envoi ou d'interrompre ce qui s'écrit, le message prend la file et
+  part tout seul dès la réponse terminée. Plusieurs messages partent dans leur
+  ordre. Quitter le fil abandonne sa file : les messages en attente
+  appartiennent à la conversation où ils ont été écrits ;
 - site public dans `docs/`, prêt à être publié par GitHub Pages : page
   d'accueil, conditions d'utilisation et politique de confidentialité. Le site
   reprend la palette de l'application et suit lui aussi le thème du visiteur,
@@ -114,10 +52,21 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 - un test vérifie que `conditions.html` et `confidentialite.html` reprennent mot
   pour mot les textes de `legal_documents.dart`, que les liens internes du site
   pointent vers des fichiers existants, et que la version annoncée est celle de
-  l'application. La suite passe de 216 à 222 cas.
+  l'application.
 
 ### Modifications
 
+- **le composeur garde deux boutons en toute circonstance.** Le bouton de
+  droite prend le rôle du moment plutôt que d'en faire apparaître un
+  troisième : micro au repos, envoi dès qu'on écrit, arrêt pendant une
+  réponse, mise en attente si on écrit pendant une réponse. Un bouton
+  surgissant à la première frappe déplaçait les deux autres sous le doigt,
+  juste avant qu'on les vise. La dictée garde son bouton jusqu'au
+  relâchement : la parole remplit le champ, et laisser le brouillon l'emporter
+  aurait fait disparaître le bouton qui attend le relâchement, micro ouvert ;
+- **texte du champ de saisie** : « Demander à FoxLLM » au repos, « Mettre un
+  message en attente… » pendant une réponse, « Parle, je t'écoute… » pendant
+  la dictée ;
 - `chat_screen.dart` passait deux mille lignes : le widget d'écran, la barre du
   haut, le fil des messages, la zone de saisie et le menu latéral dans un seul
   fichier. Il est découpé en `chat_top_bar.dart`, `chat_messages.dart`,
@@ -166,6 +115,127 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   (`libfoxllm_native.so`) et ses symboles C, les classes, les clés de stockage
   et la documentation. Les noms bâtis sur le renard seul (palette, thèmes,
   logo) sont inchangés : seul le sigle devait partir.
+
+### Corrections
+
+- **datation des conversations dans le menu latéral** : passé minuit, une
+  conversation de la veille se retrouvait sous un intitulé annonçant « 7
+  jours ». Le classement était juste, mais il n'y avait que trois tranches et
+  celle du milieu ramassait tout ce qui n'était plus du jour, de la veille au
+  septième jour. Il y en a maintenant cinq, dont chacune dit ce qu'elle
+  couvre : Aujourd'hui, Hier, 7 derniers jours, 30 derniers jours, Plus tôt.
+  Une tranche vide ne s'affiche plus : un « Aujourd'hui » sans rien dessous,
+  posé au-dessus des fils d'hier, laissait croire qu'ils dataient du jour. Le
+  bouton « + » garde son en-tête, désormais intitulé « Chats », qui ne prétend
+  dater personne. Chaque ligne porte en outre sa date exacte : l'heure pour
+  aujourd'hui et hier, le jour et le mois dans l'année, et l'année au delà ;
+- les tranches se recalculent **au passage de minuit**. Une application laissée
+  ouverte la nuit continuait de classer d'après la veille jusqu'à ce qu'autre
+  chose provoque une reconstruction. Les jours se comptent de minuit à minuit
+  et non par tranches de vingt-quatre heures, et l'heure n'est relevée qu'une
+  fois par affichage : deux relevés encadrant minuit rangeaient deux
+  conversations de la même minute dans deux tranches différentes ;
+- **accumulation de sauvegardes sur stockage lent** : le regroupement espaçait
+  les écritures mais chaque déclenchement partait sans attendre le précédent.
+  Le magasin sérialisait bien les écritures physiques, mais les instantanés
+  s'empilaient dans sa file : quatre demandes pendant une écriture lente
+  produisaient quatre copies de tout l'historique. Le regroupeur ne tient plus
+  qu'une écriture à la fois ; ce qui change pendant celle-ci marque l'état sans
+  prendre d'instantané, et repart groupé à son retour, avec l'état d'alors. Une
+  demande explicite pendant une écriture n'est pas perdue, et les simples
+  fragments gardent leur cadence au lieu d'enchaîner les écritures ;
+- **`ref` lu après destruction de l'écran** : quand une copie de pièce jointe
+  aboutissait après la fermeture de l'écran, le nettoyage passait encore par
+  `ref`, qui lève une exception une fois le widget démonté. Le fichier restait
+  alors sur l'appareil sans que rien n'y renvoie. Le magasin et le sélecteur
+  sont saisis avant la première attente, tant que `ref` est lisible. Les deux
+  branches d'erreur de la sélection et de l'enregistrement étaient exposées de
+  la même façon : `_showSnack` abandonne désormais le message quand l'écran a
+  disparu, au lieu d'empiler une exception par-dessus l'erreur d'origine ;
+- **moteur natif** : la boucle de décodage confiait au batch un pointeur vers
+  un jeton déclaré dans le corps de la boucle. `llama_batch_get_one` ne copie
+  pas : `llama_decode` relisait donc au tour suivant une variable sortie de sa
+  portée. Le jeton vit désormais hors de la boucle. Reproduit puis vérifié
+  avec AddressSanitizer, llama.cpp b10903 compilé instrumenté et une vraie
+  génération de vingt-quatre jetons sur un GGUF de test ;
+- **clé API** : une clé enregistrée n'est plus réutilisée quand l'adresse du
+  serveur change. Le fournisseur « Personnalisé » garde le même identifiant
+  d'une base URL à l'autre, si bien que la clé du serveur précédent pouvait
+  partir vers le nouveau, y compris à la récupération des modèles, avant tout
+  enregistrement. La réutilisation dépend maintenant du fournisseur **et** du
+  destinataire, c'est-à-dire schéma, hôte, port effectif et chemin. Une
+  réécriture équivalente de l'URL ne change rien ; changer d'hôte, de port, de
+  schéma ou de chemin impose de ressaisir la clé, parce qu'une passerelle peut
+  router chaque préfixe vers un fournisseur différent. Les installations
+  existantes conservent la leur ;
+- **envoi pendant le chargement d'un modèle** : l'identité de l'envoi est prise
+  avant la première attente et vérifiée après chacune. Ouvrir un autre fil ou
+  en créer un pendant l'ouverture du GGUF faisait repartir l'ancien texte avec
+  le nouvel historique ; l'envoi devenu obsolète est abandonné sans toucher au
+  brouillon du fil courant ;
+- **pièces jointes** : elles suivent le brouillon. Changer de conversation
+  effaçait le texte mais gardait les pièces jointes, qui accompagnaient alors
+  un message d'un autre fil. Les copies devenues inutiles sont effacées, jamais
+  celles d'un message enregistré, et une sélection de fichier qui aboutit après
+  le changement de fil ne s'y invite plus ;
+- **enregistrement de l'historique** : les échecs d'écriture ne sont plus
+  avalés. `save()` remonte l'erreur de son écriture à l'appelant, la file
+  continue de servir les suivantes, et l'utilisateur est averti une fois par
+  panne plutôt qu'à chaque fragment ;
+- le modèle local ne tient plus les deux rôles de la conversation. Le prompt
+  était assemblé à la main dans un format `<|rôle|>` qui n'appartient à aucun
+  modèle : faute de reconnaître la fin de son tour, le modèle enchaînait en
+  écrivant la réplique de l'utilisateur, puis la suivante, jusqu'à la limite de
+  jetons, balises comprises. Le prompt est désormais construit avec le gabarit
+  de conversation inscrit dans le GGUF, celui-là même pour lequel le modèle a
+  été entraîné : il termine sur son jeton de fin, et `llama.cpp` arrête la
+  boucle ;
+- un filet de sécurité coupe malgré tout la réponse au premier marqueur de fin
+  de tour, pour les GGUF dont le gabarit est inexact ou qui écrivent leurs
+  balises en texte ordinaire plutôt qu'en jetons spéciaux. Douze marqueurs des
+  familles ChatML, Llama 3, Phi et Mistral sont reconnus, y compris arrivés en
+  plusieurs morceaux, sans retarder l'affichage du texte ordinaire ;
+- l'ABI native passe en 0.4.0 avec l'export `foxllm_engine_apply_chat_template`,
+  dont la CI Android vérifie la présence dans la bibliothèque livrée. Un GGUF
+  sans gabarit, ou avec un gabarit que `llama.cpp` ne sait pas appliquer, se
+  replie sur ChatML plutôt que d'échouer.
+
+### Performances
+
+- l'historique n'est plus réécrit intégralement à chaque fragment reçu. Les
+  enregistrements intermédiaires sont regroupés, au plus un toutes les deux
+  secondes, et l'état est relu au moment d'écrire plutôt que figé à la
+  planification : une écriture différée ne peut donc pas ressusciter une
+  conversation supprimée entre-temps. Fin de génération, arrêt, erreur,
+  navigation, renommage, suppression et fermeture de l'écran écrivent tous
+  sans attendre.
+
+### Tests
+
+- 216 à 332 cas sur l'ensemble de la version. Origine des clés API et migration
+  des réglages, regroupement des écritures et propagation des échecs, envoi
+  annulé par un changement de fil, pièces jointes liées au brouillon, barre
+  d'actions absente pendant la génération, lecture des trois formats de
+  citation, modification d'un message envoyé, rangée du composeur dans ses
+  quatre états, file d'attente, titre de la barre du haut, tranches de dates du
+  menu latéral et date portée par chaque conversation. Les tests d'écran
+  ont été vérifiés contre le code d'origine : ils échouent bien là où le
+  correctif manque ;
+- `packages/foxllm_native/tool/asan/run.sh` rejoue la vérification native :
+  llama.cpp et le moteur compilés sous AddressSanitizer, un GGUF de test
+  fabriqué sur place, et une génération réelle. Hors intégration continue, la
+  compilation instrumentée durant une dizaine de minutes.
+
+### Notes
+
+- le pouce haut et le pouce bas restent **sur l'appareil** : FoxLLM n'a pas de
+  serveur à qui transmettre un avis, et n'en aura pas. C'est un repère
+  personnel, conservé avec la conversation, pour retrouver une bonne réponse
+  dans un long fil ;
+- conséquence des deux boutons : la dictée ne démarre plus que sur un champ
+  vide, puisque le micro cède sa place à l'envoi dès qu'il y a du texte.
+  Compléter une phrase déjà écrite passe désormais par le micro du clavier
+  Android.
 
 ## [0.1.2] - 2026-09-13
 

@@ -16,18 +16,28 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
 void main() {
-  testWidgets('le micro reste offert, brouillon vide ou non', (tester) async {
+  testWidgets('le micro cède la place à Envoyer dès qu’on écrit', (
+    tester,
+  ) async {
     await _pumpChat(tester, _FakeDictation());
 
     expect(find.byTooltip('Maintenir pour dicter'), findsOneWidget);
     expect(find.byTooltip('Envoyer'), findsNothing);
 
-    // Dicter la fin d'une phrase déjà commencée doit rester possible.
     await tester.enterText(find.byType(TextField).first, 'Traduis');
     await tester.pump();
 
-    expect(find.byTooltip('Maintenir pour dicter'), findsOneWidget);
+    // Le micro et l'envoi se relaient au même endroit : à aucun moment le
+    // composeur ne porte plus de deux boutons.
     expect(find.byTooltip('Envoyer'), findsOneWidget);
+    expect(find.byTooltip('Maintenir pour dicter'), findsNothing);
+
+    // Effacer le brouillon rend le micro.
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.pump();
+
+    expect(find.byTooltip('Maintenir pour dicter'), findsOneWidget);
+    expect(find.byTooltip('Envoyer'), findsNothing);
   });
 
   testWidgets('un appui simple rappelle qu’il faut maintenir', (tester) async {
@@ -73,25 +83,31 @@ void main() {
     expect(find.byTooltip('Envoyer'), findsOneWidget);
   });
 
-  testWidgets('la parole s’ajoute au brouillon déjà saisi', (tester) async {
+  testWidgets('le bouton tient jusqu’au relâchement', (tester) async {
     final dictation = _FakeDictation();
     await _pumpChat(tester, dictation);
-
-    await tester.enterText(find.byType(TextField).first, 'Traduis');
-    await tester.pump();
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.byTooltip('Maintenir pour dicter')),
     );
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
-    dictation.emit('cette phrase');
+
+    // La parole remplit le champ. Si le brouillon l'emportait, le bouton
+    // deviendrait Envoyer sous le doigt et le relâchement ne serait jamais
+    // reçu : la dictée continuerait, micro ouvert, sans plus rien pour
+    // l'arrêter.
+    dictation.emit('Bonjour');
     await tester.pump();
+
+    expect(find.byTooltip('Dictée en cours'), findsOneWidget);
+    expect(find.byTooltip('Envoyer'), findsNothing);
+
     await gesture.up();
     await tester.pumpAndSettle();
 
-    final field = tester.widget<TextField>(find.byType(TextField).first);
-    expect(field.controller!.text, 'Traduis cette phrase');
+    expect(dictation.listening, isFalse);
+    expect(find.byTooltip('Envoyer'), findsOneWidget);
   });
 
   testWidgets('un micro refusé est expliqué', (tester) async {

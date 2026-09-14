@@ -7,9 +7,19 @@
 
 part of 'chat_screen.dart';
 
-/// En-tête du chat : menu latéral et nouveau chat, sur le fond du thème.
+/// En-tête du chat : titre du fil, menu latéral et nouveau chat.
 class _ChatTopBar extends StatelessWidget {
-  const _ChatTopBar({required this.onMenu, required this.onNewChat});
+  const _ChatTopBar({
+    required this.title,
+    required this.onMenu,
+    required this.onNewChat,
+  });
+
+  /// Titre du fil ouvert, ou le nom de l'application tant qu'il n'y en a pas.
+  ///
+  /// Un long fil se lit sans savoir lequel on lit : le menu latéral porte le
+  /// titre, mais il faut l'ouvrir pour le voir.
+  final String title;
 
   final VoidCallback onMenu;
   final VoidCallback onNewChat;
@@ -30,7 +40,24 @@ class _ChatTopBar extends StatelessWidget {
                 onPressed: onMenu,
                 child: const _MenuGlyph(),
               ),
-              const Spacer(),
+              // Les deux boutons ont la même largeur : le titre reste donc
+              // centré sur l'écran, et non entre eux par accident.
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: context.fox.textPrimary,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
               _TopButton(
                 tooltip: 'Nouveau chat',
                 onPressed: onNewChat,

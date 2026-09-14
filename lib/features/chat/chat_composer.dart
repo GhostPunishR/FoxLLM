@@ -90,7 +90,9 @@ class _Composer extends StatelessWidget {
                     isDense: true,
                     hintText: isDictating
                         ? 'Parle, je t’écoute…'
-                        : 'Message ou maintenir pour parler',
+                        : isGenerating
+                        ? 'Mettre un message en attente…'
+                        : 'Demander à FoxLLM',
                     hintStyle: TextStyle(
                       color: fox.textSecondary,
                       fontSize: 17,
@@ -137,47 +139,59 @@ class _Composer extends StatelessWidget {
                       onPressed: onAdd,
                     ),
                     const SizedBox(width: 3),
-                    // Le micro reste offert même une fois le message commencé :
-                    // dicter la fin d'une phrase est le cas le plus courant.
-                    _DictationButton(
-                      isDictating: isDictating,
-                      onStart: onVoiceStart,
-                      onEnd: onVoiceEnd,
-                      onTap: onVoiceTap,
-                    ),
-                    if (isGenerating) ...<Widget>[
-                      const SizedBox(width: 3),
-                      _RoundComposerButton(
-                        tooltip: 'Arrêter',
-                        icon: Icons.stop_rounded,
-                        onPressed: onStop,
-                      ),
-                    ] else
-                      // Seul ce bouton dépend du brouillon : le reste de
-                      // l'écran, liste de messages comprise, n'est pas
-                      // reconstruit à chaque frappe.
-                      ValueListenableBuilder<TextEditingValue>(
-                        valueListenable: controller,
-                        builder: (context, value, child) {
-                          // Une pièce jointe seule suffit à envoyer.
-                          if (value.text.trim().isEmpty &&
-                              attachments.isEmpty) {
-                            return const SizedBox.shrink();
-                          }
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              const SizedBox(width: 3),
-                              _RoundComposerButton(
-                                tooltip: 'Envoyer',
-                                icon: Icons.arrow_upward_rounded,
-                                filled: true,
-                                onPressed: onSend,
-                              ),
-                            ],
+                    // Un seul bouton, qui prend le rôle du moment : dicter,
+                    // envoyer, ou arrêter. Un troisième bouton apparaissant à
+                    // la première frappe déplaçait les deux autres sous le
+                    // doigt, juste avant qu'on les vise.
+                    //
+                    // Seul ce bouton observe le brouillon : le reste de
+                    // l'écran, liste de messages comprise, n'est pas
+                    // reconstruit à chaque frappe.
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: controller,
+                      builder: (context, value, child) {
+                        // La dictée garde son bouton jusqu'au relâchement : la
+                        // parole remplit le champ, et laisser le brouillon
+                        // changer le widget sous le doigt ferait disparaître
+                        // celui qui attend le relâchement.
+                        if (isDictating) {
+                          return _DictationButton(
+                            isDictating: true,
+                            onStart: onVoiceStart,
+                            onEnd: onVoiceEnd,
+                            onTap: onVoiceTap,
                           );
-                        },
-                      ),
+                        }
+                        // Une pièce jointe seule suffit à envoyer.
+                        final hasDraft =
+                            value.text.trim().isNotEmpty ||
+                            attachments.isNotEmpty;
+
+                        if (hasDraft) {
+                          return _RoundComposerButton(
+                            tooltip: isGenerating
+                                ? 'Mettre en attente'
+                                : 'Envoyer',
+                            icon: Icons.arrow_upward_rounded,
+                            filled: true,
+                            onPressed: onSend,
+                          );
+                        }
+                        if (isGenerating) {
+                          return _RoundComposerButton(
+                            tooltip: 'Arrêter',
+                            icon: Icons.stop_rounded,
+                            onPressed: onStop,
+                          );
+                        }
+                        return _DictationButton(
+                          isDictating: false,
+                          onStart: onVoiceStart,
+                          onEnd: onVoiceEnd,
+                          onTap: onVoiceTap,
+                        );
+                      },
+                    ),
                   ],
                 ),
               ],
@@ -187,6 +201,14 @@ class _Composer extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Message écrit pendant une réponse, en attente de son tour.
+class _QueuedMessage {
+  const _QueuedMessage({required this.text, required this.attachments});
+
+  final String text;
+  final List<ChatAttachment> attachments;
 }
 
 /// Pièce jointe du brouillon : aperçu, nom, taille et retrait.

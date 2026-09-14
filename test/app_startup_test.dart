@@ -31,7 +31,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(ChatScreen), findsOneWidget);
-    expect(find.text('Message ou maintenir pour parler'), findsOneWidget);
+    expect(find.text('Demander à FoxLLM'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
   });

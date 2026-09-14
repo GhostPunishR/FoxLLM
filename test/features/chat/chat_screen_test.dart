@@ -29,7 +29,7 @@ void main() {
     );
     expect(find.text('Réflexion'), findsOneWidget);
     expect(find.text('Rechercher'), findsOneWidget);
-    expect(find.text('Message ou maintenir pour parler'), findsOneWidget);
+    expect(find.text('Demander à FoxLLM'), findsOneWidget);
     expect(find.byTooltip('Menu'), findsOneWidget);
     expect(find.byTooltip('Nouveau chat'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -78,8 +78,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Rechercher dans les chats'), findsOneWidget);
-    expect(find.text('Aujourd’hui'), findsOneWidget);
+    expect(find.text('Chats'), findsOneWidget);
     expect(find.text('Aucune conversation'), findsOneWidget);
+    // Sans conversation, aucune tranche de date n'a de raison d'être affichée.
+    expect(find.text('Aujourd’hui'), findsNothing);
     expect(find.text('Paramètres'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
