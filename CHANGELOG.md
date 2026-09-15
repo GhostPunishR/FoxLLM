@@ -4,11 +4,11 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [0.1.4] - 2026-09-14
 
-Correctifs d'un audit mené avant diffusion publique, puis de deux passages de
-suivi sur les mêmes points. Dix-sept défauts confirmés, dont neuf pouvaient
+Correctifs d'un audit mené avant diffusion publique, puis de trois passages de
+suivi sur les mêmes points. Dix-neuf défauts confirmés, dont onze pouvaient
 perdre ou déplacer des données. La signature de distribution cesse de reposer
 sur la clé de développement, et les sauvegardes Android cessent de contredire
-la politique de confidentialité. La suite de tests passe de 347 à 433 cas.
+la politique de confidentialité. La suite de tests passe de 347 à 441 cas.
 
 ### Corrections
 
@@ -181,6 +181,28 @@ la politique de confidentialité. La suite de tests passe de 347 à 433 cas.
   rien n'est écrit, et le fichier d'origine reste intact. Un champ optionnel
   absent d'un ancien format n'est pas une perte, pas plus qu'une valeur écrite
   par une version plus récente.
+
+### Corrections du quatrième passage
+
+- **rétablir une version pendant qu'une réponse s'écrit** : le bouton du
+  bandeau restait actif pendant la préparation d'un envoi et pendant la
+  génération. Rétablir à ce moment remplaçait le fil sans arrêter l'opération
+  en cours, et le fragment suivant écrasait le dernier message de la version
+  qu'on venait de reprendre. Le bandeau s'éteint désormais tant que l'envoi
+  dure, et le dit ; la même garde protège l'échange et l'oubli de la version
+  conservée, pour qu'ils ne dépendent pas du seul bouton. Tout redevient
+  disponible dès que la réponse est terminée, qu'elle ait abouti, échoué ou
+  été arrêtée ;
+- **quitter un fil après quelques fragments perdait la version remplacée** :
+  la réparation du fil abandonné s'arrêtait dès que sa dernière bulle
+  contenait du texte, c'est-à-dire précisément quand des fragments étaient
+  arrivés. La conversation quittée gardait alors la réponse partielle et
+  perdait celle qu'elle remplaçait. Les deux sont maintenant conservées, la
+  partielle portant ce qui y a mis fin : interruption, troncature ou erreur.
+  Quitter un fil en pleine réponse est noté comme une interruption et non
+  comme une réponse achevée. La réparation ne touche que le fil visé, jamais
+  celui qui est ouvert à sa place, ne ressuscite pas une conversation
+  supprimée et s'efface devant une génération plus récente.
 
 ## [0.1.3] - 2026-09-14
 

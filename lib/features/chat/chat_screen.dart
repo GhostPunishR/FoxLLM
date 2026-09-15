@@ -121,6 +121,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Génération que l'utilisateur a explicitement arrêtée.
   int _cancelledEpoch = -1;
+
+  /// Note que la génération en cours est interrompue, puis l'invalide.
+  ///
+  /// Quitter un fil pendant sa réponse arrête le moteur : le flux se termine
+  /// alors normalement, et rien ne distinguerait plus cette interruption d'une
+  /// réponse allée au bout.
+  void _abandonGeneration() {
+    if (_isGenerating) {
+      _cancelledEpoch = _generationEpoch;
+    }
+    _generationEpoch += 1;
+  }
+
+  /// Époque de la dernière génération lancée dans chaque conversation.
+  ///
+  /// Une génération abandonnée se termine parfois longtemps après qu'on a
+  /// quitté son fil. Elle ne doit alors le réparer que si personne n'y a
+  /// relancé une réponse entre-temps : sans ce repère, une opération périmée
+  /// écrasait la plus récente.
+  final Map<int, int> _lastGeneration = <int, int>{};
   int _nextConversationId = 1;
   int? _activeConversationId;
 
@@ -290,7 +310,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _forgetEdit();
     }
     if (wasActive && _isGenerating) {
-      _generationEpoch += 1;
+      _abandonGeneration();
       await ref.read(chatBackendProvider).stop();
     }
     if (!mounted) {
@@ -433,7 +453,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _newChat() async {
-    _generationEpoch += 1;
+    _abandonGeneration();
     _dropQueue();
     _stopSpeaking();
     _forgetEdit();
@@ -454,7 +474,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _selectConversation(int id) async {
-    _generationEpoch += 1;
+    _abandonGeneration();
     _dropQueue();
     _stopSpeaking();
     _forgetEdit();
@@ -860,7 +880,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     // Le verrou est posé avant la moindre attente : pendant la relecture, un
     // second appui doit rejoindre la file plutôt que lancer un envoi parallèle.
-    _sending = true;
+    //
+    // Posé dans un `setState` : l'écran s'en sert pour éteindre les actions
+    // qui n'ont pas de sens pendant une préparation, comme le rétablissement
+    // d'une version précédente.
+    setState(() => _sending = true);
     var outcome = _SendOutcome.refused;
     try {
       // La relecture remplace la liste des conversations : écrire dedans
@@ -871,7 +895,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
       outcome = await _send(outgoing);
     } finally {
-      _sending = false;
+      if (mounted) {
+        setState(() => _sending = false);
+      } else {
+        _sending = false;
+      }
     }
     // La file repart une fois la voie libre, jamais depuis le `finally` : le
     // verrou d'envoi y est encore posé. Un envoi refusé arrête le défilement
@@ -1008,6 +1036,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() {
       _ensureActiveConversation(text);
       conversationId = _activeConversationId;
+      // Ce fil appartient désormais à cette génération : une opération plus
+      // ancienne qui reviendrait plus tard n'a plus rien à y faire.
+      _lastGeneration[conversationId!] = generationEpoch;
       if (outgoing.conversationId == null) {
         // Ce premier message vient de créer le fil. Ceux mis en attente
         // pendant sa préparation visaient ce même fil, qui n'avait pas encore
@@ -1036,6 +1067,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     var response = '';
     var failed = false;
     var outcome = GenerationOutcome.complete;
+    // Ce qu'est devenue la génération, vu du fil qu'on a peut-être quitté.
+    // Par défaut une interruption : quitter un fil en cours de réponse
+    // l'interrompt, même si le moteur, lui, va au bout.
+    var abandonedOutcome = GenerationOutcome.cancelled;
     try {
       final settings = GenerationSettings(
         maxTokens: modes.reasoning
@@ -1060,6 +1095,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
         _scrollToBottom();
       }
+
+      // Le flux s'est terminé, que le fil soit encore à l'écran ou non. Un
+      // arrêt demandé, par le bouton comme par une navigation, l'a peut-être
+      // provoqué : c'est une interruption, pas une réponse achevée.
+      abandonedOutcome = _cancelledEpoch == generationEpoch
+          ? GenerationOutcome.cancelled
+          : _incompleteReasonOf(backend) == null
+          ? GenerationOutcome.complete
+          : GenerationOutcome.incomplete;
 
       if (stillCurrent()) {
         if (response.isNotEmpty) {
@@ -1086,6 +1130,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     } catch (error) {
       if (!stillCurrent()) {
+        // Le fil n'est plus à l'écran : l'échec est noté pour lui, là où il
+        // vit, plutôt que montré sur une conversation qui n'a rien demandé.
+        abandonedOutcome = GenerationOutcome.failed;
         return _SendOutcome.sent;
       }
       if (response.isNotEmpty) {
@@ -1127,9 +1174,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
       } else {
         // Le fil visé n'est plus celui qui est ouvert : on n'y touche pas,
-        // mais celui qu'on a quitté ne doit pas rester sur une bulle vide à
-        // la place de la réponse que le remplacement venait d'effacer.
-        _settleAbandonedThread(conversationId, response, replaced);
+        // mais celui qu'on a quitté doit garder ce qui est arrivé, et la
+        // version que le remplacement venait d'effacer.
+        _settleAbandonedThread(
+          conversationId: conversationId,
+          generationEpoch: generationEpoch,
+          response: response,
+          replaced: replaced,
+          outcome: abandonedOutcome,
+        );
       }
     }
     if (failed) {
@@ -1151,18 +1204,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _markLastAssistantOutcome(GenerationOutcome.cancelled, null);
       return GenerationOutcome.cancelled;
     }
-    // Un motif filtré par le type, et non par le nom du fournisseur : le chat
-    // n'a pas à connaître celui qui parle.
-    final String? reason = switch (backend) {
-      final IncompleteAwareBackend aware => aware.incompleteReason,
-      _ => null,
-    };
+    final reason = _incompleteReasonOf(backend);
     if (reason == null) {
       return GenerationOutcome.complete;
     }
     _markLastAssistantOutcome(GenerationOutcome.incomplete, reason);
     return GenerationOutcome.incomplete;
   }
+
+  /// Motif d'une réponse écourtée rapporté par le moteur, ou `null`.
+  ///
+  /// Filtré par le type, et non par le nom du fournisseur : le chat n'a pas à
+  /// connaître celui qui parle.
+  String? _incompleteReasonOf(LocalLlmBackend backend) => switch (backend) {
+    final IncompleteAwareBackend aware => aware.incompleteReason,
+    _ => null,
+  };
 
   /// Marque la dernière réponse du fil, à l'écran comme à l'enregistrement.
   void _markLastAssistantOutcome(GenerationOutcome outcome, String? reason) {
@@ -1378,12 +1435,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return id == null ? null : _conversationById(id)?.previousMessages;
   }
 
+  /// Vrai tant qu'un envoi se prépare ou qu'une réponse s'écrit.
+  ///
+  /// Le fil appartient alors à cette opération : le remplacer sous ses pieds
+  /// laisserait le fragment suivant écrire par-dessus la version rétablie.
+  bool get _operationInFlight => _sending || _isGenerating;
+
   /// Échange la version affichée et la version conservée.
   ///
   /// Un échange, et non un remplacement : celle qu'on quitte prend la place
   /// de celle qu'on reprend, donc rien ne disparaît et le geste se refait
   /// dans l'autre sens.
   void _swapWithPreviousVersion() {
+    // Le garde ne tient pas qu'au bouton : une action déclenchée juste avant
+    // le départ d'un envoi ne doit pas passer non plus.
+    if (_operationInFlight) {
+      return;
+    }
     final id = _activeConversationId;
     if (id == null) {
       return;
@@ -1405,7 +1473,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   /// Oublie la version conservée, à la demande.
+  ///
+  /// Refusé pendant une opération pour la même raison que l'échange : elle
+  /// efface les copies des pièces jointes que cette version cite, or un envoi
+  /// en cours peut encore avoir à la rétablir.
   void _forgetPreviousVersion() {
+    if (_operationInFlight) {
+      return;
+    }
     final id = _activeConversationId;
     final conversation = id == null ? null : _conversationById(id);
     final previous = conversation?.previousMessages;
@@ -1449,44 +1524,67 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Termine proprement un fil quitté pendant sa génération.
   ///
-  /// Ne touche qu'à la conversation visée, jamais à celle qui est ouverte :
-  /// elle n'est plus à l'écran, seul son contenu enregistré est en jeu. La
-  /// bulle vide laissée en attente de la réponse y devient soit le texte
-  /// reçu, soit la version d'avant le remplacement, soit rien.
-  void _settleAbandonedThread(
-    int? conversationId,
-    String response,
-    List<ChatMessage>? replaced,
-  ) {
+  /// Ne touche qu'à la conversation visée : elle n'est plus forcément à
+  /// l'écran, et celle qui l'est n'a rien demandé. Le texte reçu avant
+  /// l'abandon y reste, avec ce qui a mis fin à la réponse, et la version
+  /// qu'un remplacement venait d'effacer y redevient reprenable.
+  void _settleAbandonedThread({
+    required int? conversationId,
+    required int generationEpoch,
+    required String response,
+    required List<ChatMessage>? replaced,
+    required GenerationOutcome outcome,
+  }) {
     if (!mounted || conversationId == null) {
       return;
     }
+    // Une génération plus récente a pris ce fil : elle seule décide de son
+    // contenu. Sans ce garde, une opération périmée écrasait la nouvelle.
+    if (_lastGeneration[conversationId] != generationEpoch) {
+      return;
+    }
+    // Fil supprimé entre-temps : il ne doit surtout pas renaître.
     final conversation = _conversationById(conversationId);
     if (conversation == null) {
       return;
     }
     final messages = conversation.messages;
-    // Rien d'inachevé : la génération a abouti avant l'abandon, ou le fil a
-    // déjà été repris ailleurs.
-    if (messages.isEmpty ||
-        messages.last.role != ChatRole.assistant ||
-        messages.last.content.isNotEmpty) {
+    if (messages.isEmpty || messages.last.role != ChatRole.assistant) {
+      // Le fil ne se termine pas par une réponse en attente : il a été repris
+      // ailleurs, et rien ici ne sait mieux que lui ce qu'il doit contenir.
       return;
     }
+
     final head = messages.take(messages.length - 1);
-    final repaired = switch ((response.isNotEmpty, replaced)) {
-      // Le texte reçu avant l'abandon vaut mieux qu'une bulle vide.
-      (true, _) => <ChatMessage>[...head, ChatMessage.assistant(response)],
-      // Un remplacement qui n'a rien donné : la version d'avant revient.
-      (false, final previous?) => <ChatMessage>[...previous],
+    final List<ChatMessage> repaired;
+    if (response.isNotEmpty) {
+      // Le texte reçu avant l'abandon vaut mieux qu'une bulle vide, et il dit
+      // ce qu'il est : interrompu, écourté ou en échec.
+      repaired = <ChatMessage>[
+        ...head,
+        ChatMessage(
+          role: ChatRole.assistant,
+          content: response,
+          outcome: outcome,
+          outcomeReason: outcome == GenerationOutcome.incomplete
+              ? messages.last.outcomeReason
+              : null,
+        ),
+      ];
+    } else if (replaced != null) {
+      // Un remplacement qui n'a rien donné : la version d'avant revient
+      // d'elle-même, il n'y a pas deux versions à conserver.
+      repaired = <ChatMessage>[...replaced];
+    } else {
       // Un envoi ordinaire : la question reste, sans réponse.
-      (false, null) => <ChatMessage>[...head],
-    };
+      repaired = <ChatMessage>[...head];
+    }
+
     setState(() {
       conversation.messages = repaired;
       if (response.isNotEmpty && replaced != null) {
-        // Le fil quitté garde ce qui est arrivé, et la version que ce texte a
-        // remplacée reste reprenable à son retour.
+        // Les deux versions restent : celle qu'on a reçue et celle qu'elle
+        // remplaçait. C'est le retour dans ce fil qui permettra de choisir.
         conversation.previousMessages = List<ChatMessage>.unmodifiable(
           replaced,
         );
@@ -1796,6 +1894,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           if (_restoringModel) const _RestoringModelBanner(),
           if (_previousVersion != null)
             _PreviousVersionBanner(
+              // Le fil appartient à l'envoi en cours tant qu'il dure.
+              enabled: !_operationInFlight,
               onRestore: _swapWithPreviousVersion,
               onForget: _forgetPreviousVersion,
             ),

@@ -51,6 +51,19 @@ class Speech {
   ///
   /// Faux tant que le moteur n'a pas accepté ce mode : les rappels reprennent
   /// alors la main, faute de mieux. Voir [_onEngineIdle].
+  ///
+  /// Lu dans `FlutterTtsPlugin.kt` de `flutter_tts` 4.2.5, la version résolue :
+  /// le plugin ne garde la réponse de `speak` que si la file est en
+  /// `QUEUE_FLUSH`, ce qui est son réglage par défaut et que FoxLLM ne change
+  /// jamais. Il la rend à 1 sur `onDone`, à 0 sur `onError` et à 0 dans le
+  /// traitement de `stop`.
+  ///
+  /// Limite connue, non corrigeable côté Dart : `onStop` ne rend pas cette
+  /// réponse. Un énoncé interrompu autrement que par `stop`, par une perte du
+  /// focus audio ou un arrêt du service par exemple, laisse donc l'appel en
+  /// attente et le bouton allumé. Rien n'est perdu pour autant : le bouton
+  /// reste une bascule, et le prochain appui, comme un changement de fil,
+  /// remet l'état à zéro.
   bool _awaitsCompletion = false;
 
   /// Le service est détruit : plus aucune lecture ne doit démarrer.

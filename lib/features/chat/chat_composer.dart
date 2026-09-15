@@ -286,10 +286,15 @@ class _Outgoing {
 /// propose vit avec la conversation, pas avec un message éphémère.
 class _PreviousVersionBanner extends StatelessWidget {
   const _PreviousVersionBanner({
+    required this.enabled,
     required this.onRestore,
     required this.onForget,
   });
 
+  /// Faux pendant qu'un envoi se prépare ou qu'une réponse s'écrit : le fil
+  /// appartient alors à cette opération, et le remplacer laisserait le
+  /// fragment suivant écrire par-dessus la version rétablie.
+  final bool enabled;
   final VoidCallback onRestore;
   final VoidCallback onForget;
 
@@ -312,13 +317,19 @@ class _PreviousVersionBanner extends StatelessWidget {
               children: <Widget>[
                 Expanded(
                   child: Text(
-                    'Version précédente conservée',
+                    enabled
+                        ? 'Version précédente conservée'
+                        : 'Version précédente conservée, reprise après la '
+                              'réponse',
                     style: TextStyle(color: fox.textSecondary, fontSize: 12),
                   ),
                 ),
-                TextButton(onPressed: onRestore, child: const Text('Rétablir')),
+                TextButton(
+                  onPressed: enabled ? onRestore : null,
+                  child: const Text('Rétablir'),
+                ),
                 IconButton(
-                  onPressed: onForget,
+                  onPressed: enabled ? onForget : null,
                   iconSize: 16,
                   visualDensity: VisualDensity.compact,
                   tooltip: 'Oublier la version précédente',

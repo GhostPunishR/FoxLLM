@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foxllm/core/storage/last_model_store.dart';
 import 'package:foxllm/features/chat/chat_screen.dart';
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
@@ -176,6 +177,105 @@ void main() {
       ]);
     });
 
+    testWidgets('le rétablissement est éteint pendant la préparation et la '
+        'génération, puis revient', (tester) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withPrevious: true));
+      await _pumpThread(tester, backend, store);
+      expect(_restoreAction(tester), isNotNull);
+
+      // La préparation de l'envoi est retenue : le fil appartient déjà à
+      // l'opération qui démarre.
+      backend.holdNextPreparation();
+      await tester.enterText(find.byType(TextField).first, 'Nouvelle question');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Envoyer'));
+      await _settle(tester);
+      expect(backend.generateCalls, isEmpty);
+      expect(_restoreAction(tester), isNull);
+
+      // La préparation aboutit, le flux commence : toujours pas.
+      backend.completePreparation();
+      await _settle(tester);
+      backend.emit('Nouvelle ');
+      await _settle(tester);
+      expect(_restoreAction(tester), isNull);
+
+      // Le défaut d'origine : l'échange remplaçait le fil sans arrêter la
+      // génération, et le fragment suivant écrasait le dernier message de la
+      // version rétablie.
+      await tester.tap(find.text('Rétablir'), warnIfMissed: false);
+      await _settle(tester);
+      backend.emit('réponse');
+      await _settle(tester);
+
+      expect(_inThread(tester, 'Nouvelle réponse'), isTrue);
+      expect(_inThread(tester, 'Version d’avant'), isFalse);
+      expect(_saved(store).previousMessages?.map((m) => m.content), <String>[
+        'Ma question',
+        'Version d’avant',
+      ]);
+
+      // La génération se termine : le rétablissement redevient possible.
+      backend.finish();
+      await _settle(tester);
+      expect(_restoreAction(tester), isNotNull);
+
+      await tester.tap(find.text('Rétablir'));
+      await _settle(tester);
+
+      expect(_inThread(tester, 'Version d’avant'), isTrue);
+      expect(_saved(store).messages.map((m) => m.content), <String>[
+        'Ma question',
+        'Version d’avant',
+      ]);
+      expect(_saved(store).previousMessages?.last.content, 'Nouvelle réponse');
+    });
+
+    testWidgets('il revient aussi après une génération en échec', (
+      tester,
+    ) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withPrevious: true));
+      await _pumpThread(tester, backend, store);
+
+      await tester.enterText(find.byType(TextField).first, 'Nouvelle question');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Envoyer'));
+      await _settle(tester);
+      expect(_restoreAction(tester), isNull);
+
+      backend.fail('le fournisseur a abandonné');
+      await _settle(tester);
+
+      expect(_restoreAction(tester), isNotNull);
+      await tester.tap(find.text('Rétablir'));
+      await _settle(tester);
+      expect(_inThread(tester, 'Version d’avant'), isTrue);
+    });
+
+    testWidgets('il revient aussi après un arrêt demandé', (tester) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withPrevious: true));
+      await _pumpThread(tester, backend, store);
+
+      await tester.enterText(find.byType(TextField).first, 'Nouvelle question');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Envoyer'));
+      await _settle(tester);
+      backend.emit('Un début');
+      await _settle(tester);
+      expect(_restoreAction(tester), isNull);
+
+      await tester.tap(find.byTooltip('Arrêter'));
+      await _settle(tester);
+
+      expect(_restoreAction(tester), isNotNull);
+      await tester.tap(find.text('Rétablir'));
+      await _settle(tester);
+      expect(_inThread(tester, 'Version d’avant'), isTrue);
+    });
+
     testWidgets('oublier la version conservée la retire pour de bon', (
       tester,
     ) async {
@@ -196,11 +296,199 @@ void main() {
       expect(_saved(store).previousMessages, isNull);
     });
   });
+
+  group('quitter un fil en pleine régénération', () {
+    testWidgets('garde le résultat partiel et la version remplacée', (
+      tester,
+    ) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withSecond: true));
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Début ');
+      await _settle(tester);
+      backend.emit('de réponse');
+      await _settle(tester);
+
+      // On quitte A avant la fin, puis l'opération de A se termine tard.
+      await _openThread(tester, 'Autre fil');
+      backend.finish();
+      await _settle(tester);
+
+      // B n'a rien reçu de tout cela.
+      expect(_inThread(tester, 'Autre réponse'), isTrue);
+      expect(_inThread(tester, 'Début de réponse'), isFalse);
+      final other = store.saveCalls.last.firstWhere((c) => c.id == 2);
+      expect(other.messages.map((m) => m.content), <String>[
+        'Autre fil',
+        'Autre réponse',
+      ]);
+      expect(other.previousMessages, isNull);
+
+      // Le défaut d'origine : le fil quitté gardait la réponse partielle et
+      // perdait la version qu'elle remplaçait.
+      final abandoned = _saved(store);
+      expect(abandoned.messages.map((m) => m.content), <String>[
+        'Ma question',
+        'Début de réponse',
+      ]);
+      expect(abandoned.messages.last.outcome, GenerationOutcome.cancelled);
+      expect(abandoned.previousMessages?.map((m) => m.content), <String>[
+        'Ma question',
+        'Première réponse',
+      ]);
+
+      // De retour dans A, les deux versions sont là.
+      await _openThread(tester, 'Ma question');
+      expect(_inThread(tester, 'Début de réponse'), isTrue);
+      expect(find.text('Version précédente conservée'), findsOneWidget);
+      await tester.tap(find.text('Rétablir'));
+      await _settle(tester);
+      expect(_inThread(tester, 'Première réponse'), isTrue);
+    });
+
+    testWidgets('un échec tardif est noté comme tel, et rien n’est perdu', (
+      tester,
+    ) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withSecond: true));
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Début de réponse');
+      await _settle(tester);
+
+      // Le moteur accuse l'arrêt mais son flux ne se referme pas tout de
+      // suite : c'est une erreur qui y met fin, après la navigation.
+      backend.closeOnStop = false;
+      await _openThread(tester, 'Autre fil');
+      backend.fail('le fournisseur a abandonné');
+      await _settle(tester);
+
+      final abandoned = _saved(store);
+      expect(abandoned.messages.last.content, 'Début de réponse');
+      expect(abandoned.messages.last.outcome, GenerationOutcome.failed);
+      expect(abandoned.previousMessages?.last.content, 'Première réponse');
+    });
+
+    testWidgets('les deux versions survivent au rechargement du stockage', (
+      tester,
+    ) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withSecond: true));
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Début de réponse');
+      await _settle(tester);
+      await _openThread(tester, 'Autre fil');
+      backend.finish();
+      await _settle(tester);
+
+      // Relu depuis le JSON réellement écrit, comme au lancement suivant.
+      final reread = store.saveCalls.last
+          .map((c) => ChatConversation.fromJson(c.toJson()))
+          .whereType<ChatConversation>()
+          .toList();
+      await _pumpChat(tester, _Backend(), _RecordingStore(seed: reread));
+      await _openThread(tester, 'Ma question');
+
+      expect(_inThread(tester, 'Début de réponse'), isTrue);
+      expect(find.text('Version précédente conservée'), findsOneWidget);
+      await tester.tap(find.text('Rétablir'));
+      await _settle(tester);
+      expect(_inThread(tester, 'Première réponse'), isTrue);
+    });
+
+    testWidgets('un fil supprimé avant le retour tardif ne renaît pas', (
+      tester,
+    ) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withSecond: true));
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Début de réponse');
+      await _settle(tester);
+
+      await tester.tap(find.byTooltip('Menu'));
+      await _settle(tester);
+      await tester.tap(find.byTooltip('Actions de la conversation').first);
+      await _settle(tester);
+      await tester.tap(find.text('Supprimer'));
+      await _settle(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Supprimer'));
+      await _settle(tester);
+
+      backend.finish();
+      await _settle(tester);
+
+      expect(
+        store.saveCalls.last.where((c) => c.id == 1),
+        isEmpty,
+        reason: 'le fil supprimé est revenu',
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la réparation tardive n’efface pas le message qui attendait', (
+      tester,
+    ) async {
+      final backend = _Backend();
+      final store = _RecordingStore(seed: _thread(withSecond: true));
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Ancien début');
+      await _settle(tester);
+
+      // Le flux de la première opération reste ouvert après la navigation.
+      backend.closeOnStop = false;
+      await _openThread(tester, 'Autre fil');
+      await _openThread(tester, 'Ma question');
+
+      // Un second message est écrit : l'envoi précédent n'ayant pas rendu la
+      // main, il rejoint la file.
+      await tester.enterText(find.byType(TextField).first, 'Nouvelle question');
+      await tester.pump();
+      await tester.tap(find.byTooltip('Envoyer'));
+      await _settle(tester);
+      expect(find.text('1 message en attente'), findsOneWidget);
+
+      // La première opération se termine enfin : elle répare le fil qu'on
+      // avait quitté, puis la file repart dans ce même fil.
+      backend.finishAt(0);
+      await _settle(tester);
+      backend.emit('Nouvelle réponse');
+      await _settle(tester);
+      backend.finish();
+      await _settle(tester);
+
+      final saved = _saved(store);
+      expect(saved.messages.map((m) => m.content), <String>[
+        'Ma question',
+        'Ancien début',
+        'Nouvelle question',
+        'Nouvelle réponse',
+      ]);
+      // La réparation tardive n'a pas rembobiné le fil, et la version
+      // remplacée reste reprenable.
+      expect(saved.previousMessages?.map((m) => m.content), <String>[
+        'Ma question',
+        'Première réponse',
+      ]);
+      expect(_inThread(tester, 'Nouvelle réponse'), isTrue);
+    });
+  });
 }
 
 // ---- utilitaires ----------------------------------------------------------
 
-List<ChatConversation> _thread({bool withSecond = false}) => <ChatConversation>[
+List<ChatConversation> _thread({
+  bool withSecond = false,
+  bool withPrevious = false,
+}) => <ChatConversation>[
   ChatConversation(
     id: 1,
     title: 'Ma question',
@@ -209,6 +497,12 @@ List<ChatConversation> _thread({bool withSecond = false}) => <ChatConversation>[
       const ChatMessage.user('Ma question'),
       const ChatMessage.assistant('Première réponse'),
     ],
+    previousMessages: withPrevious
+        ? <ChatMessage>[
+            const ChatMessage.user('Ma question'),
+            const ChatMessage.assistant('Version d’avant'),
+          ]
+        : null,
   ),
   if (withSecond)
     ChatConversation(
@@ -278,11 +572,34 @@ Future<void> _pumpChat(
       overrides: [
         localLlmBackendProvider.overrideWithValue(backend),
         conversationStoreProvider.overrideWithValue(store),
+        lastModelStoreProvider.overrideWithValue(
+          _FakeLastModelStore('/models/memorise.gguf'),
+        ),
       ],
       child: const MaterialApp(home: ChatScreen()),
     ),
   );
   await _settle(tester);
+}
+
+/// Action du bouton de rétablissement : `null` quand il est éteint.
+VoidCallback? _restoreAction(WidgetTester tester) => tester
+    .widget<TextButton>(find.widgetWithText(TextButton, 'Rétablir'))
+    .onPressed;
+
+class _FakeLastModelStore implements LastModelStore {
+  _FakeLastModelStore(this.path);
+
+  final String? path;
+
+  @override
+  Future<String?> load() async => path;
+
+  @override
+  Future<void> save(String path) async {}
+
+  @override
+  Future<void> clear() async {}
 }
 
 class _RecordingStore implements ConversationStore {
@@ -321,6 +638,24 @@ class _RecordingStore implements ConversationStore {
 /// décide.
 class _Backend implements LocalLlmBackend {
   final List<StreamController<String>> _streams = <StreamController<String>>[];
+  final List<List<ChatMessage>> generateCalls = <List<ChatMessage>>[];
+
+  String? _path = '/models/test.gguf';
+  Completer<void>? _loadGate;
+
+  /// Referme le modèle : la préparation suivante devra le rouvrir, et cette
+  /// ouverture n'aboutira que sur commande.
+  void holdNextPreparation() {
+    _path = null;
+    _loadGate = Completer<void>();
+  }
+
+  void completePreparation() {
+    final gate = _loadGate;
+    if (gate != null && !gate.isCompleted) {
+      gate.complete();
+    }
+  }
 
   void emit(String chunk) {
     if (_streams.isNotEmpty && !_streams.last.isClosed) {
@@ -333,6 +668,24 @@ class _Backend implements LocalLlmBackend {
       unawaited(_streams.last.close());
     }
   }
+
+  /// Termine une réponse précise, pas forcément la dernière ouverte.
+  void finishAt(int index) {
+    if (index < _streams.length && !_streams[index].isClosed) {
+      unawaited(_streams[index].close());
+    }
+  }
+
+  void failAt(int index, String message) {
+    if (index < _streams.length && !_streams[index].isClosed) {
+      _streams[index].addError(StateError(message));
+      unawaited(_streams[index].close());
+    }
+  }
+
+  /// Faux pour un moteur qui accuse l'arrêt sans refermer son flux tout de
+  /// suite : la réponse s'y termine alors plus tard, parfois sur une erreur.
+  bool closeOnStop = true;
 
   void fail(String message) {
     if (_streams.isNotEmpty && !_streams.last.isClosed) {
@@ -356,7 +709,7 @@ class _Backend implements LocalLlmBackend {
   String get displayName => 'Backend de test';
 
   @override
-  String? get loadedModelPath => '/models/test.gguf';
+  String? get loadedModelPath => _path;
 
   @override
   Future<String> get nativeVersion async => 'test/0.0.0';
@@ -371,7 +724,13 @@ class _Backend implements LocalLlmBackend {
   Future<FoxLlmGenerationStats?> get lastGenerationStats async => null;
 
   @override
-  Future<void> loadModel(String path) async {}
+  Future<void> loadModel(String path) async {
+    final gate = _loadGate;
+    if (gate != null) {
+      await gate.future;
+    }
+    _path = path;
+  }
 
   @override
   Future<void> unloadModel() async {}
@@ -381,13 +740,18 @@ class _Backend implements LocalLlmBackend {
     required List<ChatMessage> messages,
     GenerationSettings settings = const GenerationSettings(),
   }) {
+    generateCalls.add(List<ChatMessage>.of(messages));
     final stream = StreamController<String>();
     _streams.add(stream);
     return stream.stream;
   }
 
   @override
-  Future<void> stop() async => finish();
+  Future<void> stop() async {
+    if (closeOnStop) {
+      finish();
+    }
+  }
 
   @override
   Future<void> dispose() async {}
