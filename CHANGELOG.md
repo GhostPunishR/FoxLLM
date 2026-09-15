@@ -2,10 +2,66 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
-## [Non publié]
+## [0.1.4] - 2026-09-14
+
+Correctifs d'un audit mené avant diffusion publique, puis de trois passages de
+suivi sur les mêmes points. Dix-neuf défauts confirmés, dont onze pouvaient
+perdre ou déplacer des données. La signature de distribution cesse de reposer
+sur la clé de développement, et les sauvegardes Android cessent de contredire
+la politique de confidentialité. La suite de tests passe de 347 à 441 cas.
 
 ### Corrections
 
+- **sauvegarde pendant la relecture de l'historique** : les enregistrements
+  étaient permis avant la fin de la relecture, alors que la liste en mémoire
+  était encore vide. Un passage en arrière-plan à ce moment remplaçait le
+  fichier par cette liste vide, et un premier message envoyé pendant la
+  relecture était effacé par son arrivée. Les écritures sont désormais retenues
+  jusqu'à la fin de la relecture, sans perdre les demandes reçues entre-temps,
+  et les envois l'attendent. Un fichier illisible ne se confond plus avec un
+  historique vide : la lecture échoue franchement, plus rien n'est écrit
+  par-dessus, et l'utilisateur est averti ;
+- **régénération ou modification destructive avant validation** : le fil était
+  tronqué et enregistré avant qu'on sache si l'envoi était possible.
+  Régénérer sans modèle chargé amputait donc définitivement une conversation
+  sans même envoyer la demande. La coupe accompagne maintenant l'envoi et n'a
+  lieu qu'une fois celui-ci validé, pièces jointes, citations et évaluations
+  des messages conservés comprises ;
+- **modification appliquée à une autre conversation** : l'édition n'était
+  repérée que par un indice valable pour le fil affiché. Commencer à modifier
+  un message dans un fil puis en ouvrir un autre faisait porter le texte saisi
+  sur le message de même rang. L'édition est désormais liée à sa conversation
+  et à son message, vérifiée à la validation, et abandonnée dès qu'on quitte le
+  fil, qu'on ouvre un nouveau chat ou qu'on supprime la conversation ;
+- **la file d'attente empruntait le brouillon** : le démarrage d'un message en
+  attente remplaçait les pièces jointes du brouillon en cours d'écriture, et le
+  message quittait la file avant qu'on sache si sa préparation aboutirait.
+  Chaque envoi porte maintenant son propre objet figé, texte, pièces jointes et
+  fil de destination ensemble. Un envoi refusé revient en tête de file plutôt
+  que d'être perdu, sans réessai automatique ;
+- **échecs ignorés dans le flux OpenAI** : une réponse acceptée en HTTP 200
+  peut ensuite annoncer son échec par un évènement `error` ou
+  `response.failed`. Le filtrage ne gardant que le texte les laissait passer,
+  et l'échec se terminait comme une réponse vide mais réussie. Les deux formes
+  sont désormais traitées, avec le message du fournisseur. Une réponse écourtée
+  est distinguée d'une erreur, le texte partiel est conservé, une annulation
+  volontaire n'est plus présentée comme une panne, et une réponse en échec
+  n'enchaîne plus la file comme si elle avait abouti ;
+- **l'arrêt vocal n'annulait pas une initialisation en cours** : la lecture
+  partait malgré un arrêt survenu pendant la préparation de la voix, et le
+  micro s'ouvrait après que l'utilisateur avait relâché le bouton, parce que
+  l'arrêt ne trouvait rien à arrêter tant que l'écoute n'avait pas commencé.
+  Chaque démarrage est maintenant identifié et invalidé par un arrêt, une
+  nouvelle demande ou la fermeture de l'écran, y compris quand l'opération
+  native aboutit trop tard ;
+- **sauvegardes Android** : le manifeste ne fixait aucune règle, et Android
+  sauvegarde par défaut tout le stockage privé d'une application vers le Google
+  Drive de son utilisateur. L'historique, les pièces jointes et les réglages
+  partaient donc là où la politique de confidentialité affirmait qu'ils
+  n'allaient jamais. La sauvegarde cloud et le transfert entre appareils sont
+  refusés, pour Android 12 et suivants comme pour les versions antérieures, et
+  la politique annonce la contrepartie : changer de téléphone ne reprend pas
+  les conversations ;
 - **la voix continuait après le message** : quitter un fil pendant une lecture
   à voix haute n'arrêtait pas la synthèse d'Android. La bulle disparaissait,
   mais la voix poursuivait, et plus rien ne permettait de l'interrompre :
@@ -31,6 +87,122 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   tiers d'une tablette à douze. La règle appliquée est celle de llama.cpp pour
   ARM et Android : tous les cœurs jusqu'à quatre, la moitié au delà. Rien ne
   change sur un téléphone à huit cœurs, qui reste à quatre.
+
+### Corrections du second passage
+
+- **une régénération en échec effaçait l'ancienne réponse** : le fil était bien
+  remplacé au bon moment, mais plus rien ne rendait la version d'avant si la
+  génération échouait ensuite. Une erreur survenue avant le premier fragment
+  laissait la conversation amputée de la réponse qu'elle venait d'effacer, et
+  de tout ce qui la suivait. La version antérieure est maintenant copiée avant
+  la coupe : elle revient d'elle-même quand rien n'est arrivé du moteur, et
+  reste récupérable d'un geste quand du texte est déjà à l'écran, lequel n'est
+  pas jeté pour autant. Quitter le fil pendant une régénération ne l'abandonne
+  plus sur une bulle vide. Toute restauration est encadrée par l'identité de la
+  conversation et de l'opération : une réponse en retard ne touche jamais au fil
+  ouvert ;
+- **la file et le fil qui vient de naître** : un message mis en attente pendant
+  la préparation du tout premier message d'un nouveau chat ne pouvait pas en
+  connaître l'identifiant, puisque le fil n'existait pas encore. Il se faisait
+  ensuite refuser pour cette raison, et revenait en file avec une destination
+  devenue fausse. Les messages en attente sont désormais rattachés au fil dès
+  sa création. Un refus n'est plus invisible non plus : la file s'affiche
+  au-dessus du composeur, chaque message s'y réessaie, se reprend dans le
+  champ ou se retire, sans avoir à envoyer un message sans rapport. Reprendre
+  un message échange sa place avec le brouillon en cours, pièces jointes
+  comprises, et une réinsertion tardive ne ressuscite plus une file abandonnée
+  par la navigation ;
+- **une opération vocale périmée arrêtait la suivante** : la lecture à voix
+  haute et la dictée refermaient le moteur en se découvrant périmées, ce qui
+  coupait celle qui venait de démarrer. Les démarrages passent maintenant un par
+  un, et une opération ne referme le moteur que s'il lui appartient encore.
+  Les rappels de la synthèse vocale ne disent pas de quelle phrase ils parlent,
+  et le plugin n'en garde qu'un jeu : ils sont donc neutralisés le temps d'une
+  bascule, faute de pouvoir les attribuer. L'arrêt, lui, n'attend plus la fin
+  d'un démarrage qu'Android fait patienter, et la destruction du service
+  n'ouvre plus rien ;
+- **une réponse écourtée passait pour entière** : le moteur distant relevait
+  bien la troncature annoncée par le fournisseur, mais personne ne la lisait.
+  L'issue de chaque génération, allée au bout, écourtée, arrêtée ou en échec,
+  accompagne maintenant la réponse jusqu'à l'écran et jusqu'au fichier : une
+  réponse coupée le reste après un redémarrage, au lieu de se rouvrir comme une
+  réponse complète. La file d'attente ne repart plus toute seule sur une
+  réponse écourtée, et les historiques écrits avant cette notion se relisent
+  inchangés ;
+- **structure invalide et historique vide** : un fichier dont la racine n'était
+  pas un objet, ou dont le champ `conversations` n'était pas une liste, rendait
+  un historique vide au lieu d'une erreur. Le premier enregistrement suivant
+  remplaçait alors le fichier par cette liste vide. Ces structures sont
+  maintenant des échecs de restauration, au même titre qu'un fichier illisible,
+  et les conversations inexploitables d'une liste par ailleurs correcte sont
+  signalées plutôt que silencieusement jetées. Le fichier d'origine reste
+  intact, quoi que l'utilisateur fasse ensuite, et le message d'erreur ne cite
+  aucun morceau de conversation.
+
+### Corrections du troisième passage
+
+- **une version remplacée ne tenait qu'à un bandeau** : après une erreur
+  survenue en cours de réponse, l'ancienne version du fil n'existait plus que
+  dans l'action d'un message éphémère. Passé ce délai, après une navigation ou
+  après un redémarrage, elle était perdue, et la reprendre effaçait au passage
+  le texte partiel reçu. La version remplacée est désormais conservée avec la
+  conversation, donc enregistrée : un bandeau permanent la propose tant qu'on
+  ne l'a pas retirée, et la reprendre échange les deux versions au lieu d'en
+  sacrifier une. Régénération et modification sont protégées de la même façon,
+  pièces jointes, sources et évaluations comprises, et un remplacement qui
+  aboutit ne propose rien ;
+- **le brouillon écrit pendant la préparation d'un envoi** : le texte et les
+  pièces jointes partaient figés, mais le composeur était ensuite vidé sans
+  qu'on regarde ce qu'il contenait devenu. Le chargement d'un modèle durant
+  plusieurs secondes, le message écrit pendant ce temps disparaissait à son
+  terme. Le composeur n'est maintenant vidé que s'il porte encore exactement
+  ce qui est parti. Les fichiers cités par un brouillon ou par la file
+  d'attente ne sont plus effacés comme s'ils n'appartenaient à personne ;
+- **rappels vocaux sans identité** : la lecture à voix haute s'appuyait sur des
+  rappels du système qui ne disent pas de quelle phrase ils parlent, et dont
+  le plugin ne garde qu'un jeu. Un rappel de la lecture précédente arrivant
+  après le démarrage de la suivante éteignait donc la mauvaise. Le moteur est
+  désormais réglé pour que la réponse de chaque énoncé ne revienne qu'à sa
+  propre fin : c'est ce signal, rattaché à l'appel qui l'a lancé, qui fait foi.
+  Les rappels anonymes ne servent plus que de secours, là où ce mode n'existe
+  pas ;
+- **réponse écourtée sans le moindre mot** : l'issue d'une génération n'était
+  lue que si du texte était arrivé. Une réponse annoncée écourtée avant son
+  premier fragment passait donc pour une réussite, sa bulle disparaissait sans
+  explication et la file d'attente enchaînait. L'issue est maintenant lue quel
+  que soit le texte reçu, dite à l'écran, enregistrée, et la file attend une
+  reprise explicite ;
+- **messages perdus en silence à la relecture** : un message de structure
+  invalide, de contenu non textuel ou de rôle inconnu était écarté sans bruit,
+  et la conversation acceptée telle quelle. Le premier enregistrement suivant
+  réécrivait alors le fichier sans ces messages. Toute perte repérée pendant la
+  relecture, y compris une pièce jointe ou une source, fait maintenant de la
+  restauration une récupération partielle : ce qui est lisible s'affiche, plus
+  rien n'est écrit, et le fichier d'origine reste intact. Un champ optionnel
+  absent d'un ancien format n'est pas une perte, pas plus qu'une valeur écrite
+  par une version plus récente.
+
+### Corrections du quatrième passage
+
+- **rétablir une version pendant qu'une réponse s'écrit** : le bouton du
+  bandeau restait actif pendant la préparation d'un envoi et pendant la
+  génération. Rétablir à ce moment remplaçait le fil sans arrêter l'opération
+  en cours, et le fragment suivant écrasait le dernier message de la version
+  qu'on venait de reprendre. Le bandeau s'éteint désormais tant que l'envoi
+  dure, et le dit ; la même garde protège l'échange et l'oubli de la version
+  conservée, pour qu'ils ne dépendent pas du seul bouton. Tout redevient
+  disponible dès que la réponse est terminée, qu'elle ait abouti, échoué ou
+  été arrêtée ;
+- **quitter un fil après quelques fragments perdait la version remplacée** :
+  la réparation du fil abandonné s'arrêtait dès que sa dernière bulle
+  contenait du texte, c'est-à-dire précisément quand des fragments étaient
+  arrivés. La conversation quittée gardait alors la réponse partielle et
+  perdait celle qu'elle remplaçait. Les deux sont maintenant conservées, la
+  partielle portant ce qui y a mis fin : interruption, troncature ou erreur.
+  Quitter un fil en pleine réponse est noté comme une interruption et non
+  comme une réponse achevée. La réparation ne touche que le fil visé, jamais
+  celui qui est ouvert à sa place, ne ressuscite pas une conversation
+  supprimée et s'efface devant une génération plus récente.
 
 ## [0.1.3] - 2026-09-14
 
@@ -255,6 +427,27 @@ de tests passe de 216 à 332 cas.
   llama.cpp et le moteur compilés sous AddressSanitizer, un GGUF de test
   fabriqué sur place, et une génération réelle. Hors intégration continue, la
   compilation instrumentée durant une dizaine de minutes.
+
+### Modifications
+
+- **signature de distribution séparée de celle de développement.** Le build
+  release utilisait `signingConfigs.getByName("debug")` : la clé de
+  développement d'Android est publique, identique pour tout le monde, et une
+  application installée avec elle ne peut jamais être mise à jour par une
+  version signée pour de bon. Sans clé de distribution, l'APK release sort
+  désormais non signé plutôt que signé avec celle-là. La clé et ses mots de
+  passe viennent d'un fichier ignoré par git ou de l'environnement, jamais du
+  dépôt ;
+- l'intégration continue sépare les deux : les propositions de modification
+  vérifient la compilation sans aucun secret et produisent des artefacts
+  nommés « non distribuable », tandis qu'un travail distinct, déclenché
+  seulement à la main ou par une étiquette de version, produit l'APK signé et
+  refuse de livrer un APK portant la clé de développement. La marche à suivre
+  est décrite dans `RELEASING.md` ;
+- la politique de confidentialité décrit la **lecture à voix haute**, qui
+  manquait : selon la voix installée, le texte de la réponse peut être confié
+  aux serveurs du fournisseur de la synthèse, y compris quand la réponse vient
+  d'un modèle local.
 
 ### Notes
 

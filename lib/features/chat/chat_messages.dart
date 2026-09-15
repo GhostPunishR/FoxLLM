@@ -170,7 +170,10 @@ class _MessageList extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
               ],
-              if (message.content.isEmpty && message.attachments.isEmpty)
+              if (message.content.isEmpty &&
+                  message.attachments.isEmpty &&
+                  message.outcome == GenerationOutcome.complete)
+                // Rien reçu et rien d'annoncé : la réponse est en route.
                 const SizedBox(
                   width: 20,
                   height: 20,
@@ -207,6 +210,8 @@ class _MessageList extends StatelessWidget {
                   )
                 else
                   bubble,
+                if (!isUser && message.outcome != GenerationOutcome.complete)
+                  _OutcomeNote(message: message),
                 if (showActions)
                   _AssistantActions(
                     message: message,
@@ -609,5 +614,69 @@ class _MissingAttachment extends StatelessWidget {
         style: TextStyle(color: fox.textSecondary, fontSize: 13),
       ),
     );
+  }
+}
+
+/// Dit pourquoi une réponse s'arrête là.
+///
+/// Un flux accepté puis écourté, un arrêt demandé, une erreur en cours de
+/// route : le texte reçu reste affiché, mais rien ne doit laisser croire
+/// qu'il est complet, ni à l'écran ni après un redémarrage.
+class _OutcomeNote extends StatelessWidget {
+  const _OutcomeNote({required this.message});
+
+  final ChatMessage message;
+
+  /// Motifs que les fournisseurs nomment le plus souvent, dits en clair.
+  static const Map<String, String> _reasons = <String, String>{
+    'max_output_tokens': 'la limite de longueur a été atteinte',
+    'max_tokens': 'la limite de longueur a été atteinte',
+    'content_filter': 'le fournisseur a filtré la suite',
+    'length': 'la limite de longueur a été atteinte',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    final label = switch (message.outcome) {
+      GenerationOutcome.incomplete => _incompleteLabel(),
+      GenerationOutcome.cancelled => 'Réponse arrêtée.',
+      GenerationOutcome.failed => 'Réponse interrompue par une erreur.',
+      GenerationOutcome.complete => '',
+    };
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.info_outline_rounded, size: 14, color: fox.textSecondary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(color: fox.textSecondary, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _incompleteLabel() {
+    if (message.content.isEmpty) {
+      final reason = message.outcomeReason;
+      final said = reason == null ? null : _reasons[reason];
+      // Rien n'est arrivé : le dire, plutôt que laisser une bulle vide.
+      return said == null
+          ? 'Aucun texte reçu, la réponse s’est arrêtée avant de commencer.'
+          : 'Aucun texte reçu : $said.';
+    }
+    final reason = message.outcomeReason;
+    final said = reason == null ? null : _reasons[reason];
+    if (said != null) {
+      return 'Réponse écourtée : $said.';
+    }
+    // Motif inconnu : on le rapporte tel quel plutôt que d'en inventer un.
+    return reason == null ? 'Réponse écourtée.' : 'Réponse écourtée ($reason).';
   }
 }

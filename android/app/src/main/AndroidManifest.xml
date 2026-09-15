@@ -4,11 +4,20 @@
          lancement : l'application reste utilisable sans micro. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Sans les trois attributs de sauvegarde ci-dessous, Android copie par
+         défaut tout le stockage privé de l'application vers le Google Drive de
+         l'utilisateur, historique des conversations et pièces jointes compris,
+         et l'emporte vers le téléphone suivant lors d'un transfert. La
+         politique de confidentialité affirme le contraire : c'est la
+         sauvegarde qui est refusée, pas le texte qui est réécrit. -->
     <application
         android:label="FoxLLM"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round">
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"

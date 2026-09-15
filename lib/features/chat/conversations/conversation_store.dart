@@ -12,6 +12,58 @@ import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 
 typedef ConversationDirectoryProvider = Future<Directory> Function();
 
+/// Ce qui a empêché une restauration complète.
+enum ConversationLoadFailure {
+  /// Le fichier existe mais son contenu n'est pas du JSON lisible.
+  unreadable,
+
+  /// Le JSON se lit, mais sa structure n'est pas celle d'un historique.
+  malformed,
+
+  /// L'historique se lit, mais certaines conversations sont inexploitables.
+  ///
+  /// Les autres sont récupérées : elles accompagnent l'exception. Le fichier
+  /// n'est pas pour autant réécrit, sans quoi les entrées écartées
+  /// disparaîtraient définitivement sans que personne l'ait demandé.
+  partial,
+}
+
+/// L'historique n'a pas pu être restauré en entier.
+///
+/// À distinguer d'un historique réellement vide : sur un échec de lecture, la
+/// liste en mémoire ne dit rien de ce que contient le fichier.
+class ConversationLoadException implements Exception {
+  const ConversationLoadException(
+    this.failure, {
+    this.recovered = const <ChatConversation>[],
+    this.cause,
+  });
+
+  final ConversationLoadFailure failure;
+
+  /// Conversations tout de même exploitables, pour [ConversationLoadFailure.partial].
+  final List<ChatConversation> recovered;
+
+  /// Cause technique, gardée pour le diagnostic.
+  ///
+  /// Jamais montrée telle quelle : une `FormatException` de `jsonDecode` cite
+  /// un extrait du fichier, donc des morceaux de conversation.
+  final Object? cause;
+
+  /// Message destiné à l'utilisateur, sans un mot du contenu du fichier.
+  String get message => switch (failure) {
+    ConversationLoadFailure.unreadable =>
+      'Le fichier d’historique est illisible.',
+    ConversationLoadFailure.malformed =>
+      'Le fichier d’historique n’a pas la forme attendue.',
+    ConversationLoadFailure.partial =>
+      'Une partie de l’historique est inexploitable.',
+  };
+
+  @override
+  String toString() => message;
+}
+
 /// Enregistre l'historique des conversations dans le stockage privé de
 /// l'application, sous forme d'un unique fichier JSON.
 ///
@@ -39,38 +91,74 @@ class ConversationStore {
     return File('${directory.path}${Platform.pathSeparator}$_fileName');
   }
 
+  /// Relit l'historique.
+  ///
+  /// Une liste vide ne se rend que dans les cas réellement vides : fichier
+  /// absent, ou historique vide et conforme. Tout le reste lève, car rendre
+  /// une liste vide laisserait l'appelant la réécrire par-dessus un fichier
+  /// qui, lui, contenait quelque chose.
   Future<List<ChatConversation>> load() async {
     final file = await _file();
     if (!await file.exists()) {
       return <ChatConversation>[];
     }
 
+    final Object? decoded;
     try {
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map<Object?, Object?>) {
-        return <ChatConversation>[];
-      }
-      final rawConversations = decoded['conversations'];
-      if (rawConversations is! List) {
-        return <ChatConversation>[];
-      }
-
-      final conversations = <ChatConversation>[];
-      for (final raw in rawConversations) {
-        final conversation = ChatConversation.fromJson(raw);
-        if (conversation != null) {
-          conversations.add(conversation);
-        }
-      }
-      conversations.sort(
-        (left, right) => right.updatedAt.compareTo(left.updatedAt),
+      decoded = jsonDecode(await file.readAsString());
+    } catch (error, stackTrace) {
+      Error.throwWithStackTrace(
+        ConversationLoadException(
+          ConversationLoadFailure.unreadable,
+          cause: error,
+        ),
+        stackTrace,
       );
-      return conversations;
-    } catch (_) {
-      // Historique illisible : on repart d'une liste vide plutôt que d'empêcher
-      // l'ouverture du chat.
-      return <ChatConversation>[];
     }
+
+    // La forme attendue est un objet portant une liste `conversations`. Toute
+    // autre forme signale un fichier qui n'est pas le nôtre, ou qui a été
+    // abîmé : ce n'est pas un historique vide.
+    if (decoded is! Map<Object?, Object?>) {
+      throw const ConversationLoadException(ConversationLoadFailure.malformed);
+    }
+    final rawConversations = decoded['conversations'];
+    if (rawConversations is! List) {
+      throw const ConversationLoadException(ConversationLoadFailure.malformed);
+    }
+
+    final conversations = <ChatConversation>[];
+    // Vrai dès qu'un morceau d'historique s'est perdu à la relecture : une
+    // entrée entière, ou seulement un message, une pièce jointe ou une source
+    // à l'intérieur d'une conversation par ailleurs lisible. Les deux se
+    // valent ici : dans les deux cas, réécrire le fichier effacerait pour de
+    // bon ce qu'on n'a pas su lire.
+    var incomplete = false;
+    for (final raw in rawConversations) {
+      final conversation = ChatConversation.fromJson(
+        raw,
+        onLoss: () => incomplete = true,
+      );
+      if (conversation == null) {
+        incomplete = true;
+      } else {
+        conversations.add(conversation);
+      }
+    }
+    conversations.sort(
+      (left, right) => right.updatedAt.compareTo(left.updatedAt),
+    );
+
+    if (incomplete) {
+      // Les conversations lisibles sont rendues quand même, mais par une
+      // exception : l'appelant les affiche sans réécrire le fichier, sinon
+      // les entrées écartées seraient perdues pour de bon.
+      throw ConversationLoadException(
+        ConversationLoadFailure.partial,
+        recovered: List<ChatConversation>.unmodifiable(conversations),
+      );
+    }
+    return conversations;
   }
 
   /// Enregistre l'historique, les écritures successives étant sérialisées.
@@ -155,6 +243,20 @@ class ConversationPersister {
   bool _dirty = false;
   bool _disposed = false;
 
+  /// Rien ne part tant que l'historique n'a pas été relu.
+  ///
+  /// La liste en mémoire est vide au lancement. L'écrire à ce moment, sur un
+  /// passage en arrière-plan ou un premier envoi, remplacerait le fichier par
+  /// cette liste vide. Les demandes reçues pendant l'attente ne sont pas
+  /// perdues : elles partent à la libération, avec l'état d'alors.
+  bool _held = true;
+
+  /// La relecture a échoué : la liste en mémoire ne dit rien de ce que
+  /// contient le fichier, et l'écrire le détruirait.
+  ///
+  /// Distinct d'un historique réellement vide, qui lui peut être écrit.
+  bool _abandoned = false;
+
   /// Une écriture est partie et n'est pas revenue.
   ///
   /// Tant qu'elle dure, les changements marquent l'état comme modifié sans
@@ -178,6 +280,29 @@ class ConversationPersister {
 
   /// Nombre d'écritures réellement lancées, pour les tests.
   int writeCount = 0;
+
+  /// Autorise les écritures : l'historique a été relu.
+  void release() {
+    if (_disposed || _abandoned) {
+      return;
+    }
+    _held = false;
+    _startIfIdle();
+  }
+
+  /// Interdit définitivement les écritures : l'historique n'a pas pu être lu.
+  ///
+  /// Mieux vaut ne plus rien enregistrer que remplacer un fichier existant par
+  /// une liste vide qui ne vient que de l'échec de sa lecture.
+  void abandon() {
+    _abandoned = true;
+    _held = true;
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  /// Vrai tant qu'aucune écriture n'est permise.
+  bool get isHeld => _held;
 
   /// Note un changement sans importance immédiate : l'écriture part au plus
   /// une fois par [interval].
@@ -215,7 +340,7 @@ class ConversationPersister {
   void _startIfIdle() {
     _timer?.cancel();
     _timer = null;
-    if (!_dirty || _writing) {
+    if (!_dirty || _writing || _held) {
       return;
     }
     unawaited(_write());
@@ -239,7 +364,7 @@ class ConversationPersister {
       }
     } finally {
       _writing = false;
-      if (_dirty) {
+      if (_dirty && !_held) {
         if (_urgent || _disposed) {
           // Une demande explicite, ou la dernière écriture après fermeture.
           unawaited(_write());

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 et suivants. Sans ce fichier, Auto Backup copie tout le stockage
+  privé de l'application vers le Google Drive de l'utilisateur, et le transfert
+  entre appareils l'emporte vers le téléphone suivant.
+
+  La politique de confidentialité affirme que l'historique ne quitte pas
+  l'appareil : tout est donc exclu des deux, plutôt que d'affaiblir la
+  promesse. Le prix à payer est assumé et annoncé : changer de téléphone ne
+  reprend pas les conversations.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

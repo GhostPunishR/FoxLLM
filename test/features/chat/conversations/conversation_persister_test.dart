@@ -32,6 +32,8 @@ void main() {
         interval: const Duration(seconds: 2),
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       // Cinquante fragments, comme une génération locale ordinaire.
       for (var index = 0; index < 50; index++) {
@@ -57,6 +59,8 @@ void main() {
         interval: const Duration(seconds: 2),
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       // Dix secondes de fragments à 20 ms : cinq cents appels.
       for (var index = 0; index < 500; index++) {
@@ -83,6 +87,8 @@ void main() {
         interval: const Duration(seconds: 2),
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       persister.schedule();
       // Suppression avant que l'écriture différée ne parte.
@@ -107,6 +113,8 @@ void main() {
         interval: const Duration(seconds: 2),
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       // Un renommage n'est précédé d'aucun `schedule()`.
       persister.flush();
@@ -121,6 +129,8 @@ void main() {
         snapshot: () => <ChatConversation>[_conversation(1, 'partiel')],
         interval: const Duration(seconds: 2),
       );
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       persister.schedule();
       persister.dispose();
@@ -135,11 +145,75 @@ void main() {
     });
   });
 
+  group('retenue jusqu’à la relecture', () {
+    testWidgets('rien ne part tant que l’historique n’est pas relu', (
+      tester,
+    ) async {
+      var writes = 0;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async => writes++,
+        snapshot: () => <ChatConversation>[_conversation(1, 'x')],
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      expect(persister.isHeld, isTrue);
+      persister.schedule();
+      persister.flush();
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(writes, 0, reason: 'la liste en mémoire est encore vide');
+    });
+
+    testWidgets('les demandes retenues partent à la libération', (
+      tester,
+    ) async {
+      var writes = 0;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async => writes++,
+        snapshot: () => <ChatConversation>[_conversation(1, 'x')],
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      persister.flush();
+      expect(writes, 0);
+
+      persister.release();
+      expect(writes, 1, reason: 'la demande retenue n’est pas perdue');
+      expect(persister.isHeld, isFalse);
+    });
+
+    testWidgets('une relecture abandonnée interdit toute écriture', (
+      tester,
+    ) async {
+      var writes = 0;
+      final persister = ConversationPersister(
+        save: (List<ChatConversation> conversations) async => writes++,
+        snapshot: () => <ChatConversation>[_conversation(1, 'x')],
+        interval: const Duration(seconds: 2),
+      );
+      addTearDown(persister.dispose);
+
+      persister.abandon();
+      persister.flush();
+      // Même une libération tardive ne rouvre pas la porte : le fichier reste
+      // tel qu'il est plutôt que d'être remplacé par une liste vide.
+      persister.release();
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(writes, 0);
+      expect(persister.isHeld, isTrue);
+    });
+  });
+
   group('stockage lent', () {
     testWidgets('une seule sauvegarde à la fois', (tester) async {
       final saver = _GatedSaver();
       final persister = _persister(saver, () => saver.live);
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       persister.flush();
       expect(saver.started, 1);
@@ -169,6 +243,8 @@ void main() {
       final saver = _GatedSaver();
       final persister = _persister(saver, () => saver.live);
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       saver.live = <ChatConversation>[_conversation(1, 'un')];
       persister.flush();
@@ -199,6 +275,8 @@ void main() {
       final saver = _GatedSaver();
       final persister = _persister(saver, () => saver.live);
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       saver.live = <ChatConversation>[
         _conversation(1, 'bonjour'),
@@ -226,6 +304,8 @@ void main() {
       final saver = _GatedSaver()..autoComplete = true;
       final persister = _persister(saver, () => saver.live);
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       // Dix secondes de fragments à 20 ms, avec un stockage instantané : la
       // reprise après écriture ne doit pas enchaîner les sauvegardes.
@@ -294,6 +374,8 @@ void main() {
         onError: reported.add,
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       saver.live = <ChatConversation>[_conversation(1, 'perdu')];
       persister.flush();
@@ -327,6 +409,8 @@ void main() {
         onError: reported.add,
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       persister.flush();
       saver.live = <ChatConversation>[_conversation(1, 'après l’échec')];
@@ -365,6 +449,8 @@ void main() {
         onError: reported.add,
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       for (var index = 0; index < 5; index++) {
         persister.flush();
@@ -399,6 +485,8 @@ void main() {
         onError: (_) {},
       );
       addTearDown(persister.dispose);
+      // L'écran libère les écritures une fois l'historique relu.
+      persister.release();
 
       persister.flush();
       await tester.pump(const Duration(milliseconds: 10));
@@ -471,7 +559,7 @@ ConversationPersister _persister(
     snapshot: snapshot,
     interval: const Duration(seconds: 2),
     onError: (_) {},
-  );
+  )..release(); // L'écran libère les écritures une fois l'historique relu.
 }
 
 /// Sauvegarde dont la fin est commandée, pour tenir une écriture ouverte.

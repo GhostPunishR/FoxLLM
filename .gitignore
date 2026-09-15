@@ -16,6 +16,10 @@ coverage/
 # Android
 android/.gradle/
 android/local.properties
+# Signature de distribution : ni la clé ni ses mots de passe ne sont versionnés.
+android/key.properties
+*.jks
+*.keystore
 android/app/debug/
 android/app/profile/
 android/app/release/

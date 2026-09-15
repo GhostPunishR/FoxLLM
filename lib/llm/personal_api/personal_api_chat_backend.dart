@@ -36,7 +36,8 @@ final personalApiChatBackendProvider = Provider<LocalLlmBackend?>((ref) {
   return backend;
 });
 
-class PersonalApiChatBackend implements LocalLlmBackend {
+class PersonalApiChatBackend
+    implements LocalLlmBackend, IncompleteAwareBackend {
   PersonalApiChatBackend({
     required PersonalApiSettings settings,
     required LlmBackend remoteBackend,
@@ -96,6 +97,12 @@ class PersonalApiChatBackend implements LocalLlmBackend {
 
   @override
   Future<void> unloadModel() => _localBackend.unloadModel();
+
+  @override
+  String? get incompleteReason {
+    final remote = _remoteBackend;
+    return remote is HttpStreamingBackend ? remote.incompleteReason : null;
+  }
 
   @override
   Stream<String> generate({

@@ -8,6 +8,20 @@ import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 
+/// Moteur capable de dire qu'une réponse s'est arrêtée avant la fin.
+///
+/// Un flux accepté puis écourté n'est ni une réussite ni une erreur : le chat
+/// a besoin de le savoir pour ne pas présenter un texte partiel comme une
+/// réponse entière. Les moteurs locaux n'ont rien de tel à rapporter, d'où un
+/// contrat séparé plutôt qu'une méthode de plus pour tout le monde.
+abstract interface class IncompleteAwareBackend {
+  /// Motif pour lequel la dernière réponse a été écourtée, ou `null`.
+  ///
+  /// Remis à zéro au début de chaque génération : ce qui est lu appartient
+  /// toujours à la dernière, jamais à la précédente.
+  String? get incompleteReason;
+}
+
 class LocalLlmBackend implements LlmBackend {
   LocalLlmBackend({Future<FoxLlmNativeWorker>? worker})
     : _worker = worker ?? FoxLlmNativeWorker.start();

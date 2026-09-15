@@ -107,6 +107,32 @@ const privacyPolicyDocument = LegalDocument(
       ],
     ),
     LegalSection(
+      title: 'Sauvegardes Android',
+      paragraphs: <String>[
+        'Android sauvegarde par défaut les données des applications vers le '
+            'Google Drive de leur utilisateur, et les transfère vers son '
+            'téléphone suivant. FoxLLM refuse les deux : ni l’historique, ni '
+            'les pièces jointes, ni les réglages, ni les clés API ne sont '
+            'copiés hors de l’appareil par ce mécanisme.',
+        'La contrepartie est assumée : en changeant de téléphone, ou après '
+            'une désinstallation, tes conversations ne reviennent pas. C’est '
+            'le prix de la promesse faite plus haut.',
+      ],
+    ),
+    LegalSection(
+      title: 'Lecture à voix haute',
+      paragraphs: <String>[
+        'La lecture d’une réponse utilise le service de synthèse vocale '
+            'd’Android. FoxLLM ne produit ni ne conserve aucun son : il '
+            'confie le texte de la réponse au service du système, qui le dit.',
+        'Selon l’appareil et les voix installées, cette synthèse peut avoir '
+            'lieu sur le téléphone ou passer par les serveurs du fournisseur '
+            'de la voix, le plus souvent Google. Le texte de la réponse lue '
+            'peut donc lui être transmis, y compris lorsque la réponse vient '
+            'd’un modèle local.',
+      ],
+    ),
+    LegalSection(
       title: 'Dictée vocale',
       paragraphs: <String>[
         'La dictée utilise le service de reconnaissance vocale d’Android. '
