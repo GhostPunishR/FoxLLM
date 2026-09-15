@@ -16,6 +16,25 @@ enum ChatRole { system, user, assistant }
 /// à qui que ce soit.
 enum MessageRating { none, up, down }
 
+/// Ce qui a mis fin à une réponse.
+///
+/// Un flux accepté puis écourté n'est ni une réussite ni une erreur : le
+/// texte reçu est bon, il est seulement partiel. Sans cette distinction, une
+/// réponse coupée s'affichait et se rechargeait comme une réponse entière.
+enum GenerationOutcome {
+  /// Le modèle est allé au bout de sa réponse.
+  complete,
+
+  /// Le fournisseur a écourté la réponse : limite de jetons, filtre, durée.
+  incomplete,
+
+  /// L'utilisateur a arrêté la génération.
+  cancelled,
+
+  /// La génération s'est interrompue sur une erreur.
+  failed,
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.role,
@@ -24,6 +43,8 @@ class ChatMessage {
     this.images = const <InlineImage>[],
     this.citations = const <Citation>[],
     this.rating = MessageRating.none,
+    this.outcome = GenerationOutcome.complete,
+    this.outcomeReason,
   });
 
   const ChatMessage.system(String content)
@@ -53,12 +74,27 @@ class ChatMessage {
   /// Avis local de l'utilisateur, conservé avec la conversation.
   final MessageRating rating;
 
+  /// Comment cette réponse s'est terminée.
+  ///
+  /// `complete` pour tout ce qui précède cette notion, et pour les moteurs
+  /// qui ne la rapportent pas : un historique écrit avant ne devient pas
+  /// suspect d'un coup.
+  final GenerationOutcome outcome;
+
+  /// Motif donné par le fournisseur quand la réponse a été écourtée.
+  ///
+  /// Tel qu'il l'a nommé : `max_output_tokens`, `content_filter`… Traduit à
+  /// l'affichage, gardé brut ici pour ne rien inventer.
+  final String? outcomeReason;
+
   ChatMessage copyWith({
     String? content,
     List<ChatAttachment>? attachments,
     List<InlineImage>? images,
     List<Citation>? citations,
     MessageRating? rating,
+    GenerationOutcome? outcome,
+    String? outcomeReason,
   }) => ChatMessage(
     role: role,
     content: content ?? this.content,
@@ -66,6 +102,8 @@ class ChatMessage {
     images: images ?? this.images,
     citations: citations ?? this.citations,
     rating: rating ?? this.rating,
+    outcome: outcome ?? this.outcome,
+    outcomeReason: outcomeReason ?? this.outcomeReason,
   );
 
   Map<String, Object> toApiJson() {

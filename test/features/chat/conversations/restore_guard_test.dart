@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,12 +68,29 @@ void main() {
     await tester.pumpAndSettle();
 
     // Le fichier existe toujours sur disque : sa liste ne doit pas être
-    // remplacée par la liste vide que l'écran a en mémoire.
+    // remplacée par la liste vide que l'écran a en mémoire. Ni l'envoi, ni
+    // l'arrière-plan, ni la fermeture ne doivent déclencher d'écriture.
+    // Le bandeau d'erreur recouvre le composeur : on l'écarte pour que
+    // l'appui parte vraiment.
+    expect(find.textContaining('historique'), findsWidgets);
+    await tester.drag(
+      find.textContaining('historique').first,
+      const Offset(0, 300),
+    );
+    await _settle(tester);
+
+    await tester.enterText(find.byType(TextField).first, 'Une question');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Envoyer'));
+    await _settle(tester);
+
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await tester.pumpAndSettle();
+    await _settle(tester);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await _settle(tester);
 
     expect(store.saveCalls, isEmpty);
-    expect(find.textContaining('historique'), findsWidgets);
   });
 
   testWidgets('fermer l’écran pendant la relecture n’efface rien', (
@@ -89,6 +107,83 @@ void main() {
 
     expect(store.savedEmpty, isFalse);
     expect(tester.takeException(), isNull);
+  });
+
+  group('fichier réel', _realFileTests);
+}
+
+/// Le fichier réel ne doit pas bouger d'un octet après un échec de lecture,
+/// quoi que l'utilisateur fasse ensuite.
+///
+/// Ces contrôles sortent de `testWidgets` : son horloge simulée n'exécute pas
+/// les entrées-sorties réelles, et une lecture de fichier n'y revient jamais.
+/// Ils reproduisent donc à la main les trois moments qui déclenchaient une
+/// écriture, sur le magasin et le fichier véritables.
+void _realFileTests() {
+  late Directory tempDirectory;
+  late ConversationStore store;
+  late File file;
+
+  setUp(() async {
+    tempDirectory = await Directory.systemTemp.createTemp('foxllm-restore');
+    store = ConversationStore(
+      applicationSupportDirectory: () async => tempDirectory,
+    );
+    file = File(
+      '${tempDirectory.path}${Platform.pathSeparator}conversations.json',
+    );
+  });
+
+  tearDown(() async => tempDirectory.delete(recursive: true));
+
+  test('un fichier abîmé survit à l’envoi, à l’arrière-plan et à la '
+      'fermeture', () async {
+    // Structure non conforme : ce n'est pas un historique vide.
+    const original = '{"conversations": "pas une liste"}';
+    await file.writeAsString(original);
+
+    // Ce que fait l'écran au lancement.
+    var restored = true;
+    final persister = ConversationPersister(
+      save: store.save,
+      // La liste en mémoire après un échec : vide, et sans rapport avec le
+      // fichier.
+      snapshot: () => const <ChatConversation>[],
+      interval: const Duration(milliseconds: 1),
+    );
+    try {
+      await store.load();
+      restored = false;
+    } on ConversationLoadException {
+      persister.abandon();
+    }
+    expect(restored, isTrue, reason: 'la lecture aurait dû être refusée');
+
+    // Un envoi, un passage en arrière-plan, puis la fermeture de l'écran.
+    persister.schedule();
+    persister.flush();
+    persister.dispose();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    expect(persister.writeCount, 0);
+    expect(
+      await file.readAsString(),
+      original,
+      reason: 'le fichier d’origine a été réécrit',
+    );
+  });
+
+  test('un historique valide reste enregistrable', () async {
+    // Le garde-fou ne doit pas condamner le cas normal.
+    await store.save(<ChatConversation>[
+      ChatConversation(
+        id: 1,
+        title: 'Valide',
+        updatedAt: DateTime.now(),
+        messages: <ChatMessage>[const ChatMessage.user('Bonjour')],
+      ),
+    ]);
+    expect(await store.load(), hasLength(1));
   });
 }
 
@@ -194,4 +289,13 @@ class _ScriptedBackend implements LocalLlmBackend {
 
   @override
   Future<void> dispose() async {}
+}
+
+/// `pumpAndSettle` n'aboutit pas tant qu'une animation tourne, et la bulle
+/// vide de l'assistant en fait tourner une : on avance d'un nombre borné
+/// d'images.
+Future<void> _settle(WidgetTester tester, [int frames = 40]) async {
+  for (var i = 0; i < frames; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }

@@ -12,17 +12,56 @@ import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 
 typedef ConversationDirectoryProvider = Future<Directory> Function();
 
-/// Le fichier d'historique existe mais n'a pas pu être lu.
+/// Ce qui a empêché une restauration complète.
+enum ConversationLoadFailure {
+  /// Le fichier existe mais son contenu n'est pas du JSON lisible.
+  unreadable,
+
+  /// Le JSON se lit, mais sa structure n'est pas celle d'un historique.
+  malformed,
+
+  /// L'historique se lit, mais certaines conversations sont inexploitables.
+  ///
+  /// Les autres sont récupérées : elles accompagnent l'exception. Le fichier
+  /// n'est pas pour autant réécrit, sans quoi les entrées écartées
+  /// disparaîtraient définitivement sans que personne l'ait demandé.
+  partial,
+}
+
+/// L'historique n'a pas pu être restauré en entier.
 ///
 /// À distinguer d'un historique réellement vide : sur un échec de lecture, la
 /// liste en mémoire ne dit rien de ce que contient le fichier.
 class ConversationLoadException implements Exception {
-  const ConversationLoadException(this.cause);
+  const ConversationLoadException(
+    this.failure, {
+    this.recovered = const <ChatConversation>[],
+    this.cause,
+  });
 
-  final Object cause;
+  final ConversationLoadFailure failure;
+
+  /// Conversations tout de même exploitables, pour [ConversationLoadFailure.partial].
+  final List<ChatConversation> recovered;
+
+  /// Cause technique, gardée pour le diagnostic.
+  ///
+  /// Jamais montrée telle quelle : une `FormatException` de `jsonDecode` cite
+  /// un extrait du fichier, donc des morceaux de conversation.
+  final Object? cause;
+
+  /// Message destiné à l'utilisateur, sans un mot du contenu du fichier.
+  String get message => switch (failure) {
+    ConversationLoadFailure.unreadable =>
+      'Le fichier d’historique est illisible.',
+    ConversationLoadFailure.malformed =>
+      'Le fichier d’historique n’a pas la forme attendue.',
+    ConversationLoadFailure.partial =>
+      'Une partie de l’historique est inexploitable.',
+  };
 
   @override
-  String toString() => 'Historique illisible : $cause';
+  String toString() => message;
 }
 
 /// Enregistre l'historique des conversations dans le stockage privé de
@@ -52,40 +91,66 @@ class ConversationStore {
     return File('${directory.path}${Platform.pathSeparator}$_fileName');
   }
 
+  /// Relit l'historique.
+  ///
+  /// Une liste vide ne se rend que dans les cas réellement vides : fichier
+  /// absent, ou historique vide et conforme. Tout le reste lève, car rendre
+  /// une liste vide laisserait l'appelant la réécrire par-dessus un fichier
+  /// qui, lui, contenait quelque chose.
   Future<List<ChatConversation>> load() async {
     final file = await _file();
     if (!await file.exists()) {
       return <ChatConversation>[];
     }
 
+    final Object? decoded;
     try {
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map<Object?, Object?>) {
-        return <ChatConversation>[];
-      }
-      final rawConversations = decoded['conversations'];
-      if (rawConversations is! List) {
-        return <ChatConversation>[];
-      }
-
-      final conversations = <ChatConversation>[];
-      for (final raw in rawConversations) {
-        final conversation = ChatConversation.fromJson(raw);
-        if (conversation != null) {
-          conversations.add(conversation);
-        }
-      }
-      conversations.sort(
-        (left, right) => right.updatedAt.compareTo(left.updatedAt),
-      );
-      return conversations;
+      decoded = jsonDecode(await file.readAsString());
     } catch (error, stackTrace) {
-      // Le fichier existe mais ne se lit pas : ce n'est pas un historique
-      // vide, et le confondre avec un historique vide ferait écrire cette
-      // liste vide par-dessus. L'appelant décide quoi en faire ; l'ouverture
-      // du chat, elle, n'est pas empêchée.
-      Error.throwWithStackTrace(ConversationLoadException(error), stackTrace);
+      Error.throwWithStackTrace(
+        ConversationLoadException(
+          ConversationLoadFailure.unreadable,
+          cause: error,
+        ),
+        stackTrace,
+      );
     }
+
+    // La forme attendue est un objet portant une liste `conversations`. Toute
+    // autre forme signale un fichier qui n'est pas le nôtre, ou qui a été
+    // abîmé : ce n'est pas un historique vide.
+    if (decoded is! Map<Object?, Object?>) {
+      throw const ConversationLoadException(ConversationLoadFailure.malformed);
+    }
+    final rawConversations = decoded['conversations'];
+    if (rawConversations is! List) {
+      throw const ConversationLoadException(ConversationLoadFailure.malformed);
+    }
+
+    final conversations = <ChatConversation>[];
+    var dropped = 0;
+    for (final raw in rawConversations) {
+      final conversation = ChatConversation.fromJson(raw);
+      if (conversation == null) {
+        dropped += 1;
+      } else {
+        conversations.add(conversation);
+      }
+    }
+    conversations.sort(
+      (left, right) => right.updatedAt.compareTo(left.updatedAt),
+    );
+
+    if (dropped > 0) {
+      // Les conversations lisibles sont rendues quand même, mais par une
+      // exception : l'appelant les affiche sans réécrire le fichier, sinon
+      // les entrées écartées seraient perdues pour de bon.
+      throw ConversationLoadException(
+        ConversationLoadFailure.partial,
+        recovered: List<ChatConversation>.unmodifiable(conversations),
+      );
+    }
+    return conversations;
   }
 
   /// Enregistre l'historique, les écritures successives étant sérialisées.

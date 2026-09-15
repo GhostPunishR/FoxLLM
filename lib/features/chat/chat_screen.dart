@@ -99,6 +99,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// l'envoi ou d'interrompre la réponse en cours, le message attend son tour.
   final List<_Outgoing> _queued = <_Outgoing>[];
 
+  /// Change chaque fois que la file est abandonnée.
+  ///
+  /// Un message sorti de la file revient en tête s'il est refusé. Sans ce
+  /// repère, ce retour ressuscitait une file que la navigation venait de
+  /// vider, et le message repartait dans le fil suivant.
+  int _queueEpoch = 0;
+
   /// Identifie le brouillon courant, texte et pièces jointes ensemble.
   ///
   /// Change dès qu'on quitte un fil : une sélection de fichier encore en
@@ -111,6 +118,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   bool _restoringModel = false;
   String? _restorableModelPath;
   int _generationEpoch = 0;
+
+  /// Génération que l'utilisateur a explicitement arrêtée.
+  int _cancelledEpoch = -1;
   int _nextConversationId = 1;
   int? _activeConversationId;
 
@@ -177,18 +187,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _restoreConversations() async {
-    final List<ChatConversation> conversations;
+    List<ChatConversation> conversations;
     try {
       conversations = await ref.read(conversationStoreProvider).load();
-    } catch (error) {
-      // Le fichier existe mais ne se lit pas. Tout enregistrement ultérieur
-      // le remplacerait par ce que l'écran a en mémoire, c'est-à-dire par
-      // rien : mieux vaut ne plus rien écrire et le dire.
+    } on ConversationLoadException catch (error) {
+      // Le fichier n'a pas pu être relu en entier. Tout enregistrement
+      // ultérieur le remplacerait par ce que l'écran a en mémoire, donc par
+      // moins que ce qu'il contient : mieux vaut ne plus rien écrire.
+      //
+      // Les conversations tout de même lisibles sont affichées : les cacher
+      // n'aiderait personne, et rien ne sera réécrit de toute façon.
+      _persister.abandon();
+      conversations = error.recovered;
+      if (mounted) {
+        // Le message vient de l'exception, jamais de sa cause technique :
+        // celle de `jsonDecode` cite un extrait du fichier, donc des
+        // morceaux de conversation.
+        _showSnack(
+          '${error.message} Les conversations de cette session ne seront pas '
+          'enregistrées.',
+        );
+      }
+      if (conversations.isEmpty) {
+        _openHistoryGate();
+        return;
+      }
+    } catch (_) {
+      // Panne de lecture qui ne vient pas du contenu : disque, permissions.
+      // Même conclusion, et toujours sans citer la cause, qui peut porter un
+      // chemin ou un extrait de fichier.
       _persister.abandon();
       if (mounted) {
         _showSnack(
-          'Lecture de l’historique impossible : les conversations de cette '
-          'session ne seront pas enregistrées. ($error)',
+          'Lecture de l’historique impossible. Les conversations de cette '
+          'session ne seront pas enregistrées.',
         );
       }
       _openHistoryGate();
@@ -353,6 +385,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// le moteur, et cet arrêt termine la réponse en cours : la file repartirait
   /// alors toute seule, dans le fil suivant.
   void _dropQueue() {
+    // Compté même sur une file déjà vide : un envoi parti de la file est en
+    // vol, et sa réinsertion après un refus doit être refusée elle aussi.
+    _queueEpoch += 1;
     if (_queued.isEmpty) {
       return;
     }
@@ -744,11 +779,63 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     //
     // Un refus n'est pas réessayé tout seul : le défilement s'arrête là,
     // plutôt que de vider la file en boucle sur la même erreur.
+    final queueEpoch = _queueEpoch;
     final next = _queued.removeAt(0);
     final sent = await _startSend(next);
-    if (!sent && mounted) {
+    if (!sent && mounted && queueEpoch == _queueEpoch) {
       setState(() => _queued.insert(0, next));
     }
+  }
+
+  /// Ramène un message en attente dans le composeur, pour le corriger.
+  ///
+  /// Le brouillon en cours prend sa place dans la file plutôt que d'être
+  /// écrasé : l'échange ne perd ni l'un ni l'autre, pièces jointes comprises.
+  void _resumeQueued(_Outgoing message) {
+    final index = _queued.indexOf(message);
+    if (index < 0) {
+      return;
+    }
+    final draft = _Outgoing(
+      text: _inputController.text.trim(),
+      attachments: List<ChatAttachment>.of(_pendingAttachments),
+      conversationId: _activeConversationId,
+    );
+    setState(() {
+      if (draft.isEmpty) {
+        _queued.removeAt(index);
+      } else {
+        _queued[index] = draft;
+      }
+      _inputController.text = message.text;
+      _inputController.selection = TextSelection.collapsed(
+        offset: message.text.length,
+      );
+      _pendingAttachments
+        ..clear()
+        ..addAll(message.attachments);
+    });
+  }
+
+  /// Donne au fil qui vient de naître les messages qui l'attendaient.
+  ///
+  /// Appelé depuis le `setState` de validation : la file est modifiée en
+  /// place, sans nouvelle reconstruction.
+  void _adoptQueuedIntoNewThread(int id) {
+    for (var i = 0; i < _queued.length; i++) {
+      if (_queued[i].conversationId == null) {
+        _queued[i] = _queued[i].withConversation(id);
+      }
+    }
+  }
+
+  /// Retire un message de la file, définitivement.
+  void _removeQueued(_Outgoing message) {
+    if (!_queued.remove(message)) {
+      return;
+    }
+    setState(() {});
+    _deleteUnreferencedAttachments(message.attachments);
   }
 
   /// Lance [outgoing]. Rend `true` seulement s'il a rejoint le fil.
@@ -805,6 +892,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Le fil visé est celui d'où l'envoi est parti, pas celui affiché au
     // moment d'aboutir.
     var conversationId = outgoing.conversationId;
+    // `null` désigne le fil qui reste à créer, jamais « n'importe lequel » :
+    // il n'est accepté que tant qu'aucun fil n'est ouvert. Les messages mis
+    // en attente pendant cette création sont rattachés plus bas, dès que le
+    // fil a une identité.
     if (conversationId != _activeConversationId) {
       return _SendOutcome.refused;
     }
@@ -897,9 +988,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
     }
 
+    // Version d'avant le remplacement, copiée juste avant la mutation. Une
+    // régénération ou une modification coupe la fin du fil : si la génération
+    // échoue, c'est la seule trace qui reste de la réponse effacée, de ses
+    // pièces jointes et de ses citations.
+    final replaced = outgoing.replaceFrom == null
+        ? null
+        : List<ChatMessage>.of(_messages);
+
     setState(() {
       _ensureActiveConversation(text);
       conversationId = _activeConversationId;
+      if (outgoing.conversationId == null) {
+        // Ce premier message vient de créer le fil. Ceux mis en attente
+        // pendant sa préparation visaient ce même fil, qui n'avait pas encore
+        // d'identifiant : ils le reçoivent maintenant, au lieu d'être refusés
+        // pour une identité qu'ils ne pouvaient pas connaître.
+        _adoptQueuedIntoNewThread(conversationId!);
+      }
       _messages
         ..clear()
         ..addAll(history)
@@ -917,6 +1023,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     var response = '';
     var failed = false;
+    var outcome = GenerationOutcome.complete;
     try {
       final settings = GenerationSettings(
         maxTokens: modes.reasoning
@@ -947,15 +1054,45 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _removeEmptyAssistantPlaceholder();
         } else {
           _attachCitations(backend);
+          outcome = _recordOutcome(backend, generationEpoch);
         }
       }
     } catch (error) {
       if (!stillCurrent()) {
         return _SendOutcome.sent;
       }
-      // Le texte déjà reçu est conservé : seule la bulle restée vide s'en va.
-      _removeEmptyAssistantPlaceholder();
-      _showSnack('Génération impossible : $error');
+      if (response.isNotEmpty) {
+        // Le texte reçu reste à l'écran, c'est ce que l'utilisateur a vu,
+        // mais il ne doit pas passer pour une réponse entière.
+        _markLastAssistantOutcome(GenerationOutcome.failed, null);
+        outcome = GenerationOutcome.failed;
+      }
+      if (replaced == null) {
+        if (response.isEmpty) {
+          // Rien n'est arrivé : seule la bulle restée vide s'en va.
+          _removeEmptyAssistantPlaceholder();
+        }
+        _showSnack('Génération impossible : $error');
+      } else if (response.isEmpty) {
+        // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le
+        // fil revient tel qu'il était, réponse effacée comprise, plutôt que
+        // de rester amputé de tout ce qui suivait la question.
+        _restoreThread(replaced, generationEpoch, conversationId);
+        _showSnack(
+          'Génération impossible : $error. Réponse précédente conservée.',
+        );
+      } else {
+        // Du texte est arrivé avant la coupure : l'ancienne réponse n'est pas
+        // perdue pour autant, elle est à un geste.
+        _showSnack(
+          'Génération interrompue : $error',
+          action: SnackBarAction(
+            label: 'Rétablir',
+            onPressed: () =>
+                _restoreThread(replaced, generationEpoch, conversationId),
+          ),
+        );
+      }
       failed = true;
     } finally {
       if (stillCurrent()) {
@@ -963,9 +1100,57 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           _isGenerating = false;
           _syncActiveConversation();
         });
+      } else {
+        // Le fil visé n'est plus celui qui est ouvert : on n'y touche pas,
+        // mais celui qu'on a quitté ne doit pas rester sur une bulle vide à
+        // la place de la réponse que le remplacement venait d'effacer.
+        _settleAbandonedThread(conversationId, response, replaced);
       }
     }
-    return failed ? _SendOutcome.failed : _SendOutcome.sent;
+    if (failed) {
+      return _SendOutcome.failed;
+    }
+    // Une réponse écourtée n'enchaîne pas la file : il n'y a rien d'automatique
+    // à faire d'une réponse dont on sait qu'elle n'est pas allée au bout.
+    return outcome == GenerationOutcome.incomplete
+        ? _SendOutcome.incomplete
+        : _SendOutcome.sent;
+  }
+
+  /// Note sur la réponse ce qui y a mis fin, et le rend.
+  ///
+  /// Lu à la toute fin du flux : le moteur remet son état à zéro au début de
+  /// chaque génération, donc ce qui est lu ici appartient bien à celle-ci.
+  GenerationOutcome _recordOutcome(LocalLlmBackend backend, int epoch) {
+    if (_cancelledEpoch == epoch) {
+      _markLastAssistantOutcome(GenerationOutcome.cancelled, null);
+      return GenerationOutcome.cancelled;
+    }
+    // Un motif filtré par le type, et non par le nom du fournisseur : le chat
+    // n'a pas à connaître celui qui parle.
+    final String? reason = switch (backend) {
+      final IncompleteAwareBackend aware => aware.incompleteReason,
+      _ => null,
+    };
+    if (reason == null) {
+      return GenerationOutcome.complete;
+    }
+    _markLastAssistantOutcome(GenerationOutcome.incomplete, reason);
+    return GenerationOutcome.incomplete;
+  }
+
+  /// Marque la dernière réponse du fil, à l'écran comme à l'enregistrement.
+  void _markLastAssistantOutcome(GenerationOutcome outcome, String? reason) {
+    if (_messages.isEmpty || _messages.last.role != ChatRole.assistant) {
+      return;
+    }
+    setState(() {
+      _messages[_messages.length - 1] = _messages.last.copyWith(
+        outcome: outcome,
+        outcomeReason: reason,
+      );
+      _syncActiveConversation();
+    });
   }
 
   /// Ouvre le modèle mémorisé. Rend `false` si le chargement a échoué ou si
@@ -1067,6 +1252,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   }
 
   Future<void> _stopGeneration() async {
+    // L'arrêt appartient à la génération en cours : sans ce repère, la fin de
+    // flux qu'il provoque ressemblait à une réponse allée au bout.
+    _cancelledEpoch = _generationEpoch;
     await ref.read(chatBackendProvider).stop();
   }
 
@@ -1081,7 +1269,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
   }
 
-  void _showSnack(String message) {
+  void _showSnack(String message, {SnackBarAction? action}) {
     // Un échec tardif, revenu après la fermeture de l'écran, n'a plus de
     // `context` où afficher quoi que ce soit : le message est abandonné
     // plutôt que de lever une exception par-dessus l'erreur d'origine.
@@ -1090,7 +1278,92 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          action: action,
+          // Le temps de lire l'erreur et d'atteindre le bouton.
+          duration: action == null
+              ? const Duration(seconds: 4)
+              : const Duration(seconds: 10),
+        ),
+      );
+  }
+
+  /// Rend au fil la version d'avant un remplacement.
+  ///
+  /// Encadrée par l'identité de l'opération et de la conversation : une
+  /// génération abandonnée, ou un bouton pressé après avoir changé de fil, ne
+  /// doit jamais réécrire ce qui est ouvert maintenant.
+  void _restoreThread(
+    List<ChatMessage> previous,
+    int generationEpoch,
+    int? conversationId,
+  ) {
+    if (!mounted ||
+        generationEpoch != _generationEpoch ||
+        conversationId != _activeConversationId) {
+      return;
+    }
+    setState(() {
+      _messages
+        ..clear()
+        ..addAll(previous);
+      _isGenerating = false;
+      // L'enregistrement suit ce qui est affiché : sans cela, le fichier
+      // garderait la version tronquée.
+      _syncActiveConversation();
+    });
+  }
+
+  /// Termine proprement un fil quitté pendant sa génération.
+  ///
+  /// Ne touche qu'à la conversation visée, jamais à celle qui est ouverte :
+  /// elle n'est plus à l'écran, seul son contenu enregistré est en jeu. La
+  /// bulle vide laissée en attente de la réponse y devient soit le texte
+  /// reçu, soit la version d'avant le remplacement, soit rien.
+  void _settleAbandonedThread(
+    int? conversationId,
+    String response,
+    List<ChatMessage>? replaced,
+  ) {
+    if (!mounted || conversationId == null) {
+      return;
+    }
+    final conversation = _conversationById(conversationId);
+    if (conversation == null) {
+      return;
+    }
+    final messages = conversation.messages;
+    // Rien d'inachevé : la génération a abouti avant l'abandon, ou le fil a
+    // déjà été repris ailleurs.
+    if (messages.isEmpty ||
+        messages.last.role != ChatRole.assistant ||
+        messages.last.content.isNotEmpty) {
+      return;
+    }
+    final head = messages.take(messages.length - 1);
+    final repaired = switch ((response.isNotEmpty, replaced)) {
+      // Le texte reçu avant l'abandon vaut mieux qu'une bulle vide.
+      (true, _) => <ChatMessage>[...head, ChatMessage.assistant(response)],
+      // Un remplacement qui n'a rien donné : la version d'avant revient.
+      (false, final previous?) => <ChatMessage>[...previous],
+      // Un envoi ordinaire : la question reste, sans réponse.
+      (false, null) => <ChatMessage>[...head],
+    };
+    setState(() {
+      conversation.messages = repaired;
+      conversation.updatedAt = DateTime.now();
+      if (conversationId == _activeConversationId) {
+        // Le fil est encore affiché : c'est l'opération qui est périmée, pas
+        // la conversation. L'écran doit montrer ce qui sera enregistré.
+        _messages
+          ..clear()
+          ..addAll(repaired);
+        _isGenerating = false;
+      }
+      _persistConversations();
+    });
   }
 
   void _scrollToBottom() {
@@ -1383,6 +1656,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           ),
           if (_restoringModel) const _RestoringModelBanner(),
+          if (_queued.isNotEmpty)
+            _QueuedStrip(
+              queued: List<_Outgoing>.unmodifiable(_queued),
+              canRetry: !_isGenerating && !_sending,
+              onRetry: () => unawaited(_drainQueue()),
+              onResume: _resumeQueued,
+              onRemove: _removeQueued,
+            ),
           SafeArea(
             top: false,
             child: KeyedSubtree(

@@ -205,15 +205,22 @@ class _Composer extends StatelessWidget {
 
 /// Issue d'un envoi.
 ///
-/// Distingue trois cas que l'appelant ne doit pas confondre : un refus avant
-/// toute mutation, un message parti et abouti, et un message parti dont la
-/// réponse a échoué. Seul le deuxième autorise la file à enchaîner.
+/// Distingue quatre cas que l'appelant ne doit pas confondre : un refus avant
+/// toute mutation, un message parti et abouti, un message parti dont la
+/// réponse s'est arrêtée avant la fin, et un message parti dont la réponse a
+/// échoué. Seul le deuxième autorise la file à enchaîner.
 enum _SendOutcome {
   /// Rien n'a été modifié : le message reste récupérable tel quel.
   refused,
 
-  /// Le message a rejoint le fil et la réponse s'est terminée.
+  /// Le message a rejoint le fil et la réponse est allée au bout.
   sent,
+
+  /// Le message a rejoint le fil, mais la réponse a été écourtée.
+  ///
+  /// Ni réussite ni échec : le texte reçu est bon, il est partiel. La file
+  /// s'arrête là, et c'est à l'utilisateur de décider de la suite.
+  incomplete,
 
   /// Le message a rejoint le fil, mais la réponse a échoué.
   failed,
@@ -257,6 +264,144 @@ class _Outgoing {
   final bool fromComposer;
 
   bool get isEmpty => text.isEmpty && attachments.isEmpty;
+
+  /// Le même envoi, rattaché au fil qui vient de naître.
+  ///
+  /// Un message mis en attente pendant la préparation du tout premier d'un
+  /// nouveau chat ne pouvait pas en connaître l'identifiant : il n'existait
+  /// pas encore. Il est rattaché ici plutôt que refusé pour un identifiant
+  /// qu'il ne pouvait pas porter.
+  _Outgoing withConversation(int id) => _Outgoing(
+    text: text,
+    attachments: attachments,
+    conversationId: id,
+    replaceFrom: replaceFrom,
+    fromComposer: fromComposer,
+  );
+}
+
+/// Bandeau des messages en attente, au-dessus du composeur.
+///
+/// La file était invisible : un message refusé y restait sans que rien ne le
+/// montre, et il fallait envoyer un message sans rapport pour le débloquer.
+class _QueuedStrip extends StatelessWidget {
+  const _QueuedStrip({
+    required this.queued,
+    required this.canRetry,
+    required this.onRetry,
+    required this.onResume,
+    required this.onRemove,
+  });
+
+  final List<_Outgoing> queued;
+
+  /// Vrai quand la voie est libre : sinon la file repartira d'elle-même.
+  final bool canRetry;
+  final VoidCallback onRetry;
+  final void Function(_Outgoing message) onResume;
+  final void Function(_Outgoing message) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    queued.length == 1
+                        ? '1 message en attente'
+                        : '${queued.length} messages en attente',
+                    style: TextStyle(color: fox.textSecondary, fontSize: 12),
+                  ),
+                ),
+                if (canRetry)
+                  TextButton(
+                    onPressed: onRetry,
+                    child: const Text('Réessayer'),
+                  ),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                for (final message in queued)
+                  _QueuedChip(
+                    message: message,
+                    onResume: () => onResume(message),
+                    onRemove: () => onRemove(message),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un message en attente : son texte, une reprise et un retrait.
+class _QueuedChip extends StatelessWidget {
+  const _QueuedChip({
+    required this.message,
+    required this.onResume,
+    required this.onRemove,
+  });
+
+  final _Outgoing message;
+  final VoidCallback onResume;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    final label = message.text.isEmpty
+        ? '${message.attachments.length} pièce(s) jointe(s)'
+        : message.text;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 260),
+      decoration: BoxDecoration(
+        color: fox.surfaceRaised,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: fox.borderStrong),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Flexible(
+            child: InkWell(
+              onTap: onResume,
+              borderRadius: BorderRadius.circular(18),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: fox.textPrimary, fontSize: 13),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onRemove,
+            iconSize: 16,
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Retirer de la file',
+            icon: Icon(Icons.close_rounded, color: fox.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Pièce jointe du brouillon : aperçu, nom, taille et retrait.

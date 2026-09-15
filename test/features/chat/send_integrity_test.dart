@@ -39,21 +39,121 @@ void main() {
       ]);
     });
 
-    testWidgets('une erreur avant le premier fragment garde le nouveau tour', (
-      tester,
-    ) async {
+    testWidgets('une erreur avant le premier fragment rétablit l’ancienne '
+        'réponse', (tester) async {
       final backend = _Backend(failGeneration: true);
       final store = _RecordingStore();
       await _pumpThread(tester, backend, store);
 
       await _regenerate(tester);
-      await tester.pumpAndSettle();
+      await _settle(tester);
 
-      // L'envoi a été accepté : la question repart, la réponse est remplacée.
+      // Le défaut d'origine : le fil était coupé avant l'appel au moteur, et
+      // l'échec le laissait amputé de la réponse qu'il venait d'effacer.
+      // Rien n'est arrivé du moteur, donc rien ne remplace rien.
       expect(_inThread(tester, 'Ma question'), isTrue);
-      expect(_inThread(tester, 'Première réponse'), isFalse);
+      expect(_inThread(tester, 'Première réponse'), isTrue);
       expect(find.textContaining('Génération impossible'), findsOneWidget);
-      expect(store.lastMessages.map((m) => m.content), <String>['Ma question']);
+
+      // Et l'enregistrement dit la même chose que l'écran.
+      expect(store.lastMessages.map((m) => m.content), <String>[
+        'Ma question',
+        'Première réponse',
+      ]);
+    });
+
+    testWidgets('une erreur après des fragments garde le texte reçu et rend '
+        'l’ancienne réponse à la demande', (tester) async {
+      final backend = _Backend(hold: true);
+      final store = _RecordingStore();
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Début de réponse');
+      await _settle(tester);
+      backend.fail('le fournisseur a abandonné');
+      await _settle(tester);
+
+      // Ce que l'utilisateur a vu arriver reste à l'écran : le jeter serait
+      // une seconde perte.
+      expect(_inThread(tester, 'Début de réponse'), isTrue);
+      expect(store.lastMessages.map((m) => m.content), <String>[
+        'Ma question',
+        'Début de réponse',
+      ]);
+
+      // L'ancienne réponse n'est pas perdue pour autant : elle est à un geste,
+      // et la perte n'est donc pas silencieuse.
+      await tester.tap(find.text('Rétablir'));
+      await _settle(tester);
+
+      expect(_inThread(tester, 'Première réponse'), isTrue);
+      expect(_inThread(tester, 'Début de réponse'), isFalse);
+      expect(store.lastMessages.map((m) => m.content), <String>[
+        'Ma question',
+        'Première réponse',
+      ]);
+    });
+
+    testWidgets('un remplacement réussi enregistre la nouvelle réponse', (
+      tester,
+    ) async {
+      final backend = _Backend(hold: true);
+      final store = _RecordingStore();
+      await _pumpThread(tester, backend, store);
+
+      await _regenerate(tester);
+      backend.emit('Seconde réponse');
+      await _settle(tester);
+      backend.finish();
+      await _settle(tester);
+
+      expect(_inThread(tester, 'Seconde réponse'), isTrue);
+      expect(_inThread(tester, 'Première réponse'), isFalse);
+      expect(find.text('Rétablir'), findsNothing);
+      expect(store.lastMessages.map((m) => m.content), <String>[
+        'Ma question',
+        'Seconde réponse',
+      ]);
+    });
+
+    testWidgets('un échec revenu après un changement de fil ne touche pas '
+        'celui qui est ouvert', (tester) async {
+      final backend = _Backend(hold: true);
+      final store = _RecordingStore();
+      await _pumpTwoThreads(tester, backend, store);
+
+      // Régénération lancée dans A, puis l'utilisateur ouvre B.
+      await _regenerate(tester);
+      await _settle(tester);
+      await _openThread(tester, 'Question B');
+
+      backend.fail('le fournisseur a abandonné');
+      await _settle(tester);
+
+      // Le fil ouvert est B : ni sa réponse ni son enregistrement ne doivent
+      // recevoir quoi que ce soit de l'opération périmée.
+      expect(_inThread(tester, 'Question B'), isTrue);
+      expect(_inThread(tester, 'Réponse B'), isTrue);
+      expect(_inThread(tester, 'Réponse A'), isFalse);
+      expect(find.text('Rétablir'), findsNothing);
+
+      final saved = store.saveCalls.last;
+      expect(
+        saved
+            .firstWhere((c) => c.title == 'Question B')
+            .messages
+            .map((m) => m.content),
+        <String>['Question B', 'Réponse B'],
+      );
+      // Et le fil A garde bien sa réponse : l'échec ne l'a pas laissé amputé.
+      expect(
+        saved
+            .firstWhere((c) => c.title == 'Question A')
+            .messages
+            .map((m) => m.content),
+        <String>['Question A', 'Réponse A'],
+      );
     });
 
     testWidgets('la régénération préserve la pièce jointe de la question', (
@@ -261,20 +361,24 @@ Future<void> _regenerate(WidgetTester tester) async {
   await tester.tap(find.byTooltip('Plus'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Régénérer la réponse'));
-  await tester.pumpAndSettle();
+  // La génération lancée fait tourner l'indicateur de la bulle vide :
+  // `pumpAndSettle` ne rendrait jamais la main.
+  await _settle(tester);
 }
 
 Future<void> _openThread(WidgetTester tester, String title) async {
+  // Pas de `pumpAndSettle` : le tiroir peut s'ouvrir pendant une génération,
+  // dont l'indicateur tourne sans fin.
   await tester.tap(find.byTooltip('Menu'));
-  await tester.pumpAndSettle();
+  await _settle(tester, 40);
   await tester.tap(find.text(title).last);
-  await tester.pumpAndSettle();
+  await _settle(tester, 40);
 }
 
 /// Avance sans attendre l'immobilité : l'indicateur tourne pendant une
 /// génération et `pumpAndSettle` ne rendrait jamais la main.
-Future<void> _settle(WidgetTester tester) async {
-  for (var i = 0; i < 16; i++) {
+Future<void> _settle(WidgetTester tester, [int frames = 16]) async {
+  for (var i = 0; i < frames; i++) {
     await tester.pump(const Duration(milliseconds: 16));
   }
 }

@@ -4,11 +4,11 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [0.1.4] - 2026-09-14
 
-Correctifs d'un audit mené avant diffusion publique. Sept défauts confirmés sur
-huit constats, dont quatre pouvaient perdre ou déplacer des données. La
-signature de distribution cesse de reposer sur la clé de développement, et les
-sauvegardes Android cessent de contredire la politique de confidentialité. La
-suite de tests passe de 347 à 382 cas.
+Correctifs d'un audit mené avant diffusion publique, puis d'un second passage
+sur les mêmes points. Douze défauts confirmés, dont sept pouvaient perdre ou
+déplacer des données. La signature de distribution cesse de reposer sur la clé
+de développement, et les sauvegardes Android cessent de contredire la politique
+de confidentialité. La suite de tests passe de 347 à 407 cas.
 
 ### Corrections
 
@@ -87,6 +87,57 @@ suite de tests passe de 347 à 382 cas.
   tiers d'une tablette à douze. La règle appliquée est celle de llama.cpp pour
   ARM et Android : tous les cœurs jusqu'à quatre, la moitié au delà. Rien ne
   change sur un téléphone à huit cœurs, qui reste à quatre.
+
+### Corrections du second passage
+
+- **une régénération en échec effaçait l'ancienne réponse** : le fil était bien
+  remplacé au bon moment, mais plus rien ne rendait la version d'avant si la
+  génération échouait ensuite. Une erreur survenue avant le premier fragment
+  laissait la conversation amputée de la réponse qu'elle venait d'effacer, et
+  de tout ce qui la suivait. La version antérieure est maintenant copiée avant
+  la coupe : elle revient d'elle-même quand rien n'est arrivé du moteur, et
+  reste récupérable d'un geste quand du texte est déjà à l'écran, lequel n'est
+  pas jeté pour autant. Quitter le fil pendant une régénération ne l'abandonne
+  plus sur une bulle vide. Toute restauration est encadrée par l'identité de la
+  conversation et de l'opération : une réponse en retard ne touche jamais au fil
+  ouvert ;
+- **la file et le fil qui vient de naître** : un message mis en attente pendant
+  la préparation du tout premier message d'un nouveau chat ne pouvait pas en
+  connaître l'identifiant, puisque le fil n'existait pas encore. Il se faisait
+  ensuite refuser pour cette raison, et revenait en file avec une destination
+  devenue fausse. Les messages en attente sont désormais rattachés au fil dès
+  sa création. Un refus n'est plus invisible non plus : la file s'affiche
+  au-dessus du composeur, chaque message s'y réessaie, se reprend dans le
+  champ ou se retire, sans avoir à envoyer un message sans rapport. Reprendre
+  un message échange sa place avec le brouillon en cours, pièces jointes
+  comprises, et une réinsertion tardive ne ressuscite plus une file abandonnée
+  par la navigation ;
+- **une opération vocale périmée arrêtait la suivante** : la lecture à voix
+  haute et la dictée refermaient le moteur en se découvrant périmées, ce qui
+  coupait celle qui venait de démarrer. Les démarrages passent maintenant un par
+  un, et une opération ne referme le moteur que s'il lui appartient encore.
+  Les rappels de la synthèse vocale ne disent pas de quelle phrase ils parlent,
+  et le plugin n'en garde qu'un jeu : ils sont donc neutralisés le temps d'une
+  bascule, faute de pouvoir les attribuer. L'arrêt, lui, n'attend plus la fin
+  d'un démarrage qu'Android fait patienter, et la destruction du service
+  n'ouvre plus rien ;
+- **une réponse écourtée passait pour entière** : le moteur distant relevait
+  bien la troncature annoncée par le fournisseur, mais personne ne la lisait.
+  L'issue de chaque génération, allée au bout, écourtée, arrêtée ou en échec,
+  accompagne maintenant la réponse jusqu'à l'écran et jusqu'au fichier : une
+  réponse coupée le reste après un redémarrage, au lieu de se rouvrir comme une
+  réponse complète. La file d'attente ne repart plus toute seule sur une
+  réponse écourtée, et les historiques écrits avant cette notion se relisent
+  inchangés ;
+- **structure invalide et historique vide** : un fichier dont la racine n'était
+  pas un objet, ou dont le champ `conversations` n'était pas une liste, rendait
+  un historique vide au lieu d'une erreur. Le premier enregistrement suivant
+  remplaçait alors le fichier par cette liste vide. Ces structures sont
+  maintenant des échecs de restauration, au même titre qu'un fichier illisible,
+  et les conversations inexploitables d'une liste par ailleurs correcte sont
+  signalées plutôt que silencieusement jetées. Le fichier d'origine reste
+  intact, quoi que l'utilisateur fasse ensuite, et le message d'erreur ne cite
+  aucun morceau de conversation.
 
 ## [0.1.3] - 2026-09-14
 

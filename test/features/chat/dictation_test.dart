@@ -16,6 +16,7 @@ import 'package:foxllm/llm/backend/local_llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 void main() {
   testWidgets('le micro cède la place à Envoyer dès qu’on écrit', (
@@ -229,6 +230,114 @@ void _serviceTests() {
       reason: 'une annulation ne doit pas masquer une vraie panne',
     );
   });
+
+  test('la fermeture d’une écoute périmée ne coupe pas la suivante', () async {
+    final speech = _GateSpeech()..holdNextListen = true;
+    final dictation = Dictation(speech: speech);
+
+    // A s'ouvre, mais Android ne rend pas la main.
+    final first = dictation.start(onText: (_) {});
+    await Future<void>.delayed(Duration.zero);
+    await dictation.stop();
+
+    // B est demandé pendant que A est encore suspendu.
+    final second = dictation.start(onText: (_) {});
+    await Future<void>.delayed(Duration.zero);
+
+    // A revient enfin, périmé.
+    speech.releaseListen();
+
+    expect(await first, DictationStatus.cancelled);
+    expect(await second, DictationStatus.listening);
+    // Le défaut d'origine : A, se découvrant périmé, refermait le micro et
+    // coupait donc l'écoute que B venait d'ouvrir.
+    expect(dictation.isListening, isTrue);
+  });
+
+  test('la destruction pendant la préparation n’ouvre plus le micro', () async {
+    final speech = _GateSpeech()..holdNextListen = true;
+    final dictation = Dictation(speech: speech);
+
+    final pending = dictation.start(onText: (_) {});
+    await Future<void>.delayed(Duration.zero);
+    await dictation.dispose();
+    speech.releaseListen();
+
+    expect(await pending, DictationStatus.cancelled);
+    expect(dictation.isListening, isFalse);
+    expect(
+      await dictation.start(onText: (_) {}),
+      DictationStatus.cancelled,
+      reason: 'rien ne doit repartir après la destruction',
+    );
+  });
+}
+
+/// Reconnaissance simulée dont l'ouverture du micro n'aboutit que sur
+/// commande.
+///
+/// Hérite du service réel pour n'en remplacer que les points d'entrée
+/// utilisés : le reste n'est jamais appelé ici.
+class _GateSpeech extends SpeechToText {
+  // Le constructeur sans nom rend l'instance partagée du plugin : celui-ci,
+  // prévu pour les tests, en construit une neuve.
+  _GateSpeech() : super.withMethodChannel();
+
+  bool listening = false;
+  int stopCalls = 0;
+
+  /// Ne retient que la prochaine ouverture, pour en enchaîner deux.
+  bool holdNextListen = false;
+  Completer<void>? _gate;
+
+  void releaseListen() {
+    _gate?.complete();
+    _gate = null;
+  }
+
+  @override
+  bool get isListening => listening;
+
+  @override
+  Future<bool> get hasPermission async => true;
+
+  @override
+  Future<bool> initialize({
+    SpeechErrorListener? onError,
+    SpeechStatusListener? onStatus,
+    dynamic debugLogging = false,
+    Duration finalTimeout = const Duration(milliseconds: 2000),
+    List<SpeechConfigOption>? options,
+  }) async => true;
+
+  @override
+  Future<dynamic> listen({
+    SpeechResultListener? onResult,
+    Duration? listenFor,
+    Duration? pauseFor,
+    String? localeId,
+    SpeechSoundLevelChange? onSoundLevelChange,
+    dynamic cancelOnError = false,
+    dynamic partialResults = true,
+    dynamic onDevice = false,
+    ListenMode listenMode = ListenMode.confirmation,
+    dynamic sampleRate = 0,
+    SpeechListenOptions? listenOptions,
+  }) async {
+    if (holdNextListen) {
+      holdNextListen = false;
+      final gate = Completer<void>();
+      _gate = gate;
+      await gate.future;
+    }
+    listening = true;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCalls += 1;
+    listening = false;
+  }
 }
 
 Future<void> _pumpChat(WidgetTester tester, Dictation dictation) async {
@@ -297,6 +406,9 @@ class _FakeDictation implements Dictation {
     _epoch += 1;
     listening = false;
   }
+
+  @override
+  Future<void> dispose() async => stop();
 }
 
 class _EmptyStore implements ConversationStore {

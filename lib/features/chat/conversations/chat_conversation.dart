@@ -40,6 +40,12 @@ class ChatConversation {
                   .toList(growable: false),
             if (message.rating != MessageRating.none)
               'rating': message.rating.name,
+            // Absent quand la réponse est allée au bout : les historiques
+            // écrits avant cette notion se relisent inchangés.
+            if (message.outcome != GenerationOutcome.complete)
+              'outcome': message.outcome.name,
+            if (message.outcomeReason != null)
+              'outcomeReason': message.outcomeReason,
           },
         )
         .toList(growable: false),
@@ -108,6 +114,13 @@ class ChatConversation {
         (value) => value.name == rawMessage['rating'],
       );
 
+      // Un champ absent, ou écrit par une version qui connaît une issue de
+      // plus, vaut « allée au bout » : mieux qu'un rejet de l'entrée.
+      final outcome = GenerationOutcome.values.where(
+        (value) => value.name == rawMessage['outcome'],
+      );
+      final outcomeReason = rawMessage['outcomeReason'];
+
       messages.add(
         ChatMessage(
           role: role.first,
@@ -115,6 +128,8 @@ class ChatConversation {
           attachments: attachments,
           citations: citations,
           rating: rating.isEmpty ? MessageRating.none : rating.first,
+          outcome: outcome.isEmpty ? GenerationOutcome.complete : outcome.first,
+          outcomeReason: outcomeReason is String ? outcomeReason : null,
         ),
       );
     }

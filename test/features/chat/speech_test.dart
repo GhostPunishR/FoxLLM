@@ -197,6 +197,63 @@ void main() {
       expect(tts.stopCalls, greaterThanOrEqualTo(2));
     });
 
+    test(
+      'le retour tardif d’une lecture périmée ne coupe pas la suivante',
+      () async {
+        final tts = _FakeTts()
+          ..holdNextSpeak = true
+          ..announceCancelOnStop = true;
+        final speech = Speech(tts: tts);
+
+        // A part, mais Android ne rend pas la main.
+        final first = speech.toggle('Première');
+        await Future<void>.delayed(Duration.zero);
+        await speech.stop();
+
+        // B est demandé pendant que A est encore suspendu.
+        final second = speech.toggle('Seconde');
+        await Future<void>.delayed(Duration.zero);
+
+        // A revient enfin, périmé.
+        tts.releaseNextSpeak();
+
+        expect(await first, isFalse);
+        expect(await second, isTrue);
+        // Le défaut d'origine : A, se découvrant périmé, coupait le moteur et
+        // éteignait l'état, donc arrêtait B.
+        expect(speech.speaking.value, 'Seconde');
+        expect(tts.spoken, <String>['Première', 'Seconde']);
+      },
+    );
+
+    test('le rappel d’annulation d’une bascule n’éteint pas la nouvelle '
+        'lecture', () async {
+      final tts = _FakeTts()..announceCancelOnStop = true;
+      final speech = Speech(tts: tts);
+
+      expect(await speech.toggle('Première'), isTrue);
+      // Passer à une autre phrase arrête la première : Android annonce alors
+      // son annulation, sans préciser laquelle.
+      expect(await speech.toggle('Seconde'), isTrue);
+      expect(speech.speaking.value, 'Seconde');
+    });
+
+    test('la destruction pendant un démarrage n’ouvre plus rien', () async {
+      final tts = _FakeTts()..holdSpeak = true;
+      final speech = Speech(tts: tts);
+
+      final pending = speech.toggle('Première');
+      await Future<void>.delayed(Duration.zero);
+      await speech.dispose();
+      tts.releaseSpeak();
+
+      expect(await pending, isFalse);
+      expect(speech.speaking.value, isNull);
+      // Et plus rien ne repart après la destruction.
+      expect(await speech.toggle('Seconde'), isFalse);
+      expect(tts.spoken, <String>['Première']);
+    });
+
     test('deux demandes rapprochées ne laissent que la dernière', () async {
       final tts = _FakeTts()..holdSetLanguage = true;
       final speech = Speech(tts: tts);
@@ -399,9 +456,22 @@ class _FakeTts extends FlutterTts {
   final _languageGate = Completer<void>();
   final _speakGate = Completer<void>();
 
+  /// Ne retient que le prochain énoncé, pour en enchaîner deux.
+  bool holdNextSpeak = false;
+  Completer<void>? _nextSpeakGate;
+
+  /// Android signale l'annulation de l'énoncé en cours quand on l'arrête, et
+  /// ce signal ne dit pas de quelle phrase il parle.
+  bool announceCancelOnStop = false;
+
   void releaseSetLanguage() => _languageGate.complete();
 
   void releaseSpeak() => _speakGate.complete();
+
+  void releaseNextSpeak() {
+    _nextSpeakGate?.complete();
+    _nextSpeakGate = null;
+  }
 
   VoidCallback? _onCompletion;
   VoidCallback? _onCancel;
@@ -434,7 +504,12 @@ class _FakeTts extends FlutterTts {
   @override
   Future<dynamic> speak(String text, {bool focus = false}) async {
     spoken.add(text);
-    if (holdSpeak) {
+    if (holdNextSpeak) {
+      holdNextSpeak = false;
+      final gate = Completer<void>();
+      _nextSpeakGate = gate;
+      await gate.future;
+    } else if (holdSpeak) {
       await _speakGate.future;
     }
     return 1;
@@ -443,6 +518,9 @@ class _FakeTts extends FlutterTts {
   @override
   Future<dynamic> stop() async {
     stopCalls += 1;
+    if (announceCancelOnStop) {
+      _onCancel?.call();
+    }
     return 1;
   }
 }
