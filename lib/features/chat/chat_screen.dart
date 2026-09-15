@@ -407,12 +407,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (attachments.isEmpty) {
       return;
     }
+    // Un fichier encore cité quelque part ne doit pas être effacé : ni par
+    // l'historique, ni par le fil affiché, ni par une version conservée, ni
+    // par le brouillon en cours, ni par la file d'attente.
     final referenced = <String>{
-      for (final conversation in _conversations)
+      for (final conversation in _conversations) ...<String>[
         for (final message in conversation.messages)
           for (final attachment in message.attachments) attachment.path,
+        for (final message in conversation.previousMessages ?? const [])
+          for (final attachment in message.attachments) attachment.path,
+      ],
       for (final message in _messages)
         for (final attachment in message.attachments) attachment.path,
+      for (final attachment in _pendingAttachments) attachment.path,
+      for (final queued in _queued)
+        for (final attachment in queued.attachments) attachment.path,
     };
     final removable = attachments
         .where((attachment) => !referenced.contains(attachment.path))
@@ -1013,11 +1022,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _isGenerating = true;
       _syncActiveConversation();
     });
-    if (outgoing.fromComposer) {
-      // Le brouillon n'est vidé qu'une fois le message parti : un envoi
-      // refusé laisse de quoi le reprendre.
-      _inputController.clear();
-      _pendingAttachments.clear();
+    if (outgoing.fromComposer && _draftStillMatches(outgoing)) {
+      // Le brouillon n'est vidé qu'une fois le message parti, et seulement
+      // s'il porte encore ce qui est parti : la préparation dure parfois
+      // plusieurs secondes, pendant lesquelles l'utilisateur écrit la suite.
+      setState(() {
+        _inputController.clear();
+        _pendingAttachments.clear();
+      });
     }
     _scrollToBottom();
 
@@ -1050,11 +1062,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       }
 
       if (stillCurrent()) {
-        if (response.isEmpty) {
-          _removeEmptyAssistantPlaceholder();
-        } else {
+        if (response.isNotEmpty) {
           _attachCitations(backend);
-          outcome = _recordOutcome(backend, generationEpoch);
+        }
+        // Lue même sans un mot reçu : un flux qui s'annonce écourté avant le
+        // premier fragment reste écourté, et le traiter comme une réussite
+        // faisait disparaître la bulle sans rien dire.
+        outcome = _recordOutcome(backend, generationEpoch);
+        if (response.isEmpty && outcome == GenerationOutcome.complete) {
+          // Une réponse vide et pourtant aboutie n'a rien à montrer.
+          _removeEmptyAssistantPlaceholder();
+        }
+        if (replaced != null) {
+          // Un remplacement abouti rend caduque la version d'avant ; un
+          // remplacement écourté ou arrêté la garde reprenable, sans limite
+          // de temps.
+          _keepPreviousVersion(
+            outcome == GenerationOutcome.complete ? null : replaced,
+            generationEpoch,
+            conversationId,
+          );
         }
       }
     } catch (error) {
@@ -1082,15 +1109,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           'Génération impossible : $error. Réponse précédente conservée.',
         );
       } else {
-        // Du texte est arrivé avant la coupure : l'ancienne réponse n'est pas
-        // perdue pour autant, elle est à un geste.
+        // Du texte est arrivé avant la coupure : il reste affiché, et la
+        // version qu'il a remplacée est conservée avec la conversation. Les
+        // deux survivent donc à la navigation et au redémarrage, là où une
+        // action de bandeau disparaissait au bout de quelques secondes.
+        _keepPreviousVersion(replaced, generationEpoch, conversationId);
         _showSnack(
-          'Génération interrompue : $error',
-          action: SnackBarAction(
-            label: 'Rétablir',
-            onPressed: () =>
-                _restoreThread(replaced, generationEpoch, conversationId),
-          ),
+          'Génération interrompue : $error. Version précédente conservée.',
         );
       }
       failed = true;
@@ -1290,6 +1315,112 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
   }
 
+  /// Vrai si le composeur porte encore exactement ce qui est parti.
+  ///
+  /// Le texte et les pièces jointes d'un envoi sont figés avant la
+  /// préparation, qui peut durer plusieurs secondes. Vider le composeur sans
+  /// regarder effaçait le message écrit pendant ce temps.
+  bool _draftStillMatches(_Outgoing outgoing) {
+    if (_inputController.text.trim() != outgoing.text) {
+      return false;
+    }
+    if (_pendingAttachments.length != outgoing.attachments.length) {
+      return false;
+    }
+    for (var index = 0; index < _pendingAttachments.length; index++) {
+      if (_pendingAttachments[index].path != outgoing.attachments[index].path) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Conserve avec la conversation la version d'avant un remplacement.
+  ///
+  /// Enregistrée, donc reprenable après une navigation ou un redémarrage. La
+  /// version obtenue, même partielle, reste affichée : aucune des deux n'est
+  /// jetée.
+  /// [previous] à `null` oublie celle qui était conservée.
+  void _keepPreviousVersion(
+    List<ChatMessage>? previous,
+    int generationEpoch,
+    int? conversationId,
+  ) {
+    if (!mounted || generationEpoch != _generationEpoch) {
+      return;
+    }
+    final conversation = conversationId == null
+        ? null
+        : _conversationById(conversationId);
+    if (conversation == null) {
+      return;
+    }
+    final dropped = conversation.previousMessages;
+    if (dropped == null && previous == null) {
+      return;
+    }
+    setState(() {
+      conversation.previousMessages = previous == null
+          ? null
+          : List<ChatMessage>.unmodifiable(previous);
+      _persistConversations();
+    });
+    if (dropped != null) {
+      _deleteUnreferencedAttachments(<ChatAttachment>[
+        for (final message in dropped) ...message.attachments,
+      ]);
+    }
+  }
+
+  /// Version conservée du fil ouvert, ou `null` s'il n'y a rien à reprendre.
+  List<ChatMessage>? get _previousVersion {
+    final id = _activeConversationId;
+    return id == null ? null : _conversationById(id)?.previousMessages;
+  }
+
+  /// Échange la version affichée et la version conservée.
+  ///
+  /// Un échange, et non un remplacement : celle qu'on quitte prend la place
+  /// de celle qu'on reprend, donc rien ne disparaît et le geste se refait
+  /// dans l'autre sens.
+  void _swapWithPreviousVersion() {
+    final id = _activeConversationId;
+    if (id == null) {
+      return;
+    }
+    final conversation = _conversationById(id);
+    final previous = conversation?.previousMessages;
+    if (conversation == null || previous == null) {
+      return;
+    }
+    final current = List<ChatMessage>.unmodifiable(_messages);
+    setState(() {
+      _messages
+        ..clear()
+        ..addAll(previous);
+      _syncActiveConversation();
+      conversation.previousMessages = current;
+      _persistConversations();
+    });
+  }
+
+  /// Oublie la version conservée, à la demande.
+  void _forgetPreviousVersion() {
+    final id = _activeConversationId;
+    final conversation = id == null ? null : _conversationById(id);
+    final previous = conversation?.previousMessages;
+    if (conversation == null || previous == null) {
+      return;
+    }
+    setState(() {
+      conversation.previousMessages = null;
+      _persistConversations();
+    });
+    _deleteUnreferencedAttachments(<ChatAttachment>[
+      for (final message in previous) ...message.attachments,
+    ]);
+  }
+
   /// Rend au fil la version d'avant un remplacement.
   ///
   /// Encadrée par l'identité de l'opération et de la conversation : une
@@ -1353,6 +1484,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     };
     setState(() {
       conversation.messages = repaired;
+      if (response.isNotEmpty && replaced != null) {
+        // Le fil quitté garde ce qui est arrivé, et la version que ce texte a
+        // remplacée reste reprenable à son retour.
+        conversation.previousMessages = List<ChatMessage>.unmodifiable(
+          replaced,
+        );
+      }
       conversation.updatedAt = DateTime.now();
       if (conversationId == _activeConversationId) {
         // Le fil est encore affiché : c'est l'opération qui est périmée, pas
@@ -1656,6 +1794,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             ),
           ),
           if (_restoringModel) const _RestoringModelBanner(),
+          if (_previousVersion != null)
+            _PreviousVersionBanner(
+              onRestore: _swapWithPreviousVersion,
+              onForget: _forgetPreviousVersion,
+            ),
           if (_queued.isNotEmpty)
             _QueuedStrip(
               queued: List<_Outgoing>.unmodifiable(_queued),

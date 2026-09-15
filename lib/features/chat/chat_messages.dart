@@ -170,7 +170,10 @@ class _MessageList extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
               ],
-              if (message.content.isEmpty && message.attachments.isEmpty)
+              if (message.content.isEmpty &&
+                  message.attachments.isEmpty &&
+                  message.outcome == GenerationOutcome.complete)
+                // Rien reçu et rien d'annoncé : la réponse est en route.
                 const SizedBox(
                   width: 20,
                   height: 20,
@@ -660,6 +663,14 @@ class _OutcomeNote extends StatelessWidget {
   }
 
   String _incompleteLabel() {
+    if (message.content.isEmpty) {
+      final reason = message.outcomeReason;
+      final said = reason == null ? null : _reasons[reason];
+      // Rien n'est arrivé : le dire, plutôt que laisser une bulle vide.
+      return said == null
+          ? 'Aucun texte reçu, la réponse s’est arrêtée avant de commencer.'
+          : 'Aucun texte reçu : $said.';
+    }
     final reason = message.outcomeReason;
     final said = reason == null ? null : _reasons[reason];
     if (said != null) {

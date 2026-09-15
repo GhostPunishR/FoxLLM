@@ -128,11 +128,19 @@ class ConversationStore {
     }
 
     final conversations = <ChatConversation>[];
-    var dropped = 0;
+    // Vrai dès qu'un morceau d'historique s'est perdu à la relecture : une
+    // entrée entière, ou seulement un message, une pièce jointe ou une source
+    // à l'intérieur d'une conversation par ailleurs lisible. Les deux se
+    // valent ici : dans les deux cas, réécrire le fichier effacerait pour de
+    // bon ce qu'on n'a pas su lire.
+    var incomplete = false;
     for (final raw in rawConversations) {
-      final conversation = ChatConversation.fromJson(raw);
+      final conversation = ChatConversation.fromJson(
+        raw,
+        onLoss: () => incomplete = true,
+      );
       if (conversation == null) {
-        dropped += 1;
+        incomplete = true;
       } else {
         conversations.add(conversation);
       }
@@ -141,7 +149,7 @@ class ConversationStore {
       (left, right) => right.updatedAt.compareTo(left.updatedAt),
     );
 
-    if (dropped > 0) {
+    if (incomplete) {
       // Les conversations lisibles sont rendues quand même, mais par une
       // exception : l'appelant les affiche sans réécrire le fichier, sinon
       // les entrées écartées seraient perdues pour de bon.

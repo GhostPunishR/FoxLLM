@@ -117,6 +117,130 @@ void main() {
     });
   });
 
+  group('une issue écourtée sans le moindre texte', () {
+    testWidgets('est annoncée et enregistrée, au lieu de disparaître', (
+      tester,
+    ) async {
+      final backend = _OutcomeBackend();
+      final store = _RecordingStore();
+      await _pumpChat(tester, backend, store);
+
+      await _send(tester, 'Ma question');
+      // Le fournisseur annonce l'arrêt avant d'avoir envoyé le moindre
+      // fragment, puis referme proprement.
+      backend.incompleteReason = 'content_filter';
+      backend.finish();
+      await _settle(tester);
+
+      // Le défaut d'origine : l'issue n'était lue que s'il y avait du texte,
+      // la bulle vide disparaissait et rien ne signalait la troncature.
+      expect(find.textContaining('Aucun texte reçu'), findsOneWidget);
+      expect(find.textContaining('filtré'), findsOneWidget);
+
+      final saved = store.lastMessages.last;
+      expect(saved.role, ChatRole.assistant);
+      expect(saved.content, isEmpty);
+      expect(saved.outcome, GenerationOutcome.incomplete);
+      expect(saved.outcomeReason, 'content_filter');
+    });
+
+    testWidgets('reste annoncée après un rechargement de l’historique', (
+      tester,
+    ) async {
+      final backend = _OutcomeBackend();
+      final store = _RecordingStore();
+      await _pumpChat(tester, backend, store);
+
+      await _send(tester, 'Ma question');
+      backend.incompleteReason = 'max_output_tokens';
+      backend.finish();
+      await _settle(tester);
+
+      // Relu depuis le JSON réellement écrit, comme au lancement suivant.
+      final reread = ChatConversation.fromJson(
+        store.saveCalls.last.single.toJson(),
+      );
+      expect(reread, isNotNull);
+      expect(reread!.messages.last.outcome, GenerationOutcome.incomplete);
+      expect(reread.messages.last.outcomeReason, 'max_output_tokens');
+
+      final reloaded = _OutcomeBackend();
+      await _pumpChat(
+        tester,
+        reloaded,
+        _RecordingStore(seed: <ChatConversation>[reread]),
+      );
+      await _settle(tester);
+      expect(find.textContaining('Aucun texte reçu'), findsOneWidget);
+    });
+
+    testWidgets('laisse le message suivant en attente jusqu’à une reprise', (
+      tester,
+    ) async {
+      final backend = _OutcomeBackend();
+      final store = _RecordingStore();
+      await _pumpChat(tester, backend, store);
+
+      await _send(tester, 'Message A');
+      await _type(tester, 'Message B');
+      await tester.tap(find.byTooltip('Mettre en attente'));
+      await tester.pump();
+
+      backend.incompleteReason = 'max_output_tokens';
+      backend.finish();
+      await _settle(tester);
+
+      expect(backend.generateCalls, <String>['Message A']);
+      expect(find.text('1 message en attente'), findsOneWidget);
+
+      await tester.tap(find.text('Réessayer'));
+      await _settle(tester);
+      backend.emit('Réponse B');
+      backend.finish();
+      await _settle(tester);
+
+      expect(backend.generateCalls, <String>['Message A', 'Message B']);
+    });
+
+    testWidgets('ne détruit pas le fil qu’une régénération remplaçait', (
+      tester,
+    ) async {
+      final backend = _OutcomeBackend();
+      final store = _RecordingStore(
+        seed: <ChatConversation>[
+          ChatConversation(
+            id: 1,
+            title: 'Ma question',
+            updatedAt: DateTime.now(),
+            messages: <ChatMessage>[
+              const ChatMessage.user('Ma question'),
+              const ChatMessage.assistant('Première réponse'),
+            ],
+          ),
+        ],
+      );
+      await _pumpChat(tester, backend, store);
+      await _openThread(tester, 'Ma question');
+
+      await tester.tap(find.byTooltip('Plus'));
+      await _settle(tester);
+      await tester.tap(find.text('Régénérer la réponse'));
+      await _settle(tester);
+
+      backend.incompleteReason = 'max_output_tokens';
+      backend.finish();
+      await _settle(tester);
+
+      // La réponse remplacée n'est pas perdue : elle reste reprenable.
+      expect(find.text('Version précédente conservée'), findsOneWidget);
+      final saved = store.saveCalls.last.single;
+      expect(saved.previousMessages?.map((m) => m.content), <String>[
+        'Ma question',
+        'Première réponse',
+      ]);
+    });
+  });
+
   group('la file ne repart pas sur une réponse écourtée', () {
     testWidgets('elle attend une reprise explicite', (tester) async {
       final backend = _OutcomeBackend();
@@ -185,6 +309,13 @@ Future<void> _type(WidgetTester tester, String text) async {
   await tester.pump();
 }
 
+Future<void> _openThread(WidgetTester tester, String title) async {
+  await tester.tap(find.byTooltip('Menu'));
+  await _settle(tester);
+  await tester.tap(find.text(title).last);
+  await _settle(tester);
+}
+
 Future<void> _send(WidgetTester tester, String text) async {
   await _type(tester, text);
   await tester.tap(find.byTooltip('Envoyer'));
@@ -221,12 +352,15 @@ Future<void> _pumpChat(
 }
 
 class _RecordingStore implements ConversationStore {
+  _RecordingStore({this.seed = const <ChatConversation>[]});
+
+  final List<ChatConversation> seed;
   final List<List<ChatConversation>> saveCalls = <List<ChatConversation>>[];
 
   List<ChatMessage> get lastMessages => saveCalls.last.first.messages;
 
   @override
-  Future<List<ChatConversation>> load() async => <ChatConversation>[];
+  Future<List<ChatConversation>> load() async => seed;
 
   @override
   Future<void> save(List<ChatConversation> conversations) async {
@@ -238,6 +372,9 @@ class _RecordingStore implements ConversationStore {
               title: c.title,
               updatedAt: c.updatedAt,
               messages: List<ChatMessage>.of(c.messages),
+              previousMessages: c.previousMessages == null
+                  ? null
+                  : List<ChatMessage>.of(c.previousMessages!),
             ),
           )
           .toList(),

@@ -280,6 +280,59 @@ class _Outgoing {
   );
 }
 
+/// Bandeau de la version conservée d'un fil, au-dessus du composeur.
+///
+/// Il reste tant que l'utilisateur ne l'a pas retiré : la version qu'il
+/// propose vit avec la conversation, pas avec un message éphémère.
+class _PreviousVersionBanner extends StatelessWidget {
+  const _PreviousVersionBanner({
+    required this.onRestore,
+    required this.onForget,
+  });
+
+  final VoidCallback onRestore;
+  final VoidCallback onForget;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 900),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: fox.surfaceRaised,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: fox.borderStrong),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Version précédente conservée',
+                    style: TextStyle(color: fox.textSecondary, fontSize: 12),
+                  ),
+                ),
+                TextButton(onPressed: onRestore, child: const Text('Rétablir')),
+                IconButton(
+                  onPressed: onForget,
+                  iconSize: 16,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Oublier la version précédente',
+                  icon: Icon(Icons.close_rounded, color: fox.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Bandeau des messages en attente, au-dessus du composeur.
 ///
 /// La file était invisible : un message refusé y restait sans que rien ne le

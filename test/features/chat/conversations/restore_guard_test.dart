@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -172,6 +173,62 @@ void _realFileTests() {
       reason: 'le fichier d’origine a été réécrit',
     );
   });
+
+  test(
+    'une récupération partielle n’autorise pas non plus l’écriture',
+    () async {
+      // Une seule conversation, lisible, mais dont deux messages sont perdus :
+      // le défaut d'origine les écartait en silence, et la première écriture
+      // réenregistrait la conversation sans eux.
+      final original = jsonEncode(<String, Object?>{
+        'conversations': <Object?>[
+          <String, Object?>{
+            'id': 1,
+            'title': 'Valide',
+            'updatedAt': DateTime(2026, 9, 13).toIso8601String(),
+            'messages': <Object?>[
+              <String, Object?>{'role': 'user', 'content': 'Bonjour'},
+              'pas un objet',
+              <String, Object?>{'role': 'inconnu', 'content': 'perdu'},
+            ],
+          },
+        ],
+      });
+      await file.writeAsString(original);
+
+      var recovered = const <ChatConversation>[];
+      final persister = ConversationPersister(
+        save: store.save,
+        // Ce que l'écran affiche après la récupération partielle : moins que ce
+        // que contient le fichier.
+        snapshot: () => recovered,
+        interval: const Duration(milliseconds: 1),
+      );
+      try {
+        await store.load();
+        fail('la lecture aurait dû signaler la perte');
+      } on ConversationLoadException catch (error) {
+        expect(error.failure, ConversationLoadFailure.partial);
+        recovered = error.recovered;
+        persister.abandon();
+      }
+      expect(recovered, hasLength(1));
+      expect(recovered.single.messages, hasLength(1));
+
+      // Un envoi, un passage en arrière-plan, puis la fermeture de l'écran.
+      persister.schedule();
+      persister.flush();
+      persister.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(persister.writeCount, 0);
+      expect(
+        await file.readAsString(),
+        original,
+        reason: 'le fichier d’origine a été réécrit',
+      );
+    },
+  );
 
   test('un historique valide reste enregistrable', () async {
     // Le garde-fou ne doit pas condamner le cas normal.

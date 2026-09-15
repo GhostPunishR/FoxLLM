@@ -17,6 +17,10 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+/// La fin d'un énoncé passe maintenant par la réponse de `speak`, donc par un
+/// tour de boucle : rien ne s'éteint plus de façon synchrone.
+Future<void> _tick() => Future<void>.delayed(Duration.zero);
+
 void main() {
   group('service de lecture', () {
     test('la fin du texte éteint l’état, sans qu’on ait rien arrêté', () async {
@@ -28,6 +32,7 @@ void main() {
 
       // Android signale la fin de l'énoncé : personne n'appelle `stop()`.
       tts.finish();
+      await _tick();
 
       expect(speech.speaking.value, isNull);
     });
@@ -40,6 +45,7 @@ void main() {
 
       await speech.toggle('Bonjour');
       tts.finish();
+      await _tick();
       await speech.toggle('Autre chose');
       await speech.toggle('Autre chose');
 
@@ -52,10 +58,12 @@ void main() {
 
       await speech.toggle('Bonjour');
       tts.cancel();
+      await _tick();
       expect(speech.speaking.value, isNull);
 
       await speech.toggle('Bonjour');
       tts.fail('voix absente');
+      await _tick();
       expect(speech.speaking.value, isNull);
     });
 
@@ -182,53 +190,29 @@ void main() {
       },
     );
 
-    test('un démarrage abouti trop tard est coupé aussitôt', () async {
-      final tts = _FakeTts()..holdSpeak = true;
+    test('un arrêt pendant la lecture la coupe, et sa fin tardive ne '
+        'relance rien', () async {
+      // Ce contrôle portait sur un `speak` qui aboutissait après l'arrêt, et
+      // exigeait un second arrêt. Avec `awaitSpeakCompletion`, la réponse de
+      // `speak` n'annonce plus le départ mais la fin de l'énoncé : le seul
+      // arrêt envoyé suffit, et c'est sa fin tardive qui ne doit rien réveiller.
+      final tts = _FakeTts()..delayCallbacks = true;
       final speech = Speech(tts: tts);
 
-      final pending = speech.toggle('Bonjour');
-      await Future<void>.delayed(Duration.zero);
+      expect(await speech.toggle('Bonjour'), isTrue);
       await speech.stop();
-      tts.releaseSpeak();
 
-      expect(await pending, isFalse);
       expect(speech.speaking.value, isNull);
-      // La voix est bien partie côté Android : il faut la taire.
-      expect(tts.stopCalls, greaterThanOrEqualTo(2));
+      expect(tts.stopCalls, 1, reason: 'la voix a bien été coupée');
+
+      tts.deliverHeldCallbacks();
+      await _tick();
+      expect(speech.speaking.value, isNull);
     });
-
-    test(
-      'le retour tardif d’une lecture périmée ne coupe pas la suivante',
-      () async {
-        final tts = _FakeTts()
-          ..holdNextSpeak = true
-          ..announceCancelOnStop = true;
-        final speech = Speech(tts: tts);
-
-        // A part, mais Android ne rend pas la main.
-        final first = speech.toggle('Première');
-        await Future<void>.delayed(Duration.zero);
-        await speech.stop();
-
-        // B est demandé pendant que A est encore suspendu.
-        final second = speech.toggle('Seconde');
-        await Future<void>.delayed(Duration.zero);
-
-        // A revient enfin, périmé.
-        tts.releaseNextSpeak();
-
-        expect(await first, isFalse);
-        expect(await second, isTrue);
-        // Le défaut d'origine : A, se découvrant périmé, coupait le moteur et
-        // éteignait l'état, donc arrêtait B.
-        expect(speech.speaking.value, 'Seconde');
-        expect(tts.spoken, <String>['Première', 'Seconde']);
-      },
-    );
 
     test('le rappel d’annulation d’une bascule n’éteint pas la nouvelle '
         'lecture', () async {
-      final tts = _FakeTts()..announceCancelOnStop = true;
+      final tts = _FakeTts();
       final speech = Speech(tts: tts);
 
       expect(await speech.toggle('Première'), isTrue);
@@ -236,22 +220,90 @@ void main() {
       // son annulation, sans préciser laquelle.
       expect(await speech.toggle('Seconde'), isTrue);
       expect(speech.speaking.value, 'Seconde');
+      expect(tts.spoken, <String>['Première', 'Seconde']);
     });
 
     test('la destruction pendant un démarrage n’ouvre plus rien', () async {
-      final tts = _FakeTts()..holdSpeak = true;
+      final tts = _FakeTts()..holdSetLanguage = true;
       final speech = Speech(tts: tts);
 
       final pending = speech.toggle('Première');
-      await Future<void>.delayed(Duration.zero);
+      await _tick();
       await speech.dispose();
-      tts.releaseSpeak();
+      tts.releaseSetLanguage();
 
       expect(await pending, isFalse);
       expect(speech.speaking.value, isNull);
+      expect(tts.spoken, isEmpty, reason: 'rien n’est parti après la fin');
       // Et plus rien ne repart après la destruction.
       expect(await speech.toggle('Seconde'), isFalse);
-      expect(tts.spoken, <String>['Première']);
+      expect(tts.spoken, isEmpty);
+    });
+
+    test('un rappel d’annulation arrivé après le démarrage de la suivante '
+        'ne l’éteint pas', () async {
+      // Le scénario que `_switching` ne couvrait pas : le rappel de A ne
+      // traverse le `Handler` d'Android qu'après que B a fini de démarrer.
+      final tts = _FakeTts()..delayCallbacks = true;
+      final speech = Speech(tts: tts);
+
+      expect(await speech.toggle('Première'), isTrue);
+      expect(await speech.toggle('Seconde'), isTrue);
+      expect(speech.speaking.value, 'Seconde');
+
+      tts.deliverHeldCallbacks();
+      await _tick();
+
+      expect(
+        speech.speaking.value,
+        'Seconde',
+        reason: 'un rappel de la lecture précédente a éteint la suivante',
+      );
+
+      // Et la vraie fin de la seconde remet bien au repos.
+      tts.finish();
+      await _tick();
+      expect(speech.speaking.value, isNull);
+    });
+
+    test('un rappel de fin arrivé après le démarrage de la suivante ne '
+        'l’éteint pas', () async {
+      final tts = _FakeTts()..delayCallbacks = true;
+      final speech = Speech(tts: tts);
+
+      expect(await speech.toggle('Première'), isTrue);
+      // Fin naturelle de la première : c'est la réponse de `speak` qui
+      // l'annonce, le rappel anonyme suivra plus tard.
+      tts.finish();
+      await _tick();
+      expect(speech.speaking.value, isNull);
+
+      expect(await speech.toggle('Seconde'), isTrue);
+      tts.deliverHeldCallbacks();
+      await _tick();
+
+      expect(speech.speaking.value, 'Seconde');
+    });
+
+    test('un rappel d’erreur arrivé après le démarrage de la suivante ne '
+        'l’éteint pas', () async {
+      final tts = _FakeTts()..delayCallbacks = true;
+      final speech = Speech(tts: tts);
+
+      expect(await speech.toggle('Première'), isTrue);
+      tts.fail('voix absente');
+      await _tick();
+      expect(speech.speaking.value, isNull);
+
+      expect(await speech.toggle('Seconde'), isTrue);
+      tts.deliverHeldCallbacks();
+      await _tick();
+
+      expect(speech.speaking.value, 'Seconde');
+
+      tts.finish();
+      await _tick();
+      expect(speech.speaking.value, isNull);
     });
 
     test('deux demandes rapprochées ne laissent que la dernière', () async {
@@ -446,31 +498,41 @@ Future<void> _pumpAnswer(WidgetTester tester, _FakeTts tts) async {
 ///
 /// `FlutterTts` n'appelle la plateforme qu'à l'usage, jamais dans son
 /// constructeur : en hériter suffit donc à l'écarter du banc de test.
+/// Moteur simulé, calqué sur le plugin réel.
+///
+/// Avec `awaitSpeakCompletion(true)`, le plugin Android garde la réponse de
+/// `speak` jusqu'à la fin de l'énoncé qu'il a lancé : il la rend à 1 sur une
+/// fin naturelle, à 0 sur un arrêt ou une panne. Il appelle ensuite le rappel
+/// correspondant, qui lui ne porte aucun identifiant et arrive depuis le fil
+/// de la synthèse, donc pas forcément à l'heure.
 class _FakeTts extends FlutterTts {
   final List<String> spoken = <String>[];
   int stopCalls = 0;
+  bool awaitsCompletion = false;
 
-  /// Vannes : le test décide quand la préparation ou la lecture revient.
+  /// Vanne : le test décide quand la préparation revient.
   bool holdSetLanguage = false;
-  bool holdSpeak = false;
   final _languageGate = Completer<void>();
-  final _speakGate = Completer<void>();
-
-  /// Ne retient que le prochain énoncé, pour en enchaîner deux.
-  bool holdNextSpeak = false;
-  Completer<void>? _nextSpeakGate;
-
-  /// Android signale l'annulation de l'énoncé en cours quand on l'arrête, et
-  /// ce signal ne dit pas de quelle phrase il parle.
-  bool announceCancelOnStop = false;
 
   void releaseSetLanguage() => _languageGate.complete();
 
-  void releaseSpeak() => _speakGate.complete();
+  /// Énoncé en cours, tant qu'Android n'en a pas annoncé la fin.
+  Completer<dynamic>? _utterance;
 
-  void releaseNextSpeak() {
-    _nextSpeakGate?.complete();
-    _nextSpeakGate = null;
+  /// Retient les rappels au lieu de les délivrer avec la fin de l'énoncé.
+  ///
+  /// C'est ainsi qu'ils arrivent en retard sur l'appareil : `onStop` et
+  /// `onDone` traversent un `Handler` avant d'atteindre Dart.
+  bool delayCallbacks = false;
+  final List<void Function()> _held = <void Function()>[];
+
+  /// Délivre enfin les rappels retenus.
+  void deliverHeldCallbacks() {
+    final held = List<void Function()>.of(_held);
+    _held.clear();
+    for (final callback in held) {
+      callback();
+    }
   }
 
   VoidCallback? _onCompletion;
@@ -478,11 +540,22 @@ class _FakeTts extends FlutterTts {
   ErrorHandler? _onError;
 
   /// Fin normale de l'énoncé, telle qu'Android la signale.
-  void finish() => _onCompletion?.call();
+  void finish() => _end(1, () => _onCompletion?.call());
 
-  void cancel() => _onCancel?.call();
+  void cancel() => _end(0, () => _onCancel?.call());
 
-  void fail(String message) => _onError?.call(message);
+  void fail(String message) => _end(0, () => _onError?.call(message));
+
+  void _end(int result, void Function() callback) {
+    final utterance = _utterance;
+    _utterance = null;
+    utterance?.complete(result);
+    if (delayCallbacks) {
+      _held.add(callback);
+    } else {
+      callback();
+    }
+  }
 
   @override
   void setCompletionHandler(VoidCallback callback) => _onCompletion = callback;
@@ -494,6 +567,12 @@ class _FakeTts extends FlutterTts {
   void setErrorHandler(ErrorHandler handler) => _onError = handler;
 
   @override
+  Future<dynamic> awaitSpeakCompletion(bool awaitCompletion) async {
+    awaitsCompletion = awaitCompletion;
+    return 1;
+  }
+
+  @override
   Future<dynamic> setLanguage(String language) async {
     if (holdSetLanguage) {
       await _languageGate.future;
@@ -502,25 +581,22 @@ class _FakeTts extends FlutterTts {
   }
 
   @override
-  Future<dynamic> speak(String text, {bool focus = false}) async {
+  Future<dynamic> speak(String text, {bool focus = false}) {
     spoken.add(text);
-    if (holdNextSpeak) {
-      holdNextSpeak = false;
-      final gate = Completer<void>();
-      _nextSpeakGate = gate;
-      await gate.future;
-    } else if (holdSpeak) {
-      await _speakGate.future;
+    if (!awaitsCompletion) {
+      return Future<dynamic>.value(1);
     }
-    return 1;
+    final utterance = Completer<dynamic>();
+    _utterance = utterance;
+    return utterance.future;
   }
 
   @override
   Future<dynamic> stop() async {
     stopCalls += 1;
-    if (announceCancelOnStop) {
-      _onCancel?.call();
-    }
+    // Le plugin rend la réponse de `speak` à 0 dès l'arrêt, puis annonce
+    // l'annulation par un rappel qui, lui, peut traîner.
+    _end(0, () => _onCancel?.call());
     return 1;
   }
 }

@@ -488,6 +488,9 @@ class _RecordingStore implements ConversationStore {
               title: c.title,
               updatedAt: c.updatedAt,
               messages: List<ChatMessage>.of(c.messages),
+              previousMessages: c.previousMessages == null
+                  ? null
+                  : List<ChatMessage>.of(c.previousMessages!),
             ),
           )
           .toList(),

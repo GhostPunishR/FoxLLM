@@ -12,6 +12,7 @@ class ChatConversation {
     required this.title,
     required this.updatedAt,
     required this.messages,
+    this.previousMessages,
   });
 
   final int id;
@@ -19,43 +20,75 @@ class ChatConversation {
   DateTime updatedAt;
   List<ChatMessage> messages;
 
+  /// Version du fil d'avant un remplacement qui n'a pas abouti.
+  ///
+  /// Une régénération ou une modification remplace la fin de la conversation.
+  /// Si la génération échoue ou s'arrête avant la fin, les deux versions ont
+  /// de la valeur : celle qu'on vient d'obtenir, partielle, et celle qu'elle a
+  /// remplacée. La seconde est gardée ici, et enregistrée avec le reste : un
+  /// bandeau qui s'efface au bout de quelques secondes ne rend rien
+  /// récupérable après une navigation ou un redémarrage.
+  ///
+  /// `null` quand il n'y a rien à reprendre, ce qui est le cas de tous les
+  /// historiques écrits avant cette notion.
+  List<ChatMessage>? previousMessages;
+
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'title': title,
     'updatedAt': updatedAt.toIso8601String(),
-    'messages': messages
-        .map(
-          (message) => <String, Object?>{
-            'role': message.role.name,
-            'content': message.content,
-            // Seules les références sont enregistrées : les octets d'une
-            // image feraient grossir ce fichier à chaque message.
-            if (message.attachments.isNotEmpty)
-              'attachments': message.attachments
-                  .map((attachment) => attachment.toJson())
-                  .toList(growable: false),
-            if (message.citations.isNotEmpty)
-              'citations': message.citations
-                  .map((citation) => citation.toJson())
-                  .toList(growable: false),
-            if (message.rating != MessageRating.none)
-              'rating': message.rating.name,
-            // Absent quand la réponse est allée au bout : les historiques
-            // écrits avant cette notion se relisent inchangés.
-            if (message.outcome != GenerationOutcome.complete)
-              'outcome': message.outcome.name,
-            if (message.outcomeReason != null)
-              'outcomeReason': message.outcomeReason,
-          },
-        )
-        .toList(growable: false),
+    'messages': _messagesToJson(messages),
+    // Absent quand il n'y a rien à reprendre : les historiques d'avant se
+    // relisent inchangés.
+    if (previousMessages != null)
+      'previousMessages': _messagesToJson(previousMessages!),
   };
+
+  static List<Map<String, Object?>> _messagesToJson(
+    List<ChatMessage> messages,
+  ) => messages
+      .map(
+        (message) => <String, Object?>{
+          'role': message.role.name,
+          'content': message.content,
+          // Seules les références sont enregistrées : les octets d'une
+          // image feraient grossir ce fichier à chaque message.
+          if (message.attachments.isNotEmpty)
+            'attachments': message.attachments
+                .map((attachment) => attachment.toJson())
+                .toList(growable: false),
+          if (message.citations.isNotEmpty)
+            'citations': message.citations
+                .map((citation) => citation.toJson())
+                .toList(growable: false),
+          if (message.rating != MessageRating.none)
+            'rating': message.rating.name,
+          // Absent quand la réponse est allée au bout : les historiques
+          // écrits avant cette notion se relisent inchangés.
+          if (message.outcome != GenerationOutcome.complete)
+            'outcome': message.outcome.name,
+          if (message.outcomeReason != null)
+            'outcomeReason': message.outcomeReason,
+        },
+      )
+      .toList(growable: false);
 
   /// Reconstruit une conversation, ou `null` si l'entrée est inexploitable.
   ///
   /// Un fichier tronqué ou écrit par une version plus récente ne doit pas
-  /// empêcher le reste de l'historique de se charger.
-  static ChatConversation? fromJson(Object? value) {
+  /// empêcher le reste de l'historique de se charger. Mais ce qui est écarté
+  /// en chemin ne doit pas non plus disparaître en silence : [onLoss] est
+  /// appelé à chaque message, pièce jointe ou source perdu, pour que
+  /// l'appelant traite la relecture comme partielle et s'interdise de
+  /// réécrire le fichier par-dessus.
+  ///
+  /// Un champ optionnel absent n'est pas une perte : un historique écrit par
+  /// une version antérieure n'en portait aucun. Une valeur d'énumération
+  /// inconnue non plus : elle vient d'une version plus récente, et la
+  /// solution de repli la remplace sans rien effacer du contenu.
+  static ChatConversation? fromJson(Object? value, {void Function()? onLoss}) {
+    void lost() => onLoss?.call();
+
     if (value is! Map<Object?, Object?>) {
       return null;
     }
@@ -72,13 +105,47 @@ class ChatConversation {
       return null;
     }
 
+    final messages = _messagesFromJson(rawMessages, lost);
+    if (messages.isEmpty) {
+      return null;
+    }
+
+    // Version d'avant un remplacement resté en échec. Absente des historiques
+    // écrits avant, et sans conséquence si elle l'est.
+    final rawPrevious = value['previousMessages'];
+    List<ChatMessage>? previous;
+    if (rawPrevious is List) {
+      previous = _messagesFromJson(rawPrevious, lost);
+      if (previous.isEmpty) {
+        previous = null;
+      }
+    } else if (rawPrevious != null) {
+      lost();
+    }
+
+    return ChatConversation(
+      id: id,
+      title: title,
+      updatedAt: updatedAt,
+      messages: messages,
+      previousMessages: previous,
+    );
+  }
+
+  static List<ChatMessage> _messagesFromJson(
+    List<Object?> rawMessages,
+    void Function() lost,
+  ) {
     final messages = <ChatMessage>[];
     for (final rawMessage in rawMessages) {
       if (rawMessage is! Map<Object?, Object?>) {
+        lost();
         continue;
       }
       final content = rawMessage['content'];
       if (content is! String) {
+        // Un message sans texte lisible, ou dont le texte n'en est pas un.
+        lost();
         continue;
       }
 
@@ -86,6 +153,9 @@ class ChatConversation {
         (role) => role.name == rawMessage['role'],
       );
       if (role.isEmpty) {
+        // Rôle absent ou inconnu : impossible de savoir qui parle, donc où
+        // placer le message dans le fil.
+        lost();
         continue;
       }
       final rawAttachments = rawMessage['attachments'];
@@ -93,10 +163,16 @@ class ChatConversation {
       if (rawAttachments is List) {
         for (final rawAttachment in rawAttachments) {
           final attachment = ChatAttachment.fromJson(rawAttachment);
-          if (attachment != null) {
+          if (attachment == null) {
+            lost();
+          } else {
             attachments.add(attachment);
           }
         }
+      } else if (rawAttachments != null) {
+        // Présent mais pas une liste : le message avait des pièces jointes
+        // qu'on ne sait plus lire.
+        lost();
       }
 
       final citations = <Citation>[];
@@ -104,10 +180,14 @@ class ChatConversation {
       if (rawCitations is List) {
         for (final rawCitation in rawCitations) {
           final citation = Citation.fromJson(rawCitation);
-          if (citation != null) {
+          if (citation == null) {
+            lost();
+          } else {
             citations.add(citation);
           }
         }
+      } else if (rawCitations != null) {
+        lost();
       }
 
       final rating = MessageRating.values.where(
@@ -133,16 +213,6 @@ class ChatConversation {
         ),
       );
     }
-
-    if (messages.isEmpty) {
-      return null;
-    }
-
-    return ChatConversation(
-      id: id,
-      title: title,
-      updatedAt: updatedAt,
-      messages: messages,
-    );
+    return messages;
   }
 }

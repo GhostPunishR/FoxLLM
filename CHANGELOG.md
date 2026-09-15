@@ -4,11 +4,11 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
 ## [0.1.4] - 2026-09-14
 
-Correctifs d'un audit mené avant diffusion publique, puis d'un second passage
-sur les mêmes points. Douze défauts confirmés, dont sept pouvaient perdre ou
-déplacer des données. La signature de distribution cesse de reposer sur la clé
-de développement, et les sauvegardes Android cessent de contredire la politique
-de confidentialité. La suite de tests passe de 347 à 407 cas.
+Correctifs d'un audit mené avant diffusion publique, puis de deux passages de
+suivi sur les mêmes points. Dix-sept défauts confirmés, dont neuf pouvaient
+perdre ou déplacer des données. La signature de distribution cesse de reposer
+sur la clé de développement, et les sauvegardes Android cessent de contredire
+la politique de confidentialité. La suite de tests passe de 347 à 433 cas.
 
 ### Corrections
 
@@ -138,6 +138,49 @@ de confidentialité. La suite de tests passe de 347 à 407 cas.
   signalées plutôt que silencieusement jetées. Le fichier d'origine reste
   intact, quoi que l'utilisateur fasse ensuite, et le message d'erreur ne cite
   aucun morceau de conversation.
+
+### Corrections du troisième passage
+
+- **une version remplacée ne tenait qu'à un bandeau** : après une erreur
+  survenue en cours de réponse, l'ancienne version du fil n'existait plus que
+  dans l'action d'un message éphémère. Passé ce délai, après une navigation ou
+  après un redémarrage, elle était perdue, et la reprendre effaçait au passage
+  le texte partiel reçu. La version remplacée est désormais conservée avec la
+  conversation, donc enregistrée : un bandeau permanent la propose tant qu'on
+  ne l'a pas retirée, et la reprendre échange les deux versions au lieu d'en
+  sacrifier une. Régénération et modification sont protégées de la même façon,
+  pièces jointes, sources et évaluations comprises, et un remplacement qui
+  aboutit ne propose rien ;
+- **le brouillon écrit pendant la préparation d'un envoi** : le texte et les
+  pièces jointes partaient figés, mais le composeur était ensuite vidé sans
+  qu'on regarde ce qu'il contenait devenu. Le chargement d'un modèle durant
+  plusieurs secondes, le message écrit pendant ce temps disparaissait à son
+  terme. Le composeur n'est maintenant vidé que s'il porte encore exactement
+  ce qui est parti. Les fichiers cités par un brouillon ou par la file
+  d'attente ne sont plus effacés comme s'ils n'appartenaient à personne ;
+- **rappels vocaux sans identité** : la lecture à voix haute s'appuyait sur des
+  rappels du système qui ne disent pas de quelle phrase ils parlent, et dont
+  le plugin ne garde qu'un jeu. Un rappel de la lecture précédente arrivant
+  après le démarrage de la suivante éteignait donc la mauvaise. Le moteur est
+  désormais réglé pour que la réponse de chaque énoncé ne revienne qu'à sa
+  propre fin : c'est ce signal, rattaché à l'appel qui l'a lancé, qui fait foi.
+  Les rappels anonymes ne servent plus que de secours, là où ce mode n'existe
+  pas ;
+- **réponse écourtée sans le moindre mot** : l'issue d'une génération n'était
+  lue que si du texte était arrivé. Une réponse annoncée écourtée avant son
+  premier fragment passait donc pour une réussite, sa bulle disparaissait sans
+  explication et la file d'attente enchaînait. L'issue est maintenant lue quel
+  que soit le texte reçu, dite à l'écran, enregistrée, et la file attend une
+  reprise explicite ;
+- **messages perdus en silence à la relecture** : un message de structure
+  invalide, de contenu non textuel ou de rôle inconnu était écarté sans bruit,
+  et la conversation acceptée telle quelle. Le premier enregistrement suivant
+  réécrivait alors le fichier sans ces messages. Toute perte repérée pendant la
+  relecture, y compris une pièce jointe ou une source, fait maintenant de la
+  restauration une récupération partielle : ce qui est lisible s'affiche, plus
+  rien n'est écrit, et le fichier d'origine reste intact. Un champ optionnel
+  absent d'un ancien format n'est pas une perte, pas plus qu'une valeur écrite
+  par une version plus récente.
 
 ## [0.1.3] - 2026-09-14
 

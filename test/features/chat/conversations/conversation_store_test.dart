@@ -220,6 +220,166 @@ void main() {
     }
   });
 
+  test(
+    'un message invalide dans une conversation valide est signalé',
+    () async {
+      final file = File(
+        '${tempDirectory.path}${Platform.pathSeparator}conversations.json',
+      );
+      await file.writeAsString(
+        jsonEncode(<String, Object?>{
+          'conversations': <Object?>[
+            <String, Object?>{
+              'id': 7,
+              'title': 'Valide',
+              'updatedAt': DateTime(2026, 9, 13).toIso8601String(),
+              'messages': <Object?>[
+                <String, Object?>{'role': 'user', 'content': 'Bonjour'},
+                // Trois façons de perdre un message à l'intérieur d'une
+                // conversation par ailleurs lisible.
+                'pas un objet',
+                <String, Object?>{'role': 'assistant', 'content': 42},
+                <String, Object?>{'role': 'inconnu', 'content': 'ignoré'},
+              ],
+            },
+          ],
+        }),
+      );
+      final original = await file.readAsString();
+
+      // Le défaut d'origine : la conversation était acceptée telle quelle, et
+      // le premier enregistrement suivant réécrivait le fichier sans ces trois
+      // messages.
+      try {
+        await store.load();
+        fail('la lecture aurait dû signaler la perte');
+      } on ConversationLoadException catch (error) {
+        expect(error.failure, ConversationLoadFailure.partial);
+        expect(error.recovered, hasLength(1));
+        expect(error.recovered.single.messages.map((m) => m.content), <String>[
+          'Bonjour',
+        ]);
+        expect(error.message, isNot(contains('Bonjour')));
+        expect(error.message, isNot(contains('Valide')));
+      }
+      expect(await file.readAsString(), original);
+    },
+  );
+
+  test('une donnée imbriquée illisible est signalée', () async {
+    final file = File(
+      '${tempDirectory.path}${Platform.pathSeparator}conversations.json',
+    );
+    // Une pièce jointe inexploitable, puis une liste de sources mal typée :
+    // dans les deux cas, le message reste mais amputé.
+    for (final broken in <Map<String, Object?>>[
+      <String, Object?>{
+        'role': 'user',
+        'content': 'Avec pièce jointe',
+        'attachments': <Object?>['pas un objet'],
+      },
+      <String, Object?>{
+        'role': 'user',
+        'content': 'Avec pièce jointe',
+        'attachments': 'pas une liste',
+      },
+      <String, Object?>{
+        'role': 'assistant',
+        'content': 'Avec sources',
+        'citations': <Object?>[42],
+      },
+    ]) {
+      await file.writeAsString(
+        jsonEncode(<String, Object?>{
+          'conversations': <Object?>[
+            <String, Object?>{
+              'id': 1,
+              'title': 'Valide',
+              'updatedAt': DateTime(2026, 9, 13).toIso8601String(),
+              'messages': <Object?>[broken],
+            },
+          ],
+        }),
+      );
+
+      await expectLater(
+        store.load(),
+        throwsA(
+          isA<ConversationLoadException>().having(
+            (e) => e.failure,
+            'failure',
+            ConversationLoadFailure.partial,
+          ),
+        ),
+        reason: 'perte silencieuse pour $broken',
+      );
+    }
+  });
+
+  test(
+    'un ancien historique sans champs optionnels se lit sans erreur',
+    () async {
+      final file = File(
+        '${tempDirectory.path}${Platform.pathSeparator}conversations.json',
+      );
+      // Le format d'avant les pièces jointes, les sources, les évaluations et
+      // l'issue de génération : un champ absent n'est pas une perte.
+      await file.writeAsString(
+        jsonEncode(<String, Object?>{
+          'conversations': <Object?>[
+            <String, Object?>{
+              'id': 1,
+              'title': 'Ancien',
+              'updatedAt': DateTime(2026, 9, 13).toIso8601String(),
+              'messages': <Object?>[
+                <String, Object?>{'role': 'user', 'content': 'Bonjour'},
+                <String, Object?>{'role': 'assistant', 'content': 'Salut !'},
+              ],
+            },
+          ],
+        }),
+      );
+
+      final restored = await store.load();
+      expect(restored, hasLength(1));
+      expect(restored.single.messages, hasLength(2));
+      expect(restored.single.messages.first.attachments, isEmpty);
+      expect(restored.single.messages.last.outcome, GenerationOutcome.complete);
+    },
+  );
+
+  test('une valeur d’énumération inconnue n’est pas une perte', () async {
+    final file = File(
+      '${tempDirectory.path}${Platform.pathSeparator}conversations.json',
+    );
+    // Écrit par une version plus récente : la solution de repli remplace la
+    // valeur sans rien effacer du contenu.
+    await file.writeAsString(
+      jsonEncode(<String, Object?>{
+        'conversations': <Object?>[
+          <String, Object?>{
+            'id': 1,
+            'title': 'Futur',
+            'updatedAt': DateTime(2026, 9, 13).toIso8601String(),
+            'messages': <Object?>[
+              <String, Object?>{
+                'role': 'assistant',
+                'content': 'Réponse',
+                'rating': 'enthousiaste',
+                'outcome': 'interrompue_par_le_chat',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    final restored = await store.load();
+    expect(restored.single.messages.single.content, 'Réponse');
+    expect(restored.single.messages.single.rating, MessageRating.none);
+    expect(restored.single.messages.single.outcome, GenerationOutcome.complete);
+  });
+
   test('un historique vide et conforme se lit sans erreur', () async {
     final file = File(
       '${tempDirectory.path}${Platform.pathSeparator}conversations.json',

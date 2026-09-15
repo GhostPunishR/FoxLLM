@@ -113,6 +113,117 @@ void main() {
     });
   });
 
+  group('le brouillon écrit pendant la préparation survit', () {
+    testWidgets('un message écrit pendant l’attente n’est pas effacé au '
+        'départ du précédent', (tester) async {
+      final backend = _GatedBackend();
+      await _pumpChat(tester, backend: backend, restorableModel: true);
+
+      await _type(tester, 'Message A');
+      await tester.tap(find.byTooltip('Envoyer'));
+      await tester.pump();
+
+      // Le chargement du GGUF dure : l'utilisateur écrit la suite pendant ce
+      // temps. Le défaut d'origine vidait le composeur sans regarder ce qu'il
+      // contenait devenu.
+      await _type(tester, 'Message B');
+
+      backend.completeLoad();
+      await _pumpFrames(tester);
+
+      expect(backend.generateCalls, hasLength(1));
+      expect(backend.generateCalls.single.last.content, 'Message A');
+      expect(_draft(tester), 'Message B');
+    });
+
+    testWidgets('une pièce jointe ajoutée pendant l’attente reste au '
+        'brouillon', (tester) async {
+      final backend = _GatedBackend();
+      final picker = _GatedPicker();
+      await _pumpChat(
+        tester,
+        backend: backend,
+        picker: picker,
+        restorableModel: true,
+      );
+
+      await _type(tester, 'Message A');
+      await tester.tap(find.byTooltip('Envoyer'));
+      await tester.pump();
+
+      await _attach(tester);
+      picker.completeWith(_picked('jointe.txt'));
+      await _pumpFrames(tester);
+      expect(find.text('jointe.txt'), findsOneWidget);
+
+      backend.completeLoad();
+      await _pumpFrames(tester);
+
+      // Le message parti n'emporte pas une pièce jointe qu'il n'avait pas, et
+      // celle-ci reste où l'utilisateur vient de la poser.
+      expect(backend.generateCalls.single.last.attachments, isEmpty);
+      expect(find.text('jointe.txt'), findsOneWidget);
+      expect(_draft(tester), 'Message A');
+    });
+
+    testWidgets('retirer une pièce jointe pendant l’attente préserve le '
+        'brouillon', (tester) async {
+      final backend = _GatedBackend();
+      final picker = _GatedPicker();
+      final store = _CountingStore();
+      await _pumpChat(
+        tester,
+        backend: backend,
+        picker: picker,
+        conversationStore: store,
+        restorableModel: true,
+      );
+
+      await _attach(tester);
+      picker.completeWith(_picked('jointe.txt'));
+      await _pumpFrames(tester);
+      await _type(tester, 'Message A');
+      await tester.tap(find.byTooltip('Envoyer'));
+      await tester.pump();
+
+      // La pièce jointe part avec le message ; l'utilisateur la retire du
+      // composeur pendant la préparation.
+      await tester.tap(find.byTooltip('Retirer jointe.txt'));
+      await _pumpFrames(tester);
+
+      backend.completeLoad();
+      await _pumpFrames(tester);
+
+      // Le message parti garde bien la pièce jointe qu'il avait au départ :
+      // la requête l'inline, le fil enregistré en garde la référence.
+      expect(backend.generateCalls, hasLength(1));
+      expect(
+        store.last.single.messages.first.attachments.single.name,
+        'jointe.txt',
+      );
+      // Le brouillon a changé depuis la capture : il n'est pas vidé.
+      expect(_draft(tester), 'Message A');
+      // Plus de puce dans le composeur : celle qui reste est dans le fil, sur
+      // le message parti.
+      expect(find.byTooltip('Retirer jointe.txt'), findsNothing);
+    });
+
+    testWidgets('un refus de préparation laisse le brouillon intact', (
+      tester,
+    ) async {
+      // Aucun modèle mémorisé : la préparation refuse l'envoi.
+      final backend = _GatedBackend();
+      await _pumpChat(tester, backend: backend);
+
+      await _type(tester, 'Message A');
+      await tester.tap(find.byTooltip('Envoyer'));
+      await _pumpFrames(tester);
+
+      expect(backend.generateCalls, isEmpty);
+      expect(_draft(tester), 'Message A');
+    });
+  });
+
   group('écran détruit pendant une pièce jointe', () {
     testWidgets('la copie est effacée même si l’écran a disparu', (
       tester,
@@ -343,10 +454,12 @@ Future<void> _type(WidgetTester tester, String text) async {
 }
 
 Future<void> _attach(WidgetTester tester) async {
+  // Pas de `pumpAndSettle` : le bandeau de chargement du modèle peut tourner
+  // pendant ce temps, et l'immobilité ne viendrait jamais.
   await tester.tap(find.byTooltip('Ajouter'));
-  await tester.pumpAndSettle();
+  await _pumpFrames(tester);
   await tester.tap(find.text('Joindre un fichier'));
-  await tester.pumpAndSettle();
+  await _pumpFrames(tester);
 }
 
 PickedAttachment _picked(String name) {
