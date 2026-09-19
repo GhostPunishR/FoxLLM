@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,6 +41,14 @@ part 'chat_top_bar.dart';
 part 'chat_messages.dart';
 part 'chat_composer.dart';
 part 'chat_drawer.dart';
+
+/// Écart minimal entre deux peintures du message en cours de réception.
+///
+/// Vingt images par seconde : assez pour que le texte paraisse s'écrire, et
+/// dix à vingt fois moins de travail qu'une peinture par fragment reçu. Un
+/// fournisseur rapide en envoie plusieurs dizaines par seconde, dont personne
+/// ne peut lire la différence.
+const _streamPaintInterval = Duration(milliseconds: 50);
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -1067,6 +1076,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Par défaut une interruption : quitter un fil en cours de réponse
     // l'interrompt, même si le moteur, lui, va au bout.
     var abandonedOutcome = GenerationOutcome.cancelled;
+
+    // `clock.now()` plutôt que `Stopwatch` : l'un comme l'autre donnent
+    // l'heure réelle sur un appareil, mais seul le premier suit l'horloge
+    // simulée des tests, qui vérifient l'affichage fragment par fragment.
+    var lastPaint = clock.now();
+    var shown = '';
+
+    // Pousse à l'écran ce que le groupement retient encore.
+    //
+    // Appelée à chaque sortie de la boucle, la fin normale comme l'échec : un
+    // flux qui casse après un fragment retenu perdrait sinon ce fragment,
+    // alors que c'est précisément ce que la gestion d'erreur s'attache à
+    // garder affiché.
+    void flushDisplay() {
+      if (shown == response || !stillCurrent()) {
+        return;
+      }
+      shown = response;
+      setState(() {
+        _messages[_messages.length - 1] = ChatMessage.assistant(response);
+        _syncActiveConversation(immediate: false);
+      });
+      _scrollToBottom();
+    }
+
     try {
       final settings = GenerationSettings(
         maxTokens: modes.reasoning
@@ -1074,6 +1108,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             : const GenerationSettings().maxTokens,
         webSearch: modes.webSearch,
       );
+      // Afficher un message coûte cher : le markdown est ré-analysé et le
+      // code recoloré à chaque image, pour tous les messages visibles.
+      // Repeindre à chaque fragment reçu faisait donc croître le travail avec
+      // le carré de la longueur de la réponse, sur le fil principal, et au
+      // moment précis où l'appareil est déjà occupé à produire la suite.
+      //
+      // Les fragments sont donc groupés. `shown` retient ce qui est affiché :
+      // une comparaison avec le texte reçu vaut mieux qu'un drapeau, car elle
+      // reste juste quelle que soit la façon dont la boucle s'est terminée.
+
       await for (final chunk in backend.generate(
         messages: requestMessages,
         settings: settings,
@@ -1083,6 +1127,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Le message a bien rejoint son fil : seule la suite est abandonnée.
           return _SendOutcome.sent;
         }
+        final now = clock.now();
+        if (now.difference(lastPaint) < _streamPaintInterval) {
+          continue;
+        }
+        lastPaint = now;
+        shown = response;
         setState(() {
           _messages[_messages.length - 1] = ChatMessage.assistant(response);
           // Un état intermédiaire que personne ne relira : il rejoint le
@@ -1091,6 +1141,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
         _scrollToBottom();
       }
+
+      // Le flux est fini : plus rien ne viendra pousser à l'écran ce que le
+      // groupement retenait.
+      flushDisplay();
 
       // Le flux s'est terminé, que le fil soit encore à l'écran ou non. Un
       // arrêt demandé, par le bouton comme par une navigation, l'a peut-être
@@ -1125,6 +1179,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         }
       }
     } catch (error) {
+      // Avant toute chose : ce qui est arrivé avant la coupure doit être
+      // visible, c'est sur lui que repose toute la suite.
+      flushDisplay();
       if (!stillCurrent()) {
         // Le fil n'est plus à l'écran : l'échec est noté pour lui, là où il
         // vit, plutôt que montré sur une conversation qui n'a rien demandé.

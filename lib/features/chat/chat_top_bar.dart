@@ -87,10 +87,14 @@ class _TopButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
+      // 48 points de côté : le minimum qu'Android demande pour ce qui se
+      // touche. Le dessin, lui, ne change pas de taille : c'est la zone
+      // sensible autour de lui qui s'élargit, et la barre de 52 l'accueille
+      // sans bouger.
       child: SizedBox.square(
-        dimension: 42,
+        dimension: 48,
         child: InkResponse(
-          radius: 22,
+          radius: 24,
           onTap: onPressed,
           child: Center(child: child),
         ),

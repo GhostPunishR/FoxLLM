@@ -376,51 +376,64 @@ class _AssistantActions extends StatelessWidget {
       padding: const EdgeInsets.only(left: 2, top: 2),
       child: Row(
         children: <Widget>[
-          _ActionIcon(
-            icon: Icons.copy_rounded,
-            tooltip: 'Copier',
-            onPressed: () => actions.onCopy(message),
+          // Les icônes vivent dans un `Wrap` : six cibles de 48 tiennent sur
+          // la largeur d'un téléphone ordinaire, mais déborderaient d'un
+          // écran étroit. Elles passent alors à la ligne, au lieu d'afficher
+          // la bande rayée de débordement. « Sources » reste à droite, d'où
+          // le `Row` autour.
+          Expanded(
+            child: Wrap(
+              children: <Widget>[
+                _ActionIcon(
+                  icon: Icons.copy_rounded,
+                  tooltip: 'Copier',
+                  onPressed: () => actions.onCopy(message),
+                ),
+                _ActionIcon(
+                  icon: message.rating == MessageRating.up
+                      ? Icons.thumb_up
+                      : Icons.thumb_up_outlined,
+                  tooltip: 'Bonne réponse',
+                  active: message.rating == MessageRating.up,
+                  onPressed: () => actions.onRate(index, MessageRating.up),
+                ),
+                _ActionIcon(
+                  icon: message.rating == MessageRating.down
+                      ? Icons.thumb_down
+                      : Icons.thumb_down_outlined,
+                  tooltip: 'Mauvaise réponse',
+                  active: message.rating == MessageRating.down,
+                  onPressed: () => actions.onRate(index, MessageRating.down),
+                ),
+                _ActionIcon(
+                  icon: isSpeaking
+                      ? Icons.stop_rounded
+                      : Icons.volume_up_outlined,
+                  tooltip: isSpeaking
+                      ? 'Arrêter la lecture'
+                      : 'Lire à voix haute',
+                  active: isSpeaking,
+                  onPressed: () => actions.onSpeak(message),
+                ),
+                _ActionIcon(
+                  icon: Icons.ios_share_rounded,
+                  tooltip: 'Partager',
+                  onPressed: () => actions.onShare(message),
+                ),
+                _ActionIcon(
+                  icon: Icons.more_vert_rounded,
+                  tooltip: 'Plus',
+                  onPressed: () => _showMore(context),
+                ),
+              ],
+            ),
           ),
-          _ActionIcon(
-            icon: message.rating == MessageRating.up
-                ? Icons.thumb_up
-                : Icons.thumb_up_outlined,
-            tooltip: 'Bonne réponse',
-            active: message.rating == MessageRating.up,
-            onPressed: () => actions.onRate(index, MessageRating.up),
-          ),
-          _ActionIcon(
-            icon: message.rating == MessageRating.down
-                ? Icons.thumb_down
-                : Icons.thumb_down_outlined,
-            tooltip: 'Mauvaise réponse',
-            active: message.rating == MessageRating.down,
-            onPressed: () => actions.onRate(index, MessageRating.down),
-          ),
-          _ActionIcon(
-            icon: isSpeaking ? Icons.stop_rounded : Icons.volume_up_outlined,
-            tooltip: isSpeaking ? 'Arrêter la lecture' : 'Lire à voix haute',
-            active: isSpeaking,
-            onPressed: () => actions.onSpeak(message),
-          ),
-          _ActionIcon(
-            icon: Icons.ios_share_rounded,
-            tooltip: 'Partager',
-            onPressed: () => actions.onShare(message),
-          ),
-          _ActionIcon(
-            icon: Icons.more_vert_rounded,
-            tooltip: 'Plus',
-            onPressed: () => _showMore(context),
-          ),
-          const Spacer(),
           if (message.citations.isNotEmpty)
             TextButton(
               onPressed: () => actions.onShowSources(message),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(48, 48),
               ),
               child: Text(
                 'Sources',
@@ -492,15 +505,17 @@ class _ActionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fox = context.fox;
+    // 48 points de côté : le minimum qu'Android demande pour ce qui se
+    // touche, et ces boutons sont les plus utilisés de l'application. Le
+    // dessin reste à 19 : seule la zone sensible autour de lui s'élargit.
     return IconButton(
       onPressed: onPressed,
       icon: Icon(icon, size: 19),
       tooltip: tooltip,
       color: active ? fox.accent : fox.textSecondary,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+      constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       padding: EdgeInsets.zero,
-      splashRadius: 20,
+      splashRadius: 22,
     );
   }
 }

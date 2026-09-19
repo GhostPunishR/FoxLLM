@@ -388,10 +388,13 @@ List<CodeToken> highlightCode(String code, {String? language}) {
   }
 
   while (index < code.length) {
-    final rest = code.substring(index);
-
+    // `startsWith` prend la position où regarder : recopier tout le code
+    // restant à chaque caractère, comme le faisait un `substring` posé ici,
+    // rendait la coloration quadratique. Sur un extrait de cinq kilooctets,
+    // cela faisait douze millions de caractères recopiés par passage, et la
+    // passe est refaite à chaque image tant que la réponse s'écrit.
     final blockComment = grammar.blockComment;
-    if (blockComment != null && rest.startsWith(blockComment.$1)) {
+    if (blockComment != null && code.startsWith(blockComment.$1, index)) {
       final closing = code.indexOf(
         blockComment.$2,
         index + blockComment.$1.length,
@@ -405,7 +408,7 @@ List<CodeToken> highlightCode(String code, {String? language}) {
     }
 
     final lineComment = grammar.lineComments
-        .where(rest.startsWith)
+        .where((marker) => code.startsWith(marker, index))
         .fold<String?>(null, (longest, marker) {
           return longest == null || marker.length > longest.length
               ? marker

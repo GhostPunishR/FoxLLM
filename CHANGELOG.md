@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 473 cas.
+441 à 479 cas.
 
 ### Ajouts
 
@@ -78,6 +78,36 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
   flux, contrairement à la génération simple. Le worker s'en chargeait, mais
   faire dépendre la correction d'un appelant discipliné n'est pas une
   garantie : une réponse vide sans erreur pour l'expliquer était au bout.
+
+### Performance et accessibilité
+
+- **la coloration du code était quadratique.** La boucle recopiait tout le
+  code restant à chaque caractère : sur un extrait de sept kilooctets, douze
+  millions de caractères recopiés par passage. Mesuré avant et après sur le
+  même extrait, vingt passages tombent de 107 ms à 7 ms, quinze fois moins.
+  Un contrôle compare désormais la forme de la courbe plutôt qu'une vitesse :
+  quatre fois plus de code ne doit pas coûter seize fois plus de temps ;
+- **le fil était repeint à chaque fragment reçu.** Or afficher un message
+  ré-analyse son markdown et recolore son code, pour tous les messages
+  visibles : le travail croissait donc avec le carré de la longueur de la
+  réponse, sur le fil principal, au moment précis où l'appareil produit la
+  suite. Les fragments sont groupés sur cinquante millisecondes, ce qui
+  laisse le texte paraître s'écrire. Ce qu'un groupement retient est poussé à
+  l'écran à la fin du flux, échec compris : c'est justement après une coupure
+  que le texte déjà reçu compte le plus ;
+- **les cibles tactiles passent à 48 points.** La barre du haut était à 42, et
+  les six boutons sous une réponse à 40, là où Android demande 48 pour ce qui
+  se touche. Les dessins gardent leur taille : seule la zone sensible autour
+  d'eux s'élargit, et la barre d'actions passe à la ligne plutôt que de
+  déborder sur un écran étroit ;
+- **le texte tertiaire clair remonte à 4,5 de contraste**, contre 3,36. Il
+  sert aux dates de conversation, aux aides de réglage et à la mention de
+  copyright, tous en douze ou treize points, où la règle WCAG demande 4,5. Le
+  contrôle de palette l'exige désormais pour le texte secondaire comme pour le
+  tertiaire, au lieu de se contenter de 3 ;
+- **un import de modèle qui échoue dit pourquoi.** Le ménage qui suivait
+  l'échec pouvait échouer à son tour sur un disque plein, et remplaçait alors
+  la vraie cause par une erreur de suppression.
 
 ### Durcissement
 

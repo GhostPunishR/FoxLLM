@@ -171,6 +171,60 @@ int add(int a, int b) {
       }
     });
   });
+
+  group('coût de la coloration', () {
+    test('le travail croît avec la taille, pas avec son carré', () {
+      // La boucle recopiait tout le code restant à chaque caractère, ce qui
+      // rendait la passe quadratique. Refaite à chaque image tant que la
+      // réponse s'écrit, elle faisait sauter des images sur un extrait de
+      // quelques kilooctets.
+      //
+      // Ce contrôle regarde la forme de la courbe, pas une vitesse : sur une
+      // machine d'intégration chargée, les deux mesures se dégradent
+      // ensemble, et c'est leur rapport qui reste parlant. Quadratique, un
+      // texte quatre fois plus long coûte seize fois plus ; linéaire, quatre.
+      String sample(int lines) {
+        final buffer = StringBuffer();
+        for (var index = 0; index < lines; index++) {
+          buffer.writeln('  final valeur = calcul($index, "texte"); // note');
+        }
+        return buffer.toString();
+      }
+
+      final small = sample(100);
+      final large = sample(400);
+
+      // Mise en jambes : le premier passage paie la compilation à la volée.
+      for (var index = 0; index < 5; index++) {
+        highlightCode(small, language: 'dart');
+        highlightCode(large, language: 'dart');
+      }
+
+      final smallClock = Stopwatch()..start();
+      for (var index = 0; index < 20; index++) {
+        highlightCode(small, language: 'dart');
+      }
+      smallClock.stop();
+
+      final largeClock = Stopwatch()..start();
+      for (var index = 0; index < 20; index++) {
+        highlightCode(large, language: 'dart');
+      }
+      largeClock.stop();
+
+      final ratio =
+          largeClock.elapsedMicroseconds /
+          smallClock.elapsedMicroseconds.clamp(1, 1 << 30);
+
+      expect(
+        ratio,
+        lessThan(10),
+        reason:
+            'quatre fois plus de code a coûté ${ratio.toStringAsFixed(1)} '
+            'fois plus de temps : la coloration est redevenue quadratique',
+      );
+    });
+  });
 }
 
 CodeTokenType _typeOf(List<CodeToken> tokens, String text) =>

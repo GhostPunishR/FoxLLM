@@ -114,7 +114,7 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     borderStrong: Color(0xFFE0C3AB),
     textPrimary: Color(0xFF24150D),
     textSecondary: Color(0xFF7A6154),
-    textTertiary: Color(0xFF9C8477),
+    textTertiary: Color(0xFF866E62),
     accent: Color(0xFFE8540B),
     onAccent: Color(0xFFFFFFFF),
     accentText: Color(0xFFA8400A),
