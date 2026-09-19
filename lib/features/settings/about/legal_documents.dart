@@ -48,6 +48,20 @@ const termsOfUseDocument = LegalDocument(
       ],
     ),
     LegalSection(
+      title: 'Ce que tu envoies',
+      paragraphs: <String>[
+        'En mode « API personnelle », tes messages et les pièces jointes qui '
+            'les accompagnent partent vers le fournisseur choisi. Tu restes '
+            'responsable de ce que tu envoies, notamment du droit d’en '
+            'disposer, et leur traitement relève des conditions de ce '
+            'fournisseur.',
+        'Le mode « Recherche web » va plus loin : le fournisseur se sert de ta '
+            'question pour interroger le web. Ne l’active pas pour un échange '
+            'que tu veux garder pour toi.',
+        'Avec un modèle local, aucun message n’est envoyé à un fournisseur.',
+      ],
+    ),
+    LegalSection(
       title: 'Modèles locaux',
       paragraphs: <String>[
         'Les fichiers GGUF que tu importes proviennent de sources que tu '
@@ -104,6 +118,44 @@ const privacyPolicyDocument = LegalDocument(
             'stockage privé de l’application, afin de retrouver tes '
             'conversations au lancement suivant. Il n’est jamais envoyé '
             'ailleurs.',
+      ],
+    ),
+    LegalSection(
+      title: 'Pièces jointes',
+      paragraphs: <String>[
+        'Une photo, une image de la galerie ou un fichier texte joint à un '
+            'message est recopié dans l’espace de stockage privé de '
+            'l’application. C’est ce qui permet de rouvrir la conversation des '
+            'semaines plus tard et d’y retrouver la pièce jointe, même si '
+            'l’original a disparu. Supprimer la conversation efface aussi ces '
+            'copies.',
+        'FoxLLM n’ouvre de lui-même ni l’appareil photo ni tes dossiers : il '
+            'appelle le sélecteur du système, qui ne lui remet que le fichier '
+            'choisi.',
+        'Avec une API personnelle, l’image part dans la requête et le contenu '
+            'du fichier texte rejoint le message : ils suivent le chemin de la '
+            'conversation. Un modèle local ne reçoit pas d’image, et le texte '
+            'joint ne quitte pas l’appareil.',
+      ],
+    ),
+    LegalSection(
+      title: 'Recherche web',
+      paragraphs: <String>[
+        'Le mode « Recherche web » n’existe qu’avec une API personnelle OpenAI '
+            'ou Google : c’est le fournisseur qui consulte le web, jamais '
+            'l’application. Ta question lui sert alors à chercher, et les '
+            'sources citées reviennent avec la réponse.',
+        'Le mode éteint, ou face à un modèle local, aucune recherche n’est '
+            'lancée et rien n’est transmis à un moteur de recherche.',
+      ],
+    ),
+    LegalSection(
+      title: 'Copie et partage',
+      paragraphs: <String>[
+        'Copier une réponse la dépose dans le presse-papiers du système ; la '
+            'partager la remet à l’application que tu désignes. Dans les deux '
+            'cas le texte sort de FoxLLM parce que tu l’as demandé, et ce '
+            'qu’il en advient ensuite relève de l’application qui le reçoit.',
       ],
     ),
     LegalSection(
@@ -181,9 +233,24 @@ const privacyPolicyDocument = LegalDocument(
       title: 'Mesure d’audience',
       paragraphs: <String>[
         'L’application n’embarque aucun outil de statistiques, de suivi '
-            'publicitaire ou de rapport d’incident.',
-        'La seule permission demandée est l’accès à Internet, utilisé '
-            'uniquement pour joindre le fournisseur d’API que tu configures.',
+            'publicitaire ou de rapport d’incident. Aucun compte n’est '
+            'demandé, et rien n’identifie ton appareil.',
+      ],
+    ),
+    LegalSection(
+      title: 'Permissions',
+      paragraphs: <String>[
+        'Deux permissions seulement sont déclarées. L’accès à Internet ne sert '
+            'qu’à joindre le fournisseur d’API que tu configures, pour la '
+            'réponse comme pour la liste de ses modèles : sans API '
+            'personnelle, l’application ne contacte personne.',
+        'Le micro sert à la dictée. Il est demandé à la première utilisation, '
+            'jamais au lancement, et l’application reste utilisable sans '
+            'l’accorder.',
+        'Rien d’autre n’est réclamé : ni appareil photo, ni accès au stockage '
+            'partagé, ni position, ni contacts. Les photos et les fichiers '
+            'passent par les sélecteurs du système, qui n’exigent aucune '
+            'permission de la part de l’application.',
       ],
     ),
   ],

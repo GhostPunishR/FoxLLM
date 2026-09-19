@@ -32,6 +32,32 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   requêtes, et le proposer laisserait attendre des sources qui ne viendraient
   jamais.
 
+### Documents légaux
+
+Relecture des conditions d'utilisation et de la politique de confidentialité
+face à ce que l'application fait aujourd'hui.
+
+- **une affirmation fausse corrigée** : la politique promettait que « la seule
+  permission demandée est l'accès à Internet », alors que le manifeste déclare
+  aussi le micro depuis l'arrivée de la dictée, que la politique décrit par
+  ailleurs. Les permissions ont maintenant leur propre section, et un contrôle
+  compare la liste du manifeste au texte : une permission ajoutée sans un mot
+  dans la politique fait échouer la suite ;
+- **pièces jointes** : photos, images et fichiers texte n'étaient décrits nulle
+  part, alors qu'ils sont recopiés dans le stockage privé et partent chez le
+  fournisseur. Une section dit où ils vont, ce que leur suppression efface, et
+  qu'un modèle local ne reçoit pas d'image ;
+- **recherche web** : une section dit que c'est le fournisseur qui consulte le
+  web, que la question lui sert de recherche, et que rien de tel n'a lieu avec
+  un modèle local ;
+- **copie et partage** : le texte sorti vers le presse-papiers ou vers une
+  autre application est annoncé plutôt que passé sous silence ;
+- **conditions** : une section « Ce que tu envoies » rappelle la
+  responsabilité de l'expéditeur sur les messages et les fichiers joints, et
+  déconseille la recherche web pour un échange qu'on veut garder pour soi ;
+- les deux pages du site reprennent mot pour mot les textes de l'application,
+  comme le vérifie déjà la suite.
+
 ## [0.1.4] - 2026-09-14
 
 Correctifs d'un audit mené avant diffusion publique, puis de trois passages de
