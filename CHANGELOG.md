@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 479 cas.
+441 à 481 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -78,6 +78,35 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
   flux, contrairement à la génération simple. Le worker s'en chargeait, mais
   faire dépendre la correction d'un appelant discipliné n'est pas une
   garantie : une réponse vide sans erreur pour l'expliquer était au bout.
+
+### Modèles locaux
+
+- **le cache KV est en place.** Le contexte d'inférence était créé puis jeté à
+  chaque réponse : toute la conversation était relue depuis le début à chaque
+  message, et le coût croissait avec sa longueur. Or une conversation ne fait
+  qu'allonger son début, le prompt d'un tour commençant par celui du tour
+  précédent. Le contexte est désormais gardé, avec la liste des jetons qu'il a
+  lus ; seul ce qui a changé est relu. Un fil qui diverge, par une
+  régénération ou une modification, voit la partie devenue fausse retirée du
+  cache et relue, jamais réutilisée à tort ;
+- **la mémoire n'est pas réservée d'avance pour autant.** Un contexte fixé à
+  quelques milliers de jetons coûterait des centaines de mégaoctets qu'un
+  téléphone n'a pas. Le contexte suit donc la conversation par doublements :
+  assez rare pour que le cache serve entre deux agrandissements, assez souple
+  pour qu'une question d'une ligne ne paie pas la mémoire d'un long fil ;
+- le prompt se lit par lots de 512 jetons au lieu d'un seul lot de sa taille,
+  ce qui borne les tampons de calcul et permet à un long fil de passer.
+
+### Blocs de code
+
+- **les couleurs sont celles de GitHub**, thème Primer, clair et sombre. Un
+  extrait de code se lit partout ailleurs avec ces teintes : les reprendre
+  évite d'avoir à réapprendre ce que veut dire un rouge ou un violet. Les
+  douze valeurs sont vérifiées lisibles sur le fond des blocs de FoxLLM, qui
+  n'est pas celui de GitHub, et un contrôle les compare une à une au thème
+  d'origine ;
+- le texte non coloré d'un bloc a désormais son propre rôle : le fil garde la
+  chaleur de FoxLLM, le code prend le gris de GitHub.
 
 ### Performance et accessibilité
 

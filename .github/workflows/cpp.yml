@@ -35,3 +35,20 @@ jobs:
             -shared \
             src/foxllm_native.cpp \
             -o /tmp/libfoxllm_native_smoke.so
+
+      # Les deux décisions du cache KV : ce qui est relu d'un tour sur l'autre,
+      # et la mémoire réservée pour le faire. Le cache complet demande un
+      # modèle et un appareil, ces deux fonctions non, et ce sont elles qui
+      # décident. Une erreur y donne une réponse incohérente ou un téléphone à
+      # court de mémoire, sans que rien d'autre ne le signale.
+      - name: Check KV cache decisions
+        working-directory: packages/foxllm_native
+        run: |
+          g++ \
+            -std=c++17 \
+            -Wall \
+            -Wextra \
+            -Werror \
+            test/cache_decisions_test.cpp \
+            -o /tmp/foxllm_cache_decisions
+          /tmp/foxllm_cache_decisions

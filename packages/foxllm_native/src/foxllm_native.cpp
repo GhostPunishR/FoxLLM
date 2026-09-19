@@ -3,20 +3,20 @@
 
 #include "foxllm_native.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
 #include <new>
 #include <string>
+#include <vector>
 
 #ifdef FOXLLM_WITH_LLAMA_CPP
 #include "llama.h"
 
-#include <algorithm>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <vector>
 #endif
 
 namespace {
@@ -31,6 +31,23 @@ struct Engine {
     uint64_t model_size_bytes = 0;
     int32_t model_context_size = 0;
     std::mutex operation_mutex;
+
+    // Contexte d'inférence gardé d'une génération à l'autre, avec les jetons
+    // qu'il a déjà lus.
+    //
+    // Sans lui, chaque message recommençait la conversation entière : le
+    // contexte était créé puis jeté à chaque réponse, donc tout le fil était
+    // relu depuis le début. Le coût croissait avec la longueur de la
+    // conversation, et c'était le poste dominant sur un téléphone.
+    //
+    // Une conversation ne fait qu'allonger son début : le prompt du tour
+    // suivant commence par celui du tour précédent. Garder le contexte permet
+    // de ne relire que ce qui a changé.
+    llama_context* context = nullptr;
+
+    // Jetons présents dans le cache du contexte, dans l'ordre. C'est la seule
+    // source de vérité : ce qui n'y figure pas n'a pas été lu.
+    std::vector<llama_token> cached_tokens;
 #else
     std::string model_path;
 #endif
@@ -97,6 +114,53 @@ std::string chatml_prompt(
     return prompt;
 }
 
+// Contexte minimal demandé, même pour une question d'une ligne.
+//
+// En dessous, la première réponse un peu longue déborde et force à tout
+// relire : le cache ne servirait jamais.
+constexpr uint32_t kMinimumContextSize = 1024;
+
+// Longueur du début commun à deux suites de jetons.
+//
+// C'est tout le cache : ce début est déjà lu par le contexte, seul ce qui
+// suit doit l'être. Une réponse ajoutée au fil laisse intact le début du
+// prompt suivant, d'où un préfixe qui couvre presque toute la conversation.
+//
+// Pure et hors du bloc llama.cpp, donc vérifiable par un test ordinaire,
+// sans modèle, sans appareil et sans la bibliothèque. D'où le
+// `maybe_unused` : la compilation du bouchon la voit sans l'appeler.
+[[maybe_unused]] size_t common_prefix_length(
+    const std::vector<int32_t>& cached,
+    const std::vector<int32_t>& wanted) {
+    const size_t limit = std::min(cached.size(), wanted.size());
+    size_t shared = 0;
+    while (shared < limit && cached[shared] == wanted[shared]) {
+        ++shared;
+    }
+    return shared;
+}
+
+// Taille de contexte à demander pour tenir [needed] jetons.
+//
+// Ni trop grand ni trop juste. Trop grand, le cache réserve d'avance des
+// centaines de mégaoctets qu'un téléphone n'a pas. Trop juste, la moindre
+// réponse déborde et force à tout relire, ce qui annule le cache.
+//
+// D'où le doublement : le contexte suit la conversation par paliers, et
+// change assez rarement pour que le cache serve entre deux.
+[[maybe_unused]] uint32_t context_size_for(
+    uint32_t current, uint32_t needed, uint32_t trained) {
+    uint32_t target = std::max(needed, kMinimumContextSize);
+    if (current > 0) {
+        target = std::max(target, current * 2);
+    }
+    if (trained > 0) {
+        target = std::min(target, trained);
+        target = std::max(target, std::min(needed, trained));
+    }
+    return target;
+}
+
 #ifdef FOXLLM_WITH_LLAMA_CPP
 
 // Nombre de threads de calcul, faute de valeur par défaut utilisable.
@@ -111,6 +175,14 @@ std::string chatml_prompt(
 // tous les cœurs jusqu'à quatre, la moitié au delà. Les cœurs lents d'un SoC
 // mobile ne l'accélèrent pas, car ggml répartit chaque couche en parts égales
 // et attend la plus lente.
+// Taille d'un lot de lecture.
+//
+// Le contexte fixe cette taille une fois pour toutes, et un prompt plus long
+// se lit en plusieurs lots. Sans ce découpage, un long fil échouerait faute
+// de place dans un seul lot ; trop grand, il gonflerait les tampons de calcul
+// sans rien accélérer sur un téléphone.
+constexpr uint32_t kDecodeBatchSize = 512;
+
 int32_t math_thread_count() {
     const unsigned int cores = std::thread::hardware_concurrency();
     if (cores == 0) {
@@ -125,7 +197,20 @@ void initialize_backend() {
     std::call_once(backend_once, []() { ggml_backend_load_all(); });
 }
 
+// Libère le contexte et oublie ce qu'il contenait.
+//
+// Les deux vont ensemble : un cache décrit l'état d'un contexte précis, et
+// survivrait à sa destruction en décrivant un état qui n'existe plus.
+void release_context(Engine* engine) {
+    if (engine->context != nullptr) {
+        llama_free(engine->context);
+        engine->context = nullptr;
+    }
+    engine->cached_tokens.clear();
+}
+
 void unload_model(Engine* engine) {
+    release_context(engine);
     if (engine->model != nullptr) {
         llama_model_free(engine->model);
         engine->model = nullptr;
@@ -165,6 +250,46 @@ std::string token_to_piece(const llama_vocab* vocab, llama_token token) {
     }
 
     return std::string(dynamic_buffer.data(), static_cast<size_t>(written));
+}
+
+// Lit une suite de jetons et l'inscrit au cache.
+//
+// Découpée en lots : un contexte a une taille de lot fixe, et un prompt plus
+// long que ce lot échouerait sans ce découpage. Le cache n'avance que de ce
+// qui a été lu, afin qu'un échec au milieu ne laisse pas croire que la suite
+// l'a été.
+bool decode_tokens(
+    Engine* instance,
+    const llama_token* tokens,
+    size_t count,
+    uint32_t batch_size) {
+    const size_t step = batch_size > 0 ? static_cast<size_t>(batch_size) : 1;
+    size_t offset = 0;
+    std::vector<llama_token> chunk;
+
+    while (offset < count) {
+        const size_t taken = std::min(step, count - offset);
+        chunk.assign(tokens + offset, tokens + offset + taken);
+        llama_batch batch =
+            llama_batch_get_one(chunk.data(), static_cast<int32_t>(taken));
+        const int32_t status = llama_decode(instance->context, batch);
+        if (status != 0) {
+            // Le contexte peut avoir gardé une partie du lot : le jeter en
+            // entier est la seule façon d'être sûr de ce qu'il contient.
+            release_context(instance);
+            instance->last_error = status == 1
+                ? "llama.cpp ran out of context while reading the prompt."
+                : "llama.cpp failed while decoding.";
+            return false;
+        }
+        instance->cached_tokens.insert(
+            instance->cached_tokens.end(),
+            chunk.begin(),
+            chunk.end());
+        offset += taken;
+    }
+
+    return true;
 }
 
 bool generate_internal(
@@ -241,27 +366,84 @@ bool generate_internal(
         predict_tokens = std::min(predict_tokens, available);
     }
 
-    llama_context_params context_params = llama_context_default_params();
-    context_params.n_ctx = static_cast<uint32_t>(required_tokens + predict_tokens);
-    context_params.n_batch = static_cast<uint32_t>(required_tokens);
-    context_params.no_perf = true;
+    // Les modèles encodeur-décodeur relisent tout leur prompt par l'encodeur :
+    // il n'y a rien à garder d'un tour sur l'autre. Le contexte repart donc à
+    // neuf pour eux, comme avant le cache.
+    const bool has_encoder = llama_model_has_encoder(instance->model);
+    if (has_encoder) {
+        release_context(instance);
+    }
 
-    // La lecture du prompt et l'écriture de la réponse ne sollicitent pas la
-    // machine de la même façon : la première est du calcul matriciel qui
-    // profite des cœurs, la seconde relit tous les poids par jeton et bute sur
-    // la bande passante mémoire. llama.cpp leur donne néanmoins le même compte
-    // sur mobile, faute qu'ajouter des threads au décodage y gagne quoi que ce
-    // soit.
-    const int32_t threads = math_thread_count();
-    context_params.n_threads = threads;
-    context_params.n_threads_batch = threads;
+    const uint32_t needed =
+        static_cast<uint32_t>(required_tokens) +
+        static_cast<uint32_t>(predict_tokens);
+    const uint32_t existing =
+        instance->context != nullptr ? llama_n_ctx(instance->context) : 0;
 
-    std::unique_ptr<llama_context, decltype(&llama_free)> context(
-        llama_init_from_model(instance->model, context_params),
-        &llama_free);
-    if (!context) {
-        instance->last_error = "llama.cpp could not create an inference context.";
-        return false;
+    if (instance->context == nullptr || existing < needed) {
+        // Le contexte ne peut pas grandir sur place : il est refait, et le
+        // cache repart de zéro. Le doublement de `context_size_for` est ce qui
+        // rend ce passage rare.
+        release_context(instance);
+
+        llama_context_params context_params = llama_context_default_params();
+        context_params.n_ctx = context_size_for(
+            existing,
+            needed,
+            trained_context > 0 ? static_cast<uint32_t>(trained_context) : 0);
+        context_params.n_batch =
+            std::min<uint32_t>(context_params.n_ctx, kDecodeBatchSize);
+        context_params.no_perf = true;
+
+        // La lecture du prompt et l'écriture de la réponse ne sollicitent pas
+        // la machine de la même façon : la première est du calcul matriciel
+        // qui profite des cœurs, la seconde relit tous les poids par jeton et
+        // bute sur la bande passante mémoire. llama.cpp leur donne néanmoins
+        // le même compte sur mobile, faute qu'ajouter des threads au décodage
+        // y gagne quoi que ce soit.
+        const int32_t threads = math_thread_count();
+        context_params.n_threads = threads;
+        context_params.n_threads_batch = threads;
+
+        instance->context =
+            llama_init_from_model(instance->model, context_params);
+        if (instance->context == nullptr) {
+            instance->last_error =
+                "llama.cpp could not create an inference context.";
+            return false;
+        }
+    }
+
+    const uint32_t batch_size = llama_n_batch(instance->context);
+    llama_memory_t memory = llama_get_memory(instance->context);
+
+    // Ce que le contexte a déjà lu et qui sert encore.
+    size_t shared = has_encoder
+        ? 0
+        : common_prefix_length(instance->cached_tokens, prompt_tokens);
+
+    // Il faut au moins un jeton à lire pour obtenir de quoi échantillonner :
+    // un prompt entièrement en cache verrait sinon sa dernière position sans
+    // logits. Relire son dernier jeton coûte une position, pas la
+    // conversation.
+    if (shared > 0 && shared == prompt_tokens.size()) {
+        shared -= 1;
+    }
+
+    if (shared < instance->cached_tokens.size()) {
+        if (llama_memory_seq_rm(
+                memory,
+                0,
+                static_cast<llama_pos>(shared),
+                -1)) {
+            instance->cached_tokens.resize(shared);
+        } else {
+            // Un retrait partiel refusé ne laisse pas de demi-mesure : le
+            // cache entier est jeté plutôt que d'être décrit à tort.
+            llama_memory_clear(memory, true);
+            instance->cached_tokens.clear();
+            shared = 0;
+        }
     }
 
     auto sampler_params = llama_sampler_chain_default_params();
@@ -290,56 +472,44 @@ bool generate_internal(
             llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
     }
 
-    llama_batch batch = llama_batch_get_one(
-        prompt_tokens.data(),
-        static_cast<int32_t>(prompt_tokens.size()));
-
-    llama_token decoder_start_token = LLAMA_TOKEN_NULL;
-    if (llama_model_has_encoder(instance->model)) {
-        if (llama_encode(context.get(), batch) != 0) {
+    if (has_encoder) {
+        llama_batch encoder_batch = llama_batch_get_one(
+            prompt_tokens.data(),
+            static_cast<int32_t>(prompt_tokens.size()));
+        if (llama_encode(instance->context, encoder_batch) != 0) {
             instance->last_error = "llama.cpp failed to encode the prompt.";
             return false;
         }
 
-        decoder_start_token = llama_model_decoder_start_token(instance->model);
+        llama_token decoder_start_token =
+            llama_model_decoder_start_token(instance->model);
         if (decoder_start_token == LLAMA_TOKEN_NULL) {
             decoder_start_token = llama_vocab_bos(vocab);
         }
-        batch = llama_batch_get_one(&decoder_start_token, 1);
+        if (!decode_tokens(instance, &decoder_start_token, 1, batch_size)) {
+            return false;
+        }
+    } else if (!decode_tokens(
+                   instance,
+                   prompt_tokens.data() + shared,
+                   prompt_tokens.size() - shared,
+                   batch_size)) {
+        return false;
     }
 
-    int32_t position = 0;
-    const int32_t generation_limit = required_tokens + predict_tokens;
-
-    // `llama_batch_get_one` ne copie pas : le batch garde le pointeur qu'on
-    // lui donne, et `llama_decode` le relit au tour suivant. Le jeton doit
-    // donc vivre hors du corps de la boucle. Déclaré à l'intérieur, il en
-    // sortait avant d'être lu, ce qu'AddressSanitizer signale en
-    // `stack-use-after-scope`.
-    //
-    // Les deux autres pointeurs confiés à un batch vivent déjà assez
-    // longtemps : `prompt_tokens` est un vecteur de la fonction, jamais
-    // réalloué après coup, et `decoder_start_token` est déclaré avant la
-    // boucle.
-    llama_token sampled_token = LLAMA_TOKEN_NULL;
-
-    while (position + batch.n_tokens < generation_limit) {
+    int32_t generated = 0;
+    while (generated < predict_tokens) {
         if (instance->stop_requested.load()) {
             break;
         }
 
-        if (llama_decode(context.get(), batch) != 0) {
-            instance->last_error = "llama.cpp failed while decoding.";
-            return false;
-        }
-
-        position += batch.n_tokens;
-        sampled_token = llama_sampler_sample(sampler.get(), context.get(), -1);
-        if (llama_vocab_is_eog(vocab, sampled_token)) {
+        const llama_token sampled =
+            llama_sampler_sample(sampler.get(), instance->context, -1);
+        if (llama_vocab_is_eog(vocab, sampled)) {
             break;
         }
 
-        const std::string piece = token_to_piece(vocab, sampled_token);
+        const std::string piece = token_to_piece(vocab, sampled);
         if (collected_response != nullptr) {
             collected_response->append(piece);
         }
@@ -350,7 +520,18 @@ bool generate_internal(
                 user_data);
         }
 
-        batch = llama_batch_get_one(&sampled_token, 1);
+        generated += 1;
+        if (generated >= predict_tokens) {
+            // Le dernier jeton rendu n'a pas besoin d'être lu : plus rien ne
+            // sera échantillonné après lui. Le tour suivant le relira avec le
+            // reste de la réponse, une position à payer plutôt qu'une lecture
+            // pour rien.
+            break;
+        }
+
+        if (!decode_tokens(instance, &sampled, 1, batch_size)) {
+            return false;
+        }
     }
 
     instance->last_error.clear();

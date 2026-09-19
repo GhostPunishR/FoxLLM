@@ -27,6 +27,7 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     required this.accentText,
     required this.accentSurface,
     required this.accentBorder,
+    required this.codePlain,
     required this.codeComment,
     required this.codeKeyword,
     required this.codeString,
@@ -70,9 +71,20 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
 
   /// Coloration syntaxique des blocs de code du chat.
   ///
+  /// Les teintes sont celles du thème Primer de GitHub, clair et sombre. Un
+  /// extrait de code se lit partout ailleurs avec ces couleurs là : les
+  /// reprendre évite d'avoir à réapprendre ce que veut dire un rouge ou un
+  /// violet, et c'est vérifié lisible sur le fond des blocs de FoxLLM, qui
+  /// n'est pas celui de GitHub.
+  ///
   /// Le texte courant du code reprend [textPrimary] ; ces rôles ne portent que
   /// ce qui s'en détache. Chacun garde un contraste d'au moins 4,5:1 sur
   /// [surfaceInput], le fond des blocs.
+  /// Texte d'un bloc de code que rien ne colore.
+  ///
+  /// Distinct de [textPrimary] : celui-ci porte la chaleur de FoxLLM, là où
+  /// un bloc de code suit les couleurs de GitHub, que tout le monde reconnaît.
+  final Color codePlain;
   final Color codeComment;
   final Color codeKeyword;
   final Color codeString;
@@ -97,11 +109,12 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     accentText: Color(0xFFFF8A4C),
     accentSurface: Color(0xFF33200F),
     accentBorder: Color(0xFF5E3A1C),
-    codeComment: Color(0xFF9A8778),
-    codeKeyword: Color(0xFFFF8A4C),
-    codeString: Color(0xFFA5C97A),
-    codeNumber: Color(0xFFE0A85C),
-    codeCall: Color(0xFF7FBEEA),
+    codePlain: Color(0xFFF0F6FC),
+    codeComment: Color(0xFF9198A1),
+    codeKeyword: Color(0xFFFF7B72),
+    codeString: Color(0xFFA5D6FF),
+    codeNumber: Color(0xFF79C0FF),
+    codeCall: Color(0xFFD2A8FF),
   );
 
   static const light = FoxPalette(
@@ -120,11 +133,12 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     accentText: Color(0xFFA8400A),
     accentSurface: Color(0xFFFFEAD9),
     accentBorder: Color(0xFFF5C6A3),
-    codeComment: Color(0xFF7C6556),
-    codeKeyword: Color(0xFFB23A0B),
-    codeString: Color(0xFF2F6B22),
-    codeNumber: Color(0xFF8A5A0F),
-    codeCall: Color(0xFF15618F),
+    codePlain: Color(0xFF1F2328),
+    codeComment: Color(0xFF59636E),
+    codeKeyword: Color(0xFFCF222E),
+    codeString: Color(0xFF0A3069),
+    codeNumber: Color(0xFF0550AE),
+    codeCall: Color(0xFF8250DF),
   );
 
   @override
@@ -144,6 +158,7 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
     Color? accentText,
     Color? accentSurface,
     Color? accentBorder,
+    Color? codePlain,
     Color? codeComment,
     Color? codeKeyword,
     Color? codeString,
@@ -166,6 +181,7 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
       accentText: accentText ?? this.accentText,
       accentSurface: accentSurface ?? this.accentSurface,
       accentBorder: accentBorder ?? this.accentBorder,
+      codePlain: codePlain ?? this.codePlain,
       codeComment: codeComment ?? this.codeComment,
       codeKeyword: codeKeyword ?? this.codeKeyword,
       codeString: codeString ?? this.codeString,
@@ -196,6 +212,7 @@ class FoxPalette extends ThemeExtension<FoxPalette> {
       accentText: mix(accentText, other.accentText),
       accentSurface: mix(accentSurface, other.accentSurface),
       accentBorder: mix(accentBorder, other.accentBorder),
+      codePlain: mix(codePlain, other.codePlain),
       codeComment: mix(codeComment, other.codeComment),
       codeKeyword: mix(codeKeyword, other.codeKeyword),
       codeString: mix(codeString, other.codeString),
