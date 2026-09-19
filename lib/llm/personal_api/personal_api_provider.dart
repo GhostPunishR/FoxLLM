@@ -134,6 +134,10 @@ const customPersonalApiProvider = PersonalApiProvider(
 
 /// Par ordre alphabétique : c'est l'ordre du menu, et le seul qui reste
 /// prévisible quand la liste s'allonge.
+///
+/// « Personnalisé » fait exception et reste en dernier : ce n'est pas un
+/// fournisseur parmi les autres, c'est celui qu'on choisit quand aucun ne
+/// convient. Sa place est au bout de la liste, pas au milieu.
 const personalApiProviders = <PersonalApiProvider>[
   anthropicPersonalApiProvider,
   deepSeekPersonalApiProvider,
@@ -142,8 +146,8 @@ const personalApiProviders = <PersonalApiProvider>[
   mistralPersonalApiProvider,
   openAiPersonalApiProvider,
   openRouterPersonalApiProvider,
-  customPersonalApiProvider,
   xAiPersonalApiProvider,
+  customPersonalApiProvider,
 ];
 
 PersonalApiProvider personalApiProviderById(String id) {

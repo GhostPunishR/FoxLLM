@@ -83,7 +83,7 @@ void main() {
   );
 
   group('catalogue des fournisseurs', () {
-    test('la liste est par ordre alphabétique', () {
+    test('la liste est par ordre alphabétique, Personnalisé en dernier', () {
       final names = personalApiProviders
           .map((provider) => provider.displayName)
           .toList();
@@ -96,17 +96,22 @@ void main() {
         'Mistral AI',
         'OpenAI',
         'OpenRouter',
-        'Personnalisé',
         'xAI',
+        'Personnalisé',
       ]);
 
-      // Et cet ordre est bien celui d'un tri, pas une liste écrite à la main
-      // qui se déferait au prochain ajout.
-      final sorted = List<String>.of(names)
+      // Le fourre-tout ferme la marche : ce n'est pas un fournisseur parmi
+      // les autres, mais celui qu'on choisit quand aucun ne convient.
+      expect(personalApiProviders.last.custom, isTrue);
+
+      // Tout le reste est bien trié, et non rangé à la main d'une façon qui
+      // se déferait au prochain ajout.
+      final named = names.sublist(0, names.length - 1);
+      final sorted = List<String>.of(named)
         ..sort(
           (left, right) => left.toLowerCase().compareTo(right.toLowerCase()),
         );
-      expect(names, sorted);
+      expect(named, sorted);
     });
 
     test('les deux nouveaux fournisseurs se résolvent par identifiant', () {

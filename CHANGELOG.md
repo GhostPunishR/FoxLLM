@@ -20,7 +20,9 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 ### Modifications
 
 - la liste des fournisseurs est **par ordre alphabétique**, et le restera :
-  un contrôle le vérifie plutôt que de compter sur la relecture ;
+  un contrôle le vérifie plutôt que de compter sur la relecture. « Personnalisé »
+  ferme la marche, n'étant pas un fournisseur parmi les autres mais celui qu'on
+  choisit quand aucun ne convient ;
 - « Google Gemini » devient **Google**, et « Personnalisé (OpenAI-compatible) »
   devient **Personnalisé**. Les messages de l'application suivent, y compris
   celui qui explique quels fournisseurs savent consulter le web ;
