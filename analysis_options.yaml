@@ -1,4 +1,12 @@
 analyzer:
+  # Le code passe son temps à relire du JSON : réponses de fournisseurs,
+  # historique, réglages. Sans ces trois règles, une valeur `dynamic` se glisse
+  # dans un type déclaré sans un mot de l'analyseur, et la faute ne se voit
+  # qu'à l'exécution, sur l'appareil de quelqu'un.
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
   exclude:
     - build/**
     - android/**

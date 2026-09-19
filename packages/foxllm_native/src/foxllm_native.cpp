@@ -53,6 +53,28 @@ char* copy_string(const std::string& value) {
 // Repli quand le GGUF ne porte pas de gabarit de conversation : ChatML est le
 // format le plus répandu, et celui que la plupart des modèles récents
 // reconnaissent même sans y avoir été entraînés.
+// Neutralise les balises de tour de parole d'un texte recopié dans le prompt.
+//
+// Sans cela, un message contenant `<|im_end|>` ferme son propre tour et
+// ouvre ce qu'il veut derrière : de quoi faire passer une instruction pour
+// une consigne système, ou une invention pour une réponse du modèle. Le
+// caractère inséré casse la balise sans rien retirer au sens du texte, que
+// le modèle lit toujours.
+std::string escape_chatml(const char* text) {
+    static const char* const markers[] = {"<|im_start|>", "<|im_end|>"};
+    std::string escaped = text != nullptr ? text : "";
+    for (const char* marker : markers) {
+        const std::string needle(marker);
+        const std::string replacement = needle.substr(0, 2) + " " + needle.substr(2);
+        size_t position = escaped.find(needle);
+        while (position != std::string::npos) {
+            escaped.replace(position, needle.size(), replacement);
+            position = escaped.find(needle, position + replacement.size());
+        }
+    }
+    return escaped;
+}
+
 std::string chatml_prompt(
     const char* const* roles,
     const char* const* contents,
@@ -61,11 +83,10 @@ std::string chatml_prompt(
     std::string prompt;
     for (int32_t index = 0; index < message_count; ++index) {
         const char* role = roles[index] != nullptr ? roles[index] : "user";
-        const char* content = contents[index] != nullptr ? contents[index] : "";
         prompt += "<|im_start|>";
-        prompt += role;
+        prompt += escape_chatml(role);
         prompt += '\n';
-        prompt += content;
+        prompt += escape_chatml(contents[index]);
         prompt += "<|im_end|>\n";
     }
 
@@ -603,6 +624,13 @@ int32_t foxllm_engine_generate_stream(
     }
 
 #ifdef FOXLLM_WITH_LLAMA_CPP
+    // Comme `foxllm_engine_generate`. Sans cette remise à zéro, une
+    // génération arrêtée laissait le drapeau levé : la suivante sortait de sa
+    // boucle au premier tour et rendait une réponse vide, sans erreur pour
+    // l'expliquer. Le worker Dart appelle bien `reset_stop` avant chaque
+    // génération, mais faire dépendre la correction d'un appelant discipliné
+    // n'est pas une garantie.
+    instance->stop_requested.store(false);
     return generate_internal(
                instance,
                prompt,

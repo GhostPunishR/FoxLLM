@@ -113,6 +113,30 @@ void main() {
     // La première mention reste où elle est, sur sa propre réponse.
     expect(find.textContaining('Aucun texte reçu'), findsOneWidget);
   });
+
+  testWidgets('un refus du fournisseur se lit en français', (tester) async {
+    // Le défaut : `$error` versait le corps entier de la réponse dans le
+    // bandeau. Une page d'erreur de proxy ou un pavé JSON s'y déversaient,
+    // alors que la traduction existait déjà pour l'écran des réglages.
+    final store = _RecordingStore();
+    await _pumpChat(tester, store, const <String>[]);
+    _ScriptedClient.failure = (
+      401,
+      '{"error":{"code":"invalid_api_key","message":"Incorrect API key '
+          'provided: sk-proj-secret. You can find your API key at '
+          'https://platform.openai.com/account/api-keys."}}',
+    );
+    addTearDown(() => _ScriptedClient.failure = null);
+
+    await _send(tester, 'Bonjour');
+
+    expect(find.textContaining('La clé API est invalide'), findsOneWidget);
+    expect(
+      find.textContaining('sk-proj'),
+      findsNothing,
+      reason: 'le corps brut de la réponse n’a rien à faire à l’écran',
+    );
+  });
 }
 
 // ---- utilitaires ----------------------------------------------------------
@@ -197,8 +221,18 @@ class _FakeApiKeyStore extends ApiKeyStore {
 class _ScriptedClient extends http.BaseClient {
   static List<String> script = <String>[];
 
+  /// Code et corps d'un refus, quand le test veut un échec plutôt qu'un flux.
+  static (int, String)? failure;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final refusal = failure;
+    if (refusal != null) {
+      return http.StreamedResponse(
+        Stream<List<int>>.value(utf8.encode(refusal.$2)),
+        refusal.$1,
+      );
+    }
     final body = script.map((line) => '$line\n\n').join();
     return http.StreamedResponse(
       Stream<List<int>>.value(utf8.encode(body)),

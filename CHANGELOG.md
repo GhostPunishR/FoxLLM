@@ -2,7 +2,13 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
-## [Non publié]
+## [0.1.5] - 2026-09-19
+
+Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
+correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
+les erreurs de fournisseur se lisent en français dans le chat, et les copies
+de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
+441 à 473 cas.
 
 ### Ajouts
 
@@ -31,6 +37,58 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   bien un outil de recherche, mais FoxLLM ne le déclare pas encore dans ses
   requêtes, et le proposer laisserait attendre des sources qui ne viendraient
   jamais.
+
+### Corrections
+
+- **le réseau pouvait attendre indéfiniment.** Il n'y avait pas un seul délai
+  d'expiration dans l'application : un fournisseur qui acceptait la connexion
+  puis se taisait laissait le rond tourner pour toujours, sans que rien
+  n'indique que plus rien ne viendrait. Trois délais sont posés : l'ouverture
+  de la réponse, le silence entre deux fragments d'un flux, et la liste des
+  modèles. Celui du flux se recompte à chaque fragment : une réponse peut
+  prendre dix minutes tant qu'elle avance, c'est le silence qui est borné ;
+- **le chat versait les erreurs brutes dans le bandeau.** Un refus HTTP y
+  déversait le corps entier de la réponse, page d'erreur de proxy ou pavé
+  JSON compris. La traduction française existait déjà, mais n'était utilisée
+  que sur l'écran des réglages : « La clé API est invalide ou a été révoquée »
+  plutôt que quatre lignes d'anglais et d'accolades ;
+- **les pièces jointes d'une version conservée n'étaient jamais effacées.**
+  Supprimer une conversation ne parcourait que le fil visible : les copies
+  citées par la seule version conservée restaient sur le disque, sans que
+  rien ne puisse plus les rouvrir ni les effacer. Le parcours est désormais
+  porté par la conversation elle-même, pour qu'une troisième liste, un jour,
+  ne soit pas oubliée à son tour ;
+- **au-delà de cent conversations, les plus anciennes disparaissaient en
+  silence.** L'historique n'en enregistre que cent : les suivantes restaient
+  à l'écran jusqu'à la fermeture, puis s'évanouissaient au lancement suivant
+  en laissant leurs pièces jointes derrière elles. Le plafond est maintenant
+  tenu en mémoire, et jamais au détriment de la conversation ouverte ;
+- **les sources d'une génération abandonnée s'invitaient dans la suivante.**
+  Quitter un fil pendant qu'il répond laisse l'ancienne génération se
+  terminer après le départ de la nouvelle. Les relevés étant rangés sur le
+  moteur, cette retardataire y versait ses sources : le fil ouvert se
+  retrouvait avec des sources qu'il n'avait jamais demandées. Ils
+  appartiennent désormais à la génération qui les a produits ;
+- **un message pouvait fabriquer un faux tour de parole.** Dans le repli
+  ChatML, utilisé quand un GGUF ne porte pas de gabarit de conversation, un
+  message contenant `<|im_end|>` fermait son propre tour et ouvrait ce qu'il
+  voulait derrière : de quoi faire passer une instruction pour une consigne
+  système. Les balises sont neutralisées sans rien retirer au texte ;
+- **le drapeau d'arrêt natif n'était pas remis à zéro** par la génération en
+  flux, contrairement à la génération simple. Le worker s'en chargeait, mais
+  faire dépendre la correction d'un appelant discipliné n'est pas une
+  garantie : une réponse vide sans erreur pour l'expliquer était au bout.
+
+### Durcissement
+
+- **l'analyseur passe en mode strict** (`strict-casts`, `strict-inference`,
+  `strict-raw-types`). Le code relit du JSON en permanence, réponses de
+  fournisseurs, historique, réglages : sans ces règles, une valeur `dynamic`
+  se glisse dans un type déclaré sans un mot, et la faute ne se voit qu'à
+  l'exécution, sur l'appareil de quelqu'un ;
+- `pubspec.lock` est ignoré par git, ce qu'il n'était ni d'un côté ni de
+  l'autre : chaque `flutter pub get` salissait l'arbre de travail ;
+- la version du paquet natif s'aligne sur celle que la bibliothèque annonce.
 
 ### Documents légaux
 

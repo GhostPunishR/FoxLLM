@@ -34,6 +34,7 @@ import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/llm/personal_api/personal_api_chat_backend.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 
 part 'chat_top_bar.dart';
 part 'chat_messages.dart';
@@ -317,13 +318,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
-    // Les copies des pièces jointes ne servent plus à personne.
+    // Les copies des pièces jointes ne servent plus à personne, y compris
+    // celles d'une version conservée : elles n'étaient citées que par cette
+    // conversation, et resteraient sinon sur le disque sans que rien ne
+    // puisse plus les rouvrir ni les effacer.
     unawaited(
-      ref
-          .read(attachmentStoreProvider)
-          .delete(
-            conversation.messages.expand((message) => message.attachments),
-          ),
+      ref.read(attachmentStoreProvider).delete(conversation.attachments),
     );
 
     setState(() {
@@ -431,12 +431,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // l'historique, ni par le fil affiché, ni par une version conservée, ni
     // par le brouillon en cours, ni par la file d'attente.
     final referenced = <String>{
-      for (final conversation in _conversations) ...<String>[
-        for (final message in conversation.messages)
-          for (final attachment in message.attachments) attachment.path,
-        for (final message in conversation.previousMessages ?? const [])
-          for (final attachment in message.attachments) attachment.path,
-      ],
+      for (final conversation in _conversations)
+        for (final attachment in conversation.attachments) attachment.path,
       for (final message in _messages)
         for (final attachment in message.attachments) attachment.path,
       for (final attachment in _pendingAttachments) attachment.path,
@@ -1146,14 +1142,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Rien n'est arrivé : seule la bulle restée vide s'en va.
           _removeEmptyAssistantPlaceholder();
         }
-        _showSnack('Génération impossible : $error');
+        _showSnack('Génération impossible : ${_describeError(error)}');
       } else if (response.isEmpty) {
         // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le
         // fil revient tel qu'il était, réponse effacée comprise, plutôt que
         // de rester amputé de tout ce qui suivait la question.
         _restoreThread(replaced, generationEpoch, conversationId);
         _showSnack(
-          'Génération impossible : $error. Réponse précédente conservée.',
+          'Génération impossible : ${_describeError(error)}. '
+          'Réponse précédente conservée.',
         );
       } else {
         // Du texte est arrivé avant la coupure : il reste affiché, et la
@@ -1162,7 +1159,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // action de bandeau disparaissait au bout de quelques secondes.
         _keepPreviousVersion(replaced, generationEpoch, conversationId);
         _showSnack(
-          'Génération interrompue : $error. Version précédente conservée.',
+          'Génération interrompue : ${_describeError(error)}. '
+          'Version précédente conservée.',
         );
       }
       failed = true;
@@ -1272,6 +1270,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     _conversations.insert(0, conversation);
     _activeConversationId = conversation.id;
+    _enforceConversationLimit();
+  }
+
+  /// Écarte les conversations que l'historique ne peut plus porter.
+  ///
+  /// `ConversationStore` n'enregistre que les [ConversationStore.maxConversations]
+  /// premières. Sans ce ménage, les suivantes restaient à l'écran jusqu'à la
+  /// fermeture puis disparaissaient au lancement suivant, en laissant leurs
+  /// pièces jointes sur le disque : une perte silencieuse, et des fichiers
+  /// que plus rien ne citait.
+  ///
+  /// La liste est rangée de la plus récente à la plus ancienne : ce sont donc
+  /// bien les plus anciennes qui partent, et jamais celle qui est ouverte.
+  void _enforceConversationLimit() {
+    if (_conversations.length <= ConversationStore.maxConversations) {
+      return;
+    }
+
+    final dropped = <ChatConversation>[];
+    for (var index = _conversations.length - 1; index >= 0; index--) {
+      if (_conversations.length - dropped.length <=
+          ConversationStore.maxConversations) {
+        break;
+      }
+      final conversation = _conversations[index];
+      if (conversation.id == _activeConversationId) {
+        continue;
+      }
+      dropped.add(conversation);
+    }
+
+    if (dropped.isEmpty) {
+      return;
+    }
+    _conversations.removeWhere(dropped.contains);
+    unawaited(
+      ref
+          .read(attachmentStoreProvider)
+          .delete(dropped.expand((conversation) => conversation.attachments)),
+    );
   }
 
   /// Titre de la barre du haut : celui du fil ouvert, sinon le nom de l'app.
@@ -1350,6 +1388,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
       );
   }
+
+  /// Met un échec de génération en français.
+  ///
+  /// Interpolé tel quel, un échec HTTP versait le corps entier de la réponse
+  /// dans le bandeau : une page d'erreur de proxy, un pavé JSON. La
+  /// traduction existait déjà pour l'écran des réglages, elle vaut autant
+  /// ici, où l'utilisateur la lit bien plus souvent.
+  String _describeError(Object error) => describePersonalApiError(error);
 
   void _showSnack(String message, {SnackBarAction? action}) {
     // Un échec tardif, revenu après la fermeture de l'écran, n'a plus de

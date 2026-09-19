@@ -8,7 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:foxllm/llm/backend/llm_http.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 
-export 'package:foxllm/llm/backend/llm_http.dart' show PersonalApiHttpException;
+export 'package:foxllm/llm/backend/llm_http.dart'
+    show PersonalApiHttpException, PersonalApiTimeoutException;
 
 /// Dialecte d'API parlé par un fournisseur.
 enum PersonalApiProtocol {
@@ -170,6 +171,9 @@ PersonalApiProvider inferPersonalApiProvider(String baseUrl) {
   return customPersonalApiProvider;
 }
 
+/// Attente maximale de la liste des modèles d'un fournisseur.
+const modelsTimeout = Duration(seconds: 30);
+
 Future<List<String>> fetchPersonalApiModels({
   required PersonalApiProvider provider,
   required String apiKey,
@@ -210,7 +214,19 @@ Future<List<String>> fetchPersonalApiModels({
       }
     }
 
-    final response = await httpClient.get(uri, headers: headers);
+    // Même raison que pour la génération : sans délai, un fournisseur qui
+    // accepte la connexion puis se tait laisse l'écran des réglages sur son
+    // rond indéfiniment. La liste des modèles est un appel court, le délai
+    // peut donc l'être aussi.
+    final response = await httpClient
+        .get(uri, headers: headers)
+        .timeout(
+          modelsTimeout,
+          onTimeout: () => throw PersonalApiTimeoutException(
+            '${provider.displayName} n’a pas répondu dans les '
+            '${modelsTimeout.inSeconds} secondes.',
+          ),
+        );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw PersonalApiHttpException(
         statusCode: response.statusCode,

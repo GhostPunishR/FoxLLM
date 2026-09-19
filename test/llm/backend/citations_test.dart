@@ -1,6 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -188,6 +189,101 @@ void main() {
     });
   });
 
+  group('les sources appartiennent à une génération', () {
+    test('une génération en retard ne déteint pas sur la suivante', () async {
+      // Quitter un fil pendant qu'il répond laisse l'ancienne génération se
+      // terminer après le départ de la nouvelle. Les relevés étant rangés sur
+      // le moteur, cette retardataire y versait ses sources : le fil ouvert
+      // se retrouvait avec des sources qu'il n'avait jamais demandées.
+      final late = _SlowSseClient(<String>[
+        'data: {"type":"response.output_text.annotation.added",'
+            '"annotation":{"type":"url_citation",'
+            '"url":"https://exemple.test/ancienne","title":"Ancienne"}}',
+        '',
+        'data: [DONE]',
+        '',
+      ]);
+      var first = true;
+      final backend = OpenAiResponsesBackend(
+        provider: _openAi,
+        keyStore: _FakeApiKeyStore(),
+        clientFactory: () {
+          if (first) {
+            first = false;
+            return late;
+          }
+          return _SseClient(const <String>[
+            'data: {"type":"response.output_text.delta","delta":"Sans source"}',
+            '',
+            'data: [DONE]',
+            '',
+          ]);
+        },
+      );
+      addTearDown(backend.dispose);
+
+      // La première part et reste en attente.
+      final abandoned = backend
+          .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+          .drain<void>();
+      await Future<void>.delayed(Duration.zero);
+
+      // La seconde part et va au bout : elle ne cite rien.
+      await backend
+          .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+          .drain<void>();
+      expect(backend.citations, isEmpty);
+
+      // La retardataire se termine enfin, avec sa source à elle.
+      late.release();
+      await abandoned;
+
+      expect(
+        backend.citations,
+        isEmpty,
+        reason: 'la source de la génération abandonnée s’est invitée',
+      );
+    });
+
+    test('chaque génération repart de ses propres relevés', () async {
+      final backend = OpenAiResponsesBackend(
+        provider: _openAi,
+        keyStore: _FakeApiKeyStore(),
+        clientFactory: () => _SseClient(const <String>[
+          'data: {"type":"response.output_text.annotation.added",'
+              '"annotation":{"type":"url_citation",'
+              '"url":"https://example.org/a","title":"A"}}',
+          '',
+          'data: [DONE]',
+          '',
+        ]),
+      );
+      addTearDown(backend.dispose);
+
+      await backend
+          .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+          .drain<void>();
+      expect(backend.citations, hasLength(1));
+
+      // La génération suivante ne récupère pas les sources de la précédente.
+      final second = OpenAiResponsesBackend(
+        provider: _openAi,
+        keyStore: _FakeApiKeyStore(),
+        clientFactory: () => _SseClient(const <String>[
+          'data: {"type":"response.output_text.delta","delta":"Sans source"}',
+          '',
+          'data: [DONE]',
+          '',
+        ]),
+      );
+      addTearDown(second.dispose);
+      await second
+          .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+          .drain<void>();
+      expect(second.citations, isEmpty);
+    });
+  });
+
   group('fournisseur sans recherche', () {
     test('un moteur chat/completions ne cite rien', () async {
       final backend = OpenAiCompatibleBackend(
@@ -223,6 +319,30 @@ class _SseClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    return http.StreamedResponse(
+      Stream<List<int>>.value(utf8.encode('${events.join('\n')}\n')),
+      200,
+    );
+  }
+}
+
+/// Ne rend son flux que sur demande, pour faire se chevaucher deux
+/// générations sur le même moteur.
+class _SlowSseClient extends http.BaseClient {
+  _SlowSseClient(this.events);
+
+  final List<String> events;
+  final Completer<void> _gate = Completer<void>();
+
+  void release() {
+    if (!_gate.isCompleted) {
+      _gate.complete();
+    }
+  }
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    await _gate.future;
     return http.StreamedResponse(
       Stream<List<int>>.value(utf8.encode('${events.join('\n')}\n')),
       200,
