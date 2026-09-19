@@ -137,6 +137,48 @@ void main() {
       expect(modes, <bool>[true]);
     });
 
+    test('un stockage illisible est quand même annoncé au système', () async {
+      // Sans déclaration, Android garderait la déclinaison du téléphone pour
+      // la fenêtre de lancement, alors que l'application s'ouvre en clair :
+      // splash sombre, application crème, à chaque démarrage.
+      final modes = _recordNightModes();
+      final container = ProviderContainer(
+        overrides: [
+          foxThemeStoreProvider.overrideWithValue(
+            _MemoryThemeStore(fails: true),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(foxThemeProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(foxThemeProvider), FoxTheme.light);
+      expect(modes, <bool>[false]);
+    });
+
+    test('un choix fait pendant une lecture ratée tient bon', () async {
+      // La déclaration de repli ne doit pas revenir par-dessus le choix de
+      // l'utilisateur, sous prétexte que la lecture a échoué après coup.
+      final modes = _recordNightModes();
+      final container = ProviderContainer(
+        overrides: [
+          foxThemeStoreProvider.overrideWithValue(
+            _MemoryThemeStore(fails: true, delayed: true),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(foxThemeProvider);
+      await container.read(foxThemeProvider.notifier).select(FoxTheme.dark);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(container.read(foxThemeProvider), FoxTheme.dark);
+      expect(modes.last, isTrue);
+    });
+
     test(
       'un canal absent ne fait pas échouer le changement de thème',
       () async {
@@ -288,17 +330,23 @@ double _contrast(Color a, Color b) {
 }
 
 class _MemoryThemeStore implements FoxThemeStore {
-  _MemoryThemeStore({this.saved, this.delayed = false});
+  _MemoryThemeStore({this.saved, this.delayed = false, this.fails = false});
 
   FoxTheme? saved;
 
   /// Simule un stockage lent, qui répond après le premier frame.
   final bool delayed;
 
+  /// Simule un stockage illisible : clé perdue, coffre du système en panne.
+  final bool fails;
+
   @override
   Future<FoxTheme> load() async {
     if (delayed) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    if (fails) {
+      throw Exception('stockage illisible');
     }
     return saved ?? FoxTheme.light;
   }

@@ -32,6 +32,23 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   requêtes, et le proposer laisserait attendre des sources qui ne viendraient
   jamais.
 
+### Corrections
+
+- **splash noir au tout premier lancement** : la fenêtre de lancement suivait
+  le mode sombre du téléphone au lieu de la déclinaison claire par défaut. Le
+  mode n'était déclaré au système que par le canal natif, donc après le
+  démarrage du moteur Flutter et une lecture du stockage chiffré, bien trop
+  tard pour une fenêtre dessinée avant que le processus démarre. Il est
+  désormais déclaré à l'ouverture de l'activité, depuis une préférence
+  ordinaire écrite à chaque choix de thème : la fenêtre qui prend la suite du
+  splash est juste, et tous les lancements suivants aussi. Le splash du tout
+  premier lancement sur un téléphone en mode sombre reste hors d'atteinte : il
+  est dessiné avant le moindre octet de code de l'application ;
+- **déclinaison jamais annoncée après un stockage illisible** : quand la
+  lecture de la préférence échouait, l'application retombait sur le thème
+  clair sans le dire au système. La fenêtre de lancement restait alors sur la
+  déclinaison du téléphone à chaque démarrage, et pas seulement au premier.
+
 ### Documents légaux
 
 Relecture des conditions d'utilisation et de la politique de confidentialité

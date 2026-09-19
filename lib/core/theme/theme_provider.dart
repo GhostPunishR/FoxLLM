@@ -67,7 +67,14 @@ class FoxThemeController extends Notifier<FoxTheme> {
       // fenêtre de lancement repartirait sur la déclinaison claire.
       ref.read(systemAppearanceProvider).apply(stored);
     } catch (_) {
-      // Préférence illisible : le thème clair par défaut reste en place.
+      // Préférence illisible : le thème clair par défaut reste en place, et le
+      // système doit l'apprendre aussi. Sans cette ligne, l'application
+      // s'ouvrirait en clair sans jamais le dire à Android, dont la fenêtre de
+      // lancement resterait sur la déclinaison du téléphone à chaque
+      // démarrage.
+      if (!_selected) {
+        ref.read(systemAppearanceProvider).apply(FoxTheme.light);
+      }
     }
   }
 
