@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/features/settings/personal_api_screen.dart';
+import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
@@ -26,6 +27,41 @@ void main() {
     expect(find.text('gpt-exemple'), findsWidgets);
     expect(find.text('Supprimer la clé API'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('le menu des fournisseurs les propose par ordre alphabétique', (
+    tester,
+  ) async {
+    await _useTallSurface(tester);
+    final navigator = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(_hostApp(_FakeSettingsStore(), navigator));
+    await _openScreen(tester);
+
+    // Deux menus déroulants cohabitent, fournisseur et modèle : celui du
+    // fournisseur porte sa propre clé.
+    await tester.tap(find.byKey(const ValueKey<String>('provider-openai')));
+    await tester.pumpAndSettle();
+
+    // L'ordre du menu est celui du catalogue : on vérifie qu'il arrive
+    // jusqu'à l'écran, et que les deux nouveaux fournisseurs y sont.
+    final shown = tester
+        .widgetList<DropdownMenuItem<String>>(
+          find.byType(DropdownMenuItem<String>),
+        )
+        .map((item) => item.value)
+        .whereType<String>()
+        .toList();
+
+    final order = <String>[
+      for (final provider in personalApiProviders) provider.id,
+    ];
+    // Le bouton rend aussi l'élément sélectionné, en tête : le menu lui-même
+    // est la fin de la liste.
+    expect(shown.sublist(shown.length - order.length), order);
+    expect(shown, contains('anthropic'));
+    expect(shown, contains('deepseek'));
+    expect(find.text('Anthropic').hitTestable(), findsOneWidget);
   });
 
   testWidgets('revenir en arrière pendant un test de connexion ne rappelle '

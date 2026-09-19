@@ -56,18 +56,6 @@ class AboutScreen extends StatelessWidget {
               style: TextStyle(color: fox.textTertiary, fontSize: 13),
             ),
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Client de discussion qui exécute des modèles GGUF directement sur '
-            'ton téléphone, ou contacte le fournisseur d’API de ton choix avec '
-            'ta propre clé.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: fox.textSecondary,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
           const SizedBox(height: 28),
           _AboutCard(
             children: <Widget>[

@@ -135,7 +135,7 @@ void main() {
           isA<StateError>().having(
             (error) => error.message,
             'message',
-            'Aucune clé API configurée pour Google Gemini.',
+            'Aucune clé API configurée pour Google.',
           ),
         ),
       );

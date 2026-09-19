@@ -19,6 +19,10 @@ enum PersonalApiProtocol {
   openAiResponses,
 
   gemini,
+
+  /// `messages`, le format d'Anthropic : en-tête `x-api-key`, version d'API
+  /// explicite, et un flux d'évènements nommés plutôt que des `choices`.
+  anthropic,
 }
 
 class PersonalApiProvider {
@@ -40,11 +44,14 @@ class PersonalApiProvider {
 
   /// Vrai si le fournisseur sait consulter le web de lui-même.
   ///
-  /// Les API qui se contentent d'imiter `chat/completions` n'ont pas d'outil
-  /// de recherche dans ce format : leur proposer le mode Recherche
-  /// laisserait croire à une réponse sourcée qui ne le serait pas.
+  /// Nommés un par un, et non par défaut : proposer le mode Recherche à un
+  /// moteur qui ne l'a pas laisserait croire à une réponse sourcée qui ne le
+  /// serait pas. Anthropic a bien un outil de recherche, mais FoxLLM ne le
+  /// demande pas encore : tant qu'il n'est pas déclaré dans la requête, le
+  /// mode n'aurait aucun effet.
   bool get supportsWebSearch =>
-      protocol != PersonalApiProtocol.openAiCompatible;
+      protocol == PersonalApiProtocol.openAiResponses ||
+      protocol == PersonalApiProtocol.gemini;
 
   String resolveBaseUrl(String customBaseUrl) {
     if (custom) {
@@ -53,6 +60,26 @@ class PersonalApiProvider {
     return baseUrl;
   }
 }
+
+/// Version de l'API Anthropic, exigée sur chaque requête.
+///
+/// Figée : c'est ce qui garantit que le format des réponses ne change pas sous
+/// l'application. La faire évoluer demande de relire le format des évènements.
+const anthropicApiVersion = '2023-06-01';
+
+const anthropicPersonalApiProvider = PersonalApiProvider(
+  id: 'anthropic',
+  displayName: 'Anthropic',
+  protocol: PersonalApiProtocol.anthropic,
+  baseUrl: 'https://api.anthropic.com/v1',
+);
+
+const deepSeekPersonalApiProvider = PersonalApiProvider(
+  id: 'deepseek',
+  displayName: 'DeepSeek',
+  protocol: PersonalApiProtocol.openAiCompatible,
+  baseUrl: 'https://api.deepseek.com/v1',
+);
 
 const openAiPersonalApiProvider = PersonalApiProvider(
   id: 'openai',
@@ -92,24 +119,32 @@ const xAiPersonalApiProvider = PersonalApiProvider(
 
 const geminiPersonalApiProvider = PersonalApiProvider(
   id: 'gemini',
-  displayName: 'Google Gemini',
+  displayName: 'Google',
   protocol: PersonalApiProtocol.gemini,
   baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 );
 
 const customPersonalApiProvider = PersonalApiProvider(
   id: 'custom',
-  displayName: 'Personnalisé (OpenAI-compatible)',
+  displayName: 'Personnalisé',
   protocol: PersonalApiProtocol.openAiCompatible,
   baseUrl: '',
   custom: true,
 );
 
+/// Par ordre alphabétique : c'est l'ordre du menu, et le seul qui reste
+/// prévisible quand la liste s'allonge.
+///
+/// « Personnalisé » fait exception et reste en dernier : ce n'est pas un
+/// fournisseur parmi les autres, c'est celui qu'on choisit quand aucun ne
+/// convient. Sa place est au bout de la liste, pas au milieu.
 const personalApiProviders = <PersonalApiProvider>[
-  openAiPersonalApiProvider,
+  anthropicPersonalApiProvider,
+  deepSeekPersonalApiProvider,
   geminiPersonalApiProvider,
   groqPersonalApiProvider,
   mistralPersonalApiProvider,
+  openAiPersonalApiProvider,
   openRouterPersonalApiProvider,
   xAiPersonalApiProvider,
   customPersonalApiProvider,
@@ -160,6 +195,12 @@ Future<List<String>> fetchPersonalApiModels({
     if (provider.protocol == PersonalApiProtocol.gemini) {
       headers['x-goog-api-key'] = key;
       uri = uri.replace(queryParameters: <String, String>{'pageSize': '1000'});
+    } else if (provider.protocol == PersonalApiProtocol.anthropic) {
+      // Anthropic n'utilise pas `Authorization` et exige la version d'API sur
+      // chaque appel, sans quoi il répond 400.
+      headers['x-api-key'] = key;
+      headers['anthropic-version'] = anthropicApiVersion;
+      uri = uri.replace(queryParameters: <String, String>{'limit': '1000'});
     } else {
       headers['Authorization'] = 'Bearer $key';
       if (provider.id == openRouterPersonalApiProvider.id) {
@@ -255,6 +296,9 @@ bool _isClearlyNonChatModel(PersonalApiProvider provider, String modelId) {
       provider.id == mistralPersonalApiProvider.id ||
       provider.id == xAiPersonalApiProvider.id ||
       provider.protocol == PersonalApiProtocol.gemini ||
+      // Anthropic ne publie sur ce point d'entrée que des modèles de
+      // conversation : filtrer ne ferait qu'en cacher de nouveaux.
+      provider.protocol == PersonalApiProtocol.anthropic ||
       provider.custom) {
     return false;
   }

@@ -59,6 +59,21 @@
           <p>L’historique est enregistré sur l’appareil, dans l’espace de stockage privé de l’application, afin de retrouver tes conversations au lancement suivant. Il n’est jamais envoyé ailleurs.</p>
         </section>
         <section>
+          <h2>Pièces jointes</h2>
+          <p>Une photo, une image de la galerie ou un fichier texte joint à un message est recopié dans l’espace de stockage privé de l’application. C’est ce qui permet de rouvrir la conversation des semaines plus tard et d’y retrouver la pièce jointe, même si l’original a disparu. Supprimer la conversation efface aussi ces copies.</p>
+          <p>FoxLLM n’ouvre de lui-même ni l’appareil photo ni tes dossiers : il appelle le sélecteur du système, qui ne lui remet que le fichier choisi.</p>
+          <p>Avec une API personnelle, l’image part dans la requête et le contenu du fichier texte rejoint le message : ils suivent le chemin de la conversation. Un modèle local ne reçoit pas d’image, et le texte joint ne quitte pas l’appareil.</p>
+        </section>
+        <section>
+          <h2>Recherche web</h2>
+          <p>Le mode « Recherche web » n’existe qu’avec une API personnelle OpenAI ou Google : c’est le fournisseur qui consulte le web, jamais l’application. Ta question lui sert alors à chercher, et les sources citées reviennent avec la réponse.</p>
+          <p>Le mode éteint, ou face à un modèle local, aucune recherche n’est lancée et rien n’est transmis à un moteur de recherche.</p>
+        </section>
+        <section>
+          <h2>Copie et partage</h2>
+          <p>Copier une réponse la dépose dans le presse-papiers du système ; la partager la remet à l’application que tu désignes. Dans les deux cas le texte sort de FoxLLM parce que tu l’as demandé, et ce qu’il en advient ensuite relève de l’application qui le reçoit.</p>
+        </section>
+        <section>
           <h2>Sauvegardes Android</h2>
           <p>Android sauvegarde par défaut les données des applications vers le Google Drive de leur utilisateur, et les transfère vers son téléphone suivant. FoxLLM refuse les deux : ni l’historique, ni les pièces jointes, ni les réglages, ni les clés API ne sont copiés hors de l’appareil par ce mécanisme.</p>
           <p>La contrepartie est assumée : en changeant de téléphone, ou après une désinstallation, tes conversations ne reviennent pas. C’est le prix de la promesse faite plus haut.</p>
@@ -92,8 +107,13 @@
         </section>
         <section>
           <h2>Mesure d’audience</h2>
-          <p>L’application n’embarque aucun outil de statistiques, de suivi publicitaire ou de rapport d’incident.</p>
-          <p>La seule permission demandée est l’accès à Internet, utilisé uniquement pour joindre le fournisseur d’API que tu configures.</p>
+          <p>L’application n’embarque aucun outil de statistiques, de suivi publicitaire ou de rapport d’incident. Aucun compte n’est demandé, et rien n’identifie ton appareil.</p>
+        </section>
+        <section>
+          <h2>Permissions</h2>
+          <p>Deux permissions seulement sont déclarées. L’accès à Internet ne sert qu’à joindre le fournisseur d’API que tu configures, pour la réponse comme pour la liste de ses modèles : sans API personnelle, l’application ne contacte personne.</p>
+          <p>Le micro sert à la dictée. Il est demandé à la première utilisation, jamais au lancement, et l’application reste utilisable sans l’accorder.</p>
+          <p>Rien d’autre n’est réclamé : ni appareil photo, ni accès au stockage partagé, ni position, ni contacts. Les photos et les fichiers passent par les sélecteurs du système, qui n’exigent aucune permission de la part de l’application.</p>
         </section>
       </article>
     </main>
