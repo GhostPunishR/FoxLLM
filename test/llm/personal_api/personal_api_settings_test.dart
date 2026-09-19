@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:foxllm/core/storage/api_key_store.dart';
+import 'package:foxllm/llm/backend/anthropic_backend.dart';
+import 'package:foxllm/llm/backend/gemini_backend.dart';
+import 'package:foxllm/llm/backend/llm_backend.dart';
+import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
+import 'package:foxllm/llm/backend/openai_responses_backend.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 
@@ -42,12 +48,35 @@ void main() {
     });
 
     test('resolves every built-in provider', () {
+      expect(personalApiProviderById('anthropic').displayName, 'Anthropic');
+      expect(personalApiProviderById('deepseek').displayName, 'DeepSeek');
       expect(personalApiProviderById('openai').displayName, 'OpenAI');
-      expect(personalApiProviderById('gemini').displayName, 'Google Gemini');
+      expect(personalApiProviderById('gemini').displayName, 'Google');
       expect(personalApiProviderById('groq').displayName, 'Groq');
       expect(personalApiProviderById('mistral').displayName, 'Mistral AI');
       expect(personalApiProviderById('openrouter').displayName, 'OpenRouter');
+      expect(personalApiProviderById('custom').displayName, 'Personnalisé');
       expect(personalApiProviderById('xai').displayName, 'xAI');
+    });
+
+    test('chaque fournisseur reçoit l’adaptateur de son protocole', () {
+      LlmBackend backendFor(String providerId) {
+        final backend = createPersonalApiRemoteBackend(
+          settings: PersonalApiSettings(
+            providerId: providerId,
+            model: 'modele',
+            hasApiKey: true,
+          ),
+          keyStore: ApiKeyStore(),
+        );
+        addTearDown(backend.dispose);
+        return backend;
+      }
+
+      expect(backendFor('anthropic'), isA<AnthropicBackend>());
+      expect(backendFor('deepseek'), isA<OpenAiCompatibleBackend>());
+      expect(backendFor('openai'), isA<OpenAiResponsesBackend>());
+      expect(backendFor('gemini'), isA<GeminiBackend>());
     });
   });
 

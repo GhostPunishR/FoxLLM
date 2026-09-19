@@ -23,6 +23,9 @@ class ProviderConfig {
 
   /// Point d'entrée de l'API Responses d'OpenAI.
   Uri get responsesUri => Uri.parse('${normalizeBaseUrl(baseUrl)}/responses');
+
+  /// Point d'entrée de l'API Messages d'Anthropic.
+  Uri get messagesUri => Uri.parse('${normalizeBaseUrl(baseUrl)}/messages');
 }
 
 /// Base URL sans espaces ni barre oblique finale, prête à être concaténée.

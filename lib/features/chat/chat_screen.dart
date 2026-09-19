@@ -980,7 +980,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (modes.webSearch &&
         !(backend is PersonalApiChatBackend && backend.supportsWebSearch)) {
       _showSnack(
-        'La recherche web demande une API personnelle Google Gemini. '
+        'La recherche web demande une API personnelle OpenAI ou Google. '
         'Désactive-la ou change de fournisseur.',
       );
       return _SendOutcome.refused;
@@ -1665,7 +1665,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       supported
           ? 'Recherche web activée : le modèle pourra consulter le web.'
           : 'Recherche web activée, mais le moteur en place ne sait pas '
-                'consulter le web. Configure une API personnelle Google Gemini.',
+                'consulter le web. Configure une API personnelle OpenAI ou '
+                'Google.',
     );
   }
 

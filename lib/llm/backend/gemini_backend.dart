@@ -27,11 +27,10 @@ class GeminiBackend extends HttpStreamingBackend {
   String get id => 'gemini';
 
   @override
-  String get displayName => 'Google Gemini';
+  String get displayName => 'Google';
 
   @override
-  String get missingApiKeyMessage =>
-      'Aucune clé API configurée pour Google Gemini.';
+  String get missingApiKeyMessage => 'Aucune clé API configurée pour Google.';
 
   Uri get _streamUri {
     final normalizedModel = model.startsWith('models/')

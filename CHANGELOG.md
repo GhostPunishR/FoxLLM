@@ -2,6 +2,34 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
+## [Non publié]
+
+### Ajouts
+
+- **Anthropic en API personnelle** : l'API Messages, avec son propre
+  adaptateur. Elle ne ressemble à aucune des deux autres : la clé voyage dans
+  `x-api-key` et non dans `Authorization`, la version de l'API est exigée sur
+  chaque appel, les consignes système ont leur propre champ hors des messages,
+  et le flux est fait d'évènements nommés. Ni `temperature` ni `top_p` ne sont
+  envoyés : les modèles récents d'Anthropic les refusent par une erreur. Une
+  réponse coupée par la limite de longueur ou par un refus est signalée comme
+  écourtée, comme chez les autres fournisseurs ;
+- **DeepSeek en API personnelle**, par le format compatible OpenAI déjà en
+  place.
+
+### Modifications
+
+- la liste des fournisseurs est **par ordre alphabétique**, et le restera :
+  un contrôle le vérifie plutôt que de compter sur la relecture ;
+- « Google Gemini » devient **Google**, et « Personnalisé (OpenAI-compatible) »
+  devient **Personnalisé**. Les messages de l'application suivent, y compris
+  celui qui explique quels fournisseurs savent consulter le web ;
+- la recherche web n'est plus annoncée par défaut pour tout ce qui n'imite pas
+  `chat/completions` : elle est nommée fournisseur par fournisseur. Anthropic a
+  bien un outil de recherche, mais FoxLLM ne le déclare pas encore dans ses
+  requêtes, et le proposer laisserait attendre des sources qui ne viendraient
+  jamais.
+
 ## [0.1.4] - 2026-09-14
 
 Correctifs d'un audit mené avant diffusion publique, puis de trois passages de
