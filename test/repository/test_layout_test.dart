@@ -48,23 +48,34 @@ void main() {
       // l'intégration continue plutôt que le dépôt : l'erreur n'apparaît qu'une
       // fois poussée.
       const native = 'packages/foxllm_native';
-      final referenced = <String, String>{
-        '.github/workflows/ffi-smoke.yml': '$native/test/native_smoke.dart',
-        '.github/workflows/cpp.yml': '$native/test/cache_decisions_test.cpp',
+      final referenced = <String, List<String>>{
+        '.github/workflows/ffi-smoke.yml': <String>[
+          '$native/test/native_smoke.dart',
+        ],
+        '.github/workflows/cpp.yml': <String>[
+          '$native/test/cache_decisions_test.cpp',
+        ],
+        '.github/workflows/llama-integration.yml': <String>[
+          '$native/test/kv_cache_integration_test.cpp',
+          '$native/test/make_tiny_gguf.py',
+        ],
       };
 
-      referenced.forEach((workflow, target) {
-        final relative = target.substring('$native/'.length);
-        expect(
-          File(workflow).readAsStringSync(),
-          contains(relative),
-          reason: '$workflow ne mentionne plus $relative',
-        );
-        expect(
-          File(target).existsSync(),
-          isTrue,
-          reason: '$workflow exécute $target, qui n’existe pas',
-        );
+      referenced.forEach((workflow, targets) {
+        final source = File(workflow).readAsStringSync();
+        for (final target in targets) {
+          final relative = target.substring('$native/'.length);
+          expect(
+            source,
+            contains(relative),
+            reason: '$workflow ne mentionne plus $relative',
+          );
+          expect(
+            File(target).existsSync(),
+            isTrue,
+            reason: '$workflow exécute $target, qui n’existe pas',
+          );
+        }
       });
     },
   );

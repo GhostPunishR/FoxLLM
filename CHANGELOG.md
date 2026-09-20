@@ -235,6 +235,22 @@ Rien de visible à l'usage, mais l'écran de chat portait un état de trente-cin
 champs et quatre-vingt-quatre méthodes : de quoi rendre invérifiable ce qui
 décide d'effacer un fichier ou d'écrire dans une conversation.
 
+- **le moteur local est enfin exécuté par l'intégration continue.** Aucun
+  travail ne chargeait de modèle : l'un ne compilait que le bouchon, l'autre
+  ne traversait le pont qu'à vide. Tout ce qui fait le moteur local restait
+  donc non vérifié à l'exécution, cache KV compris. Un modèle témoin est
+  maintenant construit à chaque fois par un script de deux cents lignes, puis
+  le pont est compilé contre la vraie bibliothèque et le cache mis à l'épreuve.
+
+  Le modèle pèse sept cents kilooctets, porte des poids aléatoires et répond
+  donc du charabia. C'est sans importance : avec un échantillonnage glouton,
+  la réponse ne dépend que du prompt, et un cache correct n'en change pas un
+  jeton. Quatre contrôles en découlent : un fil qui s'allonge, un cache cumulé
+  sur trois tours, un message modifié en cours de route, et un témoin qui
+  vérifie que deux prompts différents donnent bien deux réponses différentes,
+  sans quoi les trois premiers ne prouveraient rien. Le tag de llama.cpp est
+  lu dans le `CMakeLists` du pont plutôt que recopié, pour qu'une version
+  épinglée à deux endroits ne diverge pas ;
 - **le pont natif range ses vérifications au même endroit.** Le dépôt porte
   deux paquets Dart, donc deux dossiers `test` : celui de la racine appartient
   à l'application, celui de `packages/foxllm_native` au pont. Ce n'est pas un
