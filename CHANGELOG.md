@@ -47,6 +47,24 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
   de la réponse, le silence entre deux fragments d'un flux, et la liste des
   modèles. Celui du flux se recompte à chaque fragment : une réponse peut
   prendre dix minutes tant qu'elle avance, c'est le silence qui est borné ;
+- **un battement de cœur suffisait à désarmer ce délai.** Le compte était
+  relancé par chaque ligne reçue, or le `: ping` d'OpenRouter et les
+  commentaires qu'un proxy intercale pour tenir la connexion ouverte en sont.
+  Un fournisseur bloqué derrière un proxy bavard faisait donc tourner le rond
+  indéfiniment, ce que ce délai venait précisément d'interdire. Seule une
+  charge utile atteste d'un progrès, et seule une charge utile relance
+  désormais le compte ;
+- **le corps d'une réponse en échec échappait à tout délai.** Celui de la
+  réponse s'arrête aux en-têtes : un fournisseur qui annonçait 500 puis se
+  taisait en écrivant le détail laissait la lecture attendre sans fin, pour
+  une requête déjà perdue. Cette lecture est bornée, et son expiration ne
+  coûte que le détail de l'erreur, jamais son signalement ;
+- **un modèle encodeur-décodeur au prompt un peu long arrêtait
+  l'application.** Ces modèles lisent tout leur prompt d'un seul appel, et
+  llama.cpp exige que le lot le tienne en entier : il le vérifie par une
+  assertion, donc un arrêt net du processus et non une erreur rendue. Le
+  micro-lot restant plafonné à 512 jetons, tout prompt au-dessus tombait.
+  Pour ces modèles le lot suit maintenant le prompt ;
 - **le chat versait les erreurs brutes dans le bandeau.** Un refus HTTP y
   déversait le corps entier de la réponse, page d'erreur de proxy ou pavé
   JSON compris. La traduction française existait déjà, mais n'était utilisée

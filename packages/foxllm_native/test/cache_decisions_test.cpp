@@ -83,6 +83,33 @@ void context_still_covers_a_need_that_fills_the_training_window() {
     assert(context_size_for(4096, 4096, trained) == trained);
 }
 
+
+void batch_is_capped_for_an_ordinary_model() {
+    // Le décodage se découpe : un lot plus grand que le plafond ne sert à
+    // rien et coûte de la mémoire.
+    assert(batch_size_for(false, 4096, 3000) == kDecodeBatchSize);
+    assert(batch_size_for(false, 4096, 10) == kDecodeBatchSize);
+}
+
+void batch_follows_the_prompt_for_an_encoder() {
+    // Le cas qui faisait tomber l'application : un encodeur-décodeur dont le
+    // prompt dépasse le plafond. llama.cpp exige que le micro-lot tienne la
+    // suite entière, et le vérifie par une assertion, donc un arrêt net.
+    assert(batch_size_for(true, 8192, 3000) == 3000);
+}
+
+void batch_keeps_the_floor_for_a_short_encoder_prompt() {
+    // En dessous du plafond, rien ne justifie un lot plus petit.
+    assert(batch_size_for(true, 8192, 10) == kDecodeBatchSize);
+}
+
+void batch_never_exceeds_the_context() {
+    // Un lot plus grand que le contexte serait refusé : la borne tient des
+    // deux côtés, encodeur ou non.
+    assert(batch_size_for(false, 256, 4000) == 256);
+    assert(batch_size_for(true, 256, 4000) == 256);
+}
+
 }  // namespace
 
 int main() {
@@ -95,6 +122,10 @@ int main() {
     context_doubles_rather_than_creeping();
     context_never_exceeds_what_the_model_was_trained_for();
     context_still_covers_a_need_that_fills_the_training_window();
+    batch_is_capped_for_an_ordinary_model();
+    batch_follows_the_prompt_for_an_encoder();
+    batch_keeps_the_floor_for_a_short_encoder_prompt();
+    batch_never_exceeds_the_context();
     std::printf("FoxLLM KV cache decisions: all checks passed.\n");
     return 0;
 }

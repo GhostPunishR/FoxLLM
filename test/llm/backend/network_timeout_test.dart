@@ -61,6 +61,39 @@ void main() {
       expect(received.join(), 'Début');
     });
 
+    test('des battements de cœur ne tiennent pas le flux en vie', () async {
+      // Un `: ping` n'est pas un progrès. OpenRouter en envoie, les proxys en
+      // intercalent : si chacun relançait le chien de garde, un fournisseur
+      // bloqué derrière un proxy bavard ferait tourner le rond pour toujours,
+      // et le délai ne protégerait plus de rien.
+      final client = _HeartbeatClient();
+      final backend = _backend(() => client);
+
+      await expectLater(
+        backend.generate(messages: <ChatMessage>[_question]).toList(),
+        throwsA(isA<PersonalApiTimeoutException>()),
+      );
+    });
+
+    test('un corps d’erreur qui ne vient jamais n’attend pas', () async {
+      // Le délai de réponse s'arrête aux en-têtes : un fournisseur qui
+      // annonce 500 puis se tait en écrivant le détail échappait ensuite à
+      // tout délai. L'échec est déjà connu, il doit être signalé.
+      final client = _StallingErrorClient();
+      final backend = _backend(() => client);
+
+      await expectLater(
+        backend.generate(messages: <ChatMessage>[_question]).toList(),
+        throwsA(
+          isA<PersonalApiHttpException>().having(
+            (e) => e.statusCode,
+            'statusCode',
+            500,
+          ),
+        ),
+      );
+    });
+
     test('un flux qui avance n’est pas coupé par le délai', () async {
       // Le délai compte le silence, pas la durée : une réponse lente mais qui
       // progresse doit aller au bout, sinon un modèle qui réfléchit serait
@@ -101,6 +134,10 @@ void main() {
       // Mais bornés : c'est tout l'objet du correctif.
       expect(backend.responseTimeout.inMinutes, lessThanOrEqualTo(5));
       expect(backend.idleTimeout.inMinutes, lessThanOrEqualTo(10));
+      // Le corps d'une réponse en échec n'a pas à se faire attendre autant :
+      // le code HTTP a déjà tout dit, ce corps n'ajoute que le détail.
+      expect(backend.errorBodyTimeout.inSeconds, greaterThan(0));
+      expect(backend.errorBodyTimeout, lessThan(backend.responseTimeout));
     });
   });
 }
@@ -129,6 +166,9 @@ class _ImpatientBackend extends OpenAiCompatibleBackend {
 
   @override
   Duration get idleTimeout => const Duration(milliseconds: 80);
+
+  @override
+  Duration get errorBodyTimeout => const Duration(milliseconds: 80);
 }
 
 class _FakeApiKeyStore extends ApiKeyStore {
@@ -200,5 +240,44 @@ class _SlowClient extends http.BaseClient {
       await body.close();
     }());
     return http.StreamedResponse(body.stream, 200);
+  }
+}
+
+/// Ne dit jamais rien, mais le dit souvent : que des battements de cœur.
+///
+/// Le cas réel d'un fournisseur dont le modèle s'est bloqué derrière un proxy
+/// qui, lui, tient la connexion ouverte et le fait savoir.
+class _HeartbeatClient extends http.BaseClient {
+  static const _beats = 40;
+  static const _gap = Duration(milliseconds: 10);
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final body = StreamController<List<int>>();
+    unawaited(() async {
+      for (var beat = 0; beat < _beats; beat++) {
+        await Future<void>.delayed(_gap);
+        if (body.isClosed) {
+          return;
+        }
+        body.add(utf8.encode(': ping\n\n'));
+      }
+      await body.close();
+    }());
+    return http.StreamedResponse(body.stream, 200);
+  }
+}
+
+/// Annonce un échec, puis se tait au moment d'en écrire le détail.
+class _StallingErrorClient extends http.BaseClient {
+  final StreamController<List<int>> _body = StreamController<List<int>>();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      http.StreamedResponse(_body.stream, 500);
+
+  @override
+  void close() {
+    unawaited(_body.close());
   }
 }

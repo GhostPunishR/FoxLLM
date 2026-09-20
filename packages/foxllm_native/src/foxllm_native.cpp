@@ -120,6 +120,14 @@ std::string chatml_prompt(
 // relire : le cache ne servirait jamais.
 constexpr uint32_t kMinimumContextSize = 1024;
 
+// Taille d'un lot de lecture.
+//
+// Le contexte fixe cette taille une fois pour toutes, et un prompt plus long
+// se lit en plusieurs lots. Sans ce découpage, un long fil échouerait faute
+// de place dans un seul lot ; trop grand, il gonflerait les tampons de calcul
+// sans rien accélérer sur un téléphone.
+constexpr uint32_t kDecodeBatchSize = 512;
+
 // Longueur du début commun à deux suites de jetons.
 //
 // C'est tout le cache : ce début est déjà lu par le contexte, seul ce qui
@@ -161,6 +169,23 @@ constexpr uint32_t kMinimumContextSize = 1024;
     return target;
 }
 
+// Taille de lot à demander pour lire un prompt de [required] jetons.
+//
+// Le décodage se découpe librement, d'où le plafond : un lot plus grand ne
+// l'accélère pas et coûte de la mémoire pour rien.
+//
+// Un encodeur-décodeur, lui, lit tout son prompt d'un seul appel à
+// `llama_encode`. llama.cpp interdit de le découper et le vérifie par une
+// assertion, c'est-à-dire un arrêt net du processus et non une erreur rendue :
+// le plafond ferait donc tomber l'application dès qu'un prompt dépasse 512
+// jetons. Pour ces modèles le lot suit le prompt.
+[[maybe_unused]] uint32_t batch_size_for(
+    bool has_encoder, uint32_t context_size, uint32_t required) {
+    const uint32_t wanted =
+        has_encoder ? std::max(kDecodeBatchSize, required) : kDecodeBatchSize;
+    return std::min(context_size, wanted);
+}
+
 #ifdef FOXLLM_WITH_LLAMA_CPP
 
 // Nombre de threads de calcul, faute de valeur par défaut utilisable.
@@ -175,14 +200,6 @@ constexpr uint32_t kMinimumContextSize = 1024;
 // tous les cœurs jusqu'à quatre, la moitié au delà. Les cœurs lents d'un SoC
 // mobile ne l'accélèrent pas, car ggml répartit chaque couche en parts égales
 // et attend la plus lente.
-// Taille d'un lot de lecture.
-//
-// Le contexte fixe cette taille une fois pour toutes, et un prompt plus long
-// se lit en plusieurs lots. Sans ce découpage, un long fil échouerait faute
-// de place dans un seul lot ; trop grand, il gonflerait les tampons de calcul
-// sans rien accélérer sur un téléphone.
-constexpr uint32_t kDecodeBatchSize = 512;
-
 int32_t math_thread_count() {
     const unsigned int cores = std::thread::hardware_concurrency();
     if (cores == 0) {
@@ -407,8 +424,16 @@ bool generate_internal(
                 needed,
                 trained_context > 0 ? static_cast<uint32_t>(trained_context)
                                     : 0);
-            context_params.n_batch =
-                std::min<uint32_t>(context_params.n_ctx, kDecodeBatchSize);
+            context_params.n_batch = batch_size_for(
+                has_encoder,
+                context_params.n_ctx,
+                static_cast<uint32_t>(required_tokens));
+
+            // llama.cpp plafonne le micro-lot à 512 indépendamment du lot :
+            // sans cette ligne, relever le lot pour un encodeur ne changerait
+            // rien. Hors encodeur le lot ne dépasse jamais ce plafond, donc
+            // cette ligne n'y change rien non plus.
+            context_params.n_ubatch = context_params.n_batch;
             context_params.no_perf = true;
 
             // La lecture du prompt et l'écriture de la réponse ne sollicitent

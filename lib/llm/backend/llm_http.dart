@@ -87,6 +87,14 @@ abstract class HttpStreamingBackend implements LlmBackend {
   /// longtemps, et couper sa réflexion serait pire que d'attendre.
   Duration get idleTimeout => const Duration(minutes: 3);
 
+  /// Attente maximale du corps d’une réponse en échec.
+  ///
+  /// Courte, et c’est volontaire : le code HTTP dit déjà que la requête a
+  /// échoué, ce corps n’en donne que le détail. Le faire attendre aussi
+  /// longtemps qu’une vraie réponse reviendrait à retenir l’utilisateur pour
+  /// un échec déjà constaté.
+  Duration get errorBodyTimeout => const Duration(seconds: 15);
+
   HttpStreamingBackend({
     required this.keyStore,
     required this.keyProviderId,
@@ -213,9 +221,18 @@ abstract class HttpStreamingBackend implements LlmBackend {
         }
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
+          // Le délai ci-dessus s’arrête aux en-têtes. Un fournisseur qui
+          // annonce son échec puis se tait en écrivant le corps laisserait
+          // cette lecture attendre hors de tout délai : le rond tournerait
+          // encore, pour une requête déjà perdue. Expirer ici ne coûte que
+          // le détail de l’erreur, jamais son signalement.
+          final body = await response.stream.bytesToString().timeout(
+            errorBodyTimeout,
+            onTimeout: () => '',
+          );
           throw PersonalApiHttpException(
             statusCode: response.statusCode,
-            body: await response.stream.bytesToString(),
+            body: body,
           );
         }
 
@@ -223,9 +240,20 @@ abstract class HttpStreamingBackend implements LlmBackend {
         // le silence qui déclenche, pas la durée de la réponse. L'erreur
         // ajoutée sort de la boucle ci-dessous, et le `finally` ferme le
         // client resté ouvert en face.
-        final lines = response.stream
+        //
+        // Le chien de garde est posé après le tri des lignes, et non avant.
+        // Un battement de cœur, le `: ping` d'OpenRouter ou le commentaire
+        // qu'un proxy intercale pour tenir la connexion ouverte, est une ligne
+        // comme une autre : relancer le compte à chaque battement laisserait
+        // un fournisseur bloqué faire tourner le rond indéfiniment, ce que ce
+        // délai existe précisément pour empêcher. Seule une charge utile
+        // atteste d'un progrès, donc seule une charge utile le relance.
+        final payloads = response.stream
             .transform(utf8.decoder)
             .transform(const LineSplitter())
+            .map(sseDataPayload)
+            .where((payload) => payload != null)
+            .cast<String>()
             .timeout(
               idleTimeout,
               onTimeout: (sink) => sink.addError(
@@ -236,15 +264,11 @@ abstract class HttpStreamingBackend implements LlmBackend {
               ),
             );
 
-        await for (final line in lines) {
+        await for (final payload in payloads) {
           if (_shouldAbort(generation)) {
             return;
           }
 
-          final payload = sseDataPayload(line);
-          if (payload == null) {
-            continue;
-          }
           if (payload == _sseDoneMarker) {
             break;
           }
