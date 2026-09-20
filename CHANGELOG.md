@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 503 cas, auxquels s’ajoutent les contrôles C++ du cache.
+441 à 518 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -181,6 +181,32 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
 - `pubspec.lock` est ignoré par git, ce qu'il n'était ni d'un côté ni de
   l'autre : chaque `flutter pub get` salissait l'arbre de travail ;
 - la version du paquet natif s'aligne sur celle que la bibliothèque annonce.
+
+### Travaux internes
+
+Rien de visible à l'usage, mais l'écran de chat portait un état de trente-cinq
+champs et quatre-vingt-quatre méthodes : de quoi rendre invérifiable ce qui
+décide d'effacer un fichier ou d'écrire dans une conversation.
+
+- **les deux décisions d'entretien de l'historique** sortent de l'écran :
+  laquelle des conversations ne tient plus sous le plafond, et quelles pièces
+  jointes plus personne ne cite. Elles ne dépendent que de leurs arguments, et
+  douze contrôles les couvrent une à une, y compris la conversation ouverte
+  qu'on épargne et les deux objets distincts qui désignent le même fichier ;
+- **la règle d'identité d'un fil n'est plus écrite qu'une fois.** Quatre
+  copies écrites à la main décidaient si une opération asynchrone avait encore
+  le droit d'écrire, et deux d'entre elles étaient volontairement
+  différentes : écrire dans une conversation par son identifiant n'exige pas
+  qu'elle soit affichée, toucher au fil visible si. La distinction était
+  correcte mais implicite, donc recopiable de travers ; elle porte désormais
+  deux noms, et un contrôle du dépôt refuse qu'une cinquième copie
+  réapparaisse. Trois des défauts les plus coûteux corrigés cette année
+  venaient de là ;
+- **la préparation d'un envoi est séparée de l'envoi lui-même.** Avant, rien
+  n'est engagé et tout peut être abandonné sans laisser de trace ; après, le
+  fil est modifié et chaque sortie doit le remettre d'aplomb. Les deux
+  vivaient dans une même méthode de trois cent vingt-sept lignes, qui en fait
+  désormais deux cent soixante-six.
 
 ### Documents légaux
 
