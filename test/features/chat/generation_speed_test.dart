@@ -14,6 +14,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('la vitesse traverse l’enregistrement', () {
     test('elle est relue telle qu’elle a été écrite', () {
@@ -118,7 +120,7 @@ Future<void> _pumpThread(WidgetTester tester, double? speed) async {
         localLlmBackendProvider.overrideWithValue(_FakeBackend()),
         conversationStoreProvider.overrideWithValue(store),
       ],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         home: const ChatScreen(),
       ),

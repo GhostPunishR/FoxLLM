@@ -15,6 +15,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   testWidgets('renomme une conversation depuis le menu latéral', (
     tester,
@@ -128,7 +130,7 @@ Future<void> _pumpChat(WidgetTester tester, _RecordingStore store) async {
         localLlmBackendProvider.overrideWithValue(_FakeBackend()),
         conversationStoreProvider.overrideWithValue(store),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

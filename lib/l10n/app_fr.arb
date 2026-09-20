@@ -27,5 +27,77 @@
   "languageSystemLabel": "Suivre l'appareil",
   "languageSystemDescription": "La langue du téléphone, ou le français si elle n'est pas servie",
   "languageFrenchDescription": "Toujours en français",
-  "languageEnglishDescription": "Toujours en anglais"
+  "languageEnglishDescription": "Toujours en anglais",
+  "localEngineContextFull": "La conversation dépasse la fenêtre de contexte du modèle. Commencez-en une nouvelle, ou choisissez un modèle au contexte plus large.",
+  "@localEngineContextFull": {
+    "description": "Erreur du moteur local. Message d'origine : Prompt exceeds the model context window."
+  },
+  "localEngineContextExhausted": "Le modèle n'a plus de place pour lire la conversation.",
+  "@localEngineContextExhausted": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp ran out of context while reading the prompt."
+  },
+  "localEngineModelUnreadable": "Ce fichier GGUF n'a pas pu être chargé. Il est peut-être abîmé, ou dans un format que llama.cpp ne reconnaît pas.",
+  "@localEngineModelUnreadable": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp could not load the GGUF model."
+  },
+  "localEngineOutOfMemory": "Mémoire insuffisante pour préparer ce modèle sur cet appareil.",
+  "@localEngineOutOfMemory": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp could not create an inference context."
+  },
+  "localEngineDecodeFailed": "Le modèle s'est interrompu pendant la génération.",
+  "@localEngineDecodeFailed": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp failed while decoding."
+  },
+  "localEngineEncodeFailed": "Le modèle n'a pas pu lire la conversation.",
+  "@localEngineEncodeFailed": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp failed to encode the prompt."
+  },
+  "localEngineSamplerFailed": "Le modèle n'a pas pu être préparé pour répondre.",
+  "@localEngineSamplerFailed": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp could not create a sampler."
+  },
+  "localEngineTokenizeFailed": "Ce modèle n'a pas su découper la conversation en jetons.",
+  "@localEngineTokenizeFailed": {
+    "description": "Erreur du moteur local. Message d'origine : Unable to tokenize the prompt."
+  },
+  "localEngineNoModelLoaded": "Aucun modèle local n'est chargé.",
+  "@localEngineNoModelLoaded": {
+    "description": "Erreur du moteur local. Message d'origine : No GGUF model is loaded."
+  },
+  "localEngineNoModel": "Aucun modèle local n'est chargé.",
+  "@localEngineNoModel": {
+    "description": "Erreur du moteur local. Message d'origine : No model is loaded."
+  },
+  "localEngineModelPathEmpty": "Aucun fichier de modèle n'a été indiqué.",
+  "@localEngineModelPathEmpty": {
+    "description": "Erreur du moteur local. Message d'origine : Model path is empty."
+  },
+  "localEngineUnsupportedPlatform": "L'exécution locale n'est disponible que sur Android arm64.",
+  "@localEngineUnsupportedPlatform": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp local inference is currently available only on Android arm64."
+  },
+  "localEngineEmptyPrompt": "Le message est vide.",
+  "@localEngineEmptyPrompt": {
+    "description": "Erreur du moteur local. Message d'origine : Prompt is empty."
+  },
+  "localEngineNothingToFormat": "Aucun message à mettre en forme.",
+  "@localEngineNothingToFormat": {
+    "description": "Erreur du moteur local. Message d'origine : No message to format."
+  },
+  "localEngineMissingCallback": "Le moteur local a été appelé sans destinataire pour sa réponse.",
+  "@localEngineMissingCallback": {
+    "description": "Erreur du moteur local. Message d'origine : Token callback is null."
+  },
+  "localEngineBadTemperature": "La température doit être positive ou nulle.",
+  "@localEngineBadTemperature": {
+    "description": "Erreur du moteur local. Message d'origine : Temperature must be greater than or equal to zero."
+  },
+  "localEngineBadTopP": "Le top-p doit être supérieur à zéro et au plus égal à un.",
+  "@localEngineBadTopP": {
+    "description": "Erreur du moteur local. Message d'origine : Top-p must be in the interval (0, 1]."
+  },
+  "localEngineBadMaxTokens": "Le nombre maximal de jetons doit être supérieur à zéro.",
+  "@localEngineBadMaxTokens": {
+    "description": "Erreur du moteur local. Message d'origine : Max tokens must be greater than zero."
+  }
 }

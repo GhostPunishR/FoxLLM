@@ -20,6 +20,8 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('ChatModesController', () {
     test('les deux modes partent inactifs', () {
@@ -234,7 +236,7 @@ Future<void> _pumpChat(
           backend ?? _RecordingBackend(),
         ),
       ],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         home: const ChatScreen(),
       ),

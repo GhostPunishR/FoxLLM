@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
@@ -68,7 +69,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
         setState(() => _initialized = true);
         _showSnack(
           'Impossible de charger les réglages API : '
-          '${describePersonalApiError(error)}',
+          '${describePersonalApiError(error, AppLocalizations.of(context))}',
         );
       }
     }
@@ -163,7 +164,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       if (mounted) {
         _showSnack(
           'Impossible de récupérer les modèles : '
-          '${describePersonalApiError(error)}',
+          '${describePersonalApiError(error, AppLocalizations.of(context))}',
         );
       }
     } finally {
@@ -225,7 +226,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     } catch (error) {
       if (mounted) {
         _showSnack(
-          'Enregistrement impossible : ${describePersonalApiError(error)}',
+          'Enregistrement impossible : ${describePersonalApiError(error, AppLocalizations.of(context))}',
         );
       }
       return null;
@@ -254,7 +255,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       }
     } catch (error) {
       if (mounted) {
-        _showSnack('Échec de connexion : ${describePersonalApiError(error)}');
+        _showSnack(
+          'Échec de connexion : ${describePersonalApiError(error, AppLocalizations.of(context))}',
+        );
       }
     } finally {
       if (mounted) {
@@ -277,7 +280,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     } catch (error) {
       if (mounted) {
         _showSnack(
-          'Suppression impossible : ${describePersonalApiError(error)}',
+          'Suppression impossible : ${describePersonalApiError(error, AppLocalizations.of(context))}',
         );
       }
     }

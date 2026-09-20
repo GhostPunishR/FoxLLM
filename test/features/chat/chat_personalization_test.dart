@@ -14,6 +14,8 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   testWidgets('les instructions personnalisées ouvrent chaque requête', (
     tester,
@@ -103,7 +105,7 @@ Future<void> _pumpChat(
           _MemoryStore(instructions),
         ),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

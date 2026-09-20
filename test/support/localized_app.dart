@@ -22,7 +22,9 @@ MaterialApp localizedApp({
   ThemeData? theme,
   Locale locale = const Locale('fr'),
   TransitionBuilder? builder,
+  GlobalKey<NavigatorState>? navigatorKey,
 }) => MaterialApp(
+  navigatorKey: navigatorKey,
   theme: theme,
   locale: locale,
   builder: builder,

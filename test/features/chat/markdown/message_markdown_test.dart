@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/features/chat/markdown/message_markdown.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   group('parseMessageSegments', () {
     test('un message sans bloc reste intact', () {
@@ -397,7 +399,7 @@ void main() {
     testWidgets('l’appui sur un lien l’ouvre à l’extérieur', (tester) async {
       Uri? opened;
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
           home: Scaffold(
             body: Center(
               child: MessageMarkdown(
@@ -422,7 +424,7 @@ void main() {
 
     testWidgets('un lien qui ne s’ouvre pas le dit', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
           home: Scaffold(
             body: Center(
               child: MessageMarkdown(
@@ -453,7 +455,7 @@ void main() {
 
 Future<void> _pump(WidgetTester tester, String content) async {
   await tester.pumpWidget(
-    MaterialApp(
+    localizedApp(
       home: Scaffold(
         body: Center(
           child: MessageMarkdown(

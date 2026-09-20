@@ -14,6 +14,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 /// Tailles dégénérées, que seul un appareil produit.
 ///
 /// La première image d'un lancement arrive avant que la fenêtre ait ses
@@ -91,7 +93,7 @@ Future<void> _pump(
           _SeededStore(conversations),
         ),
       ],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         home: const ChatScreen(),
       ),

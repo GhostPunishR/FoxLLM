@@ -1,15 +1,21 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/core/storage/api_key_store.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/anthropic_backend.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
+import 'package:foxllm/llm/backend/local_engine_error.dart';
 import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
 import 'package:foxllm/llm/backend/openai_responses_backend.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
+
+/// Les traductions, sans arbre de widgets : ce banc n'en monte aucun.
+final _l10n = lookupAppLocalizations(const Locale('fr'));
 
 void main() {
   group('PersonalApiSettings', () {
@@ -112,8 +118,40 @@ void main() {
       );
 
       expect(
-        describePersonalApiError(error),
+        describePersonalApiError(error, _l10n),
         'Aucun crédit API disponible pour le compte lié à cette clé.',
+      );
+    });
+
+    test('traduit les refus du moteur local', () {
+      // Le pont natif lève un `StateError` portant le message anglais écrit
+      // dans le C++. Il remontait tel quel jusqu'au bandeau du chat, alors que
+      // c'est le refus le plus fréquent avec un modèle local.
+      final error = StateError(LocalEngineFailure.contextFull.nativeMessage);
+
+      final described = describePersonalApiError(error, _l10n);
+      expect(described, isNot(contains('Prompt exceeds')));
+      expect(described, contains('contexte'));
+    });
+
+    test('un StateError qui ne vient pas du moteur garde son message', () {
+      // Tout ne passe pas par le pont : un état incohérent côté Dart porte
+      // déjà un message français, qu'il ne faut pas remplacer.
+      final error = StateError('Le fournisseur a répondu sans contenu texte.');
+
+      expect(
+        describePersonalApiError(error, _l10n),
+        'Le fournisseur a répondu sans contenu texte.',
+      );
+    });
+
+    test('et la même erreur se lit en anglais dans l’autre langue', () {
+      final error = StateError(LocalEngineFailure.contextFull.nativeMessage);
+      final english = lookupAppLocalizations(const Locale('en'));
+
+      expect(
+        describePersonalApiError(error, english),
+        contains('context window'),
       );
     });
   });

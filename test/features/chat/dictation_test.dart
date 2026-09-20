@@ -18,6 +18,8 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   testWidgets('le micro cède la place à Envoyer dès qu’on écrit', (
     tester,
@@ -193,7 +195,7 @@ void main() {
     await gesture.up();
     await tester.pump();
 
-    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
     await tester.pump();
     dictation.releaseInitialize();
     await tester.pumpAndSettle();
@@ -351,7 +353,7 @@ Future<void> _pumpChat(WidgetTester tester, Dictation dictation) async {
         conversationStoreProvider.overrideWithValue(_EmptyStore()),
         localLlmBackendProvider.overrideWithValue(_IdleBackend()),
       ],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         home: const ChatScreen(),
       ),

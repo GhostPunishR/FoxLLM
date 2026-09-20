@@ -17,6 +17,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 /// La fin d'un énoncé passe maintenant par la réponse de `speak`, donc par un
 /// tour de boucle : rien ne s'éteint plus de façon synchrone.
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
@@ -162,7 +164,7 @@ void main() {
 
       // L'écran part alors que la voix parle encore : l'écouteur doit être
       // retiré avant l'arrêt, sans quoi le rappel toucherait un écran détruit.
-      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
       await tester.pumpAndSettle();
 
       expect(tts.stopCalls, 1);
@@ -440,7 +442,7 @@ Future<void> _pumpTwoThreads(WidgetTester tester, _FakeTts tts) async {
         ),
         speechProvider.overrideWithValue(Speech(tts: tts)),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();
@@ -483,7 +485,7 @@ Future<void> _pumpAnswer(WidgetTester tester, _FakeTts tts) async {
         conversationStoreProvider.overrideWithValue(_EmptyStore()),
         speechProvider.overrideWithValue(Speech(tts: tts)),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

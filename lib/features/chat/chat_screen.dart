@@ -12,8 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:foxllm/core/storage/last_model_store.dart';
-import 'package:foxllm/core/ui/external_link.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/ui/external_link.dart';
 import 'package:foxllm/core/ui/fox_mark.dart';
 import 'package:foxllm/features/chat/attachments/attachment_picker.dart';
 import 'package:foxllm/features/chat/attachments/attachment_resolver.dart';
@@ -29,6 +29,7 @@ import 'package:foxllm/features/chat/markdown/message_markdown.dart';
 import 'package:foxllm/features/chat/speech.dart';
 import 'package:foxllm/features/local_models/local_models_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
 import 'package:foxllm/llm/model/chat_attachment.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
@@ -1631,7 +1632,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// dans le bandeau : une page d'erreur de proxy, un pavé JSON. La
   /// traduction existait déjà pour l'écran des réglages, elle vaut autant
   /// ici, où l'utilisateur la lit bien plus souvent.
-  String _describeError(Object error) => describePersonalApiError(error);
+  String _describeError(Object error) =>
+      describePersonalApiError(error, AppLocalizations.of(context));
 
   void _showSnack(String message, {SnackBarAction? action}) {
     // Un échec tardif, revenu après la fermeture de l'écran, n'a plus de

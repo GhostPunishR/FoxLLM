@@ -16,6 +16,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('la régénération ne tronque rien avant d’être acceptée', () {
     testWidgets('sans modèle chargé, le fil reste entier', (tester) async {
@@ -460,7 +462,7 @@ Future<void> _pump(
         localLlmBackendProvider.overrideWithValue(backend),
         conversationStoreProvider.overrideWithValue(store),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

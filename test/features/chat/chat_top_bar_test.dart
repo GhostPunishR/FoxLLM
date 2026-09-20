@@ -13,6 +13,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   testWidgets('le titre suit le fil ouvert', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -24,7 +26,7 @@ void main() {
           localLlmBackendProvider.overrideWithValue(_ShortAnswerBackend()),
           conversationStoreProvider.overrideWithValue(_EmptyStore()),
         ],
-        child: const MaterialApp(home: ChatScreen()),
+        child: localizedApp(home: ChatScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -59,7 +61,7 @@ void main() {
           localLlmBackendProvider.overrideWithValue(_ShortAnswerBackend()),
           conversationStoreProvider.overrideWithValue(_EmptyStore()),
         ],
-        child: const MaterialApp(home: ChatScreen()),
+        child: localizedApp(home: ChatScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -108,7 +110,7 @@ void main() {
           localLlmBackendProvider.overrideWithValue(_LongAnswerBackend()),
           conversationStoreProvider.overrideWithValue(_EmptyStore()),
         ],
-        child: const MaterialApp(home: ChatScreen()),
+        child: localizedApp(home: ChatScreen()),
       ),
     );
     await tester.pumpAndSettle();
