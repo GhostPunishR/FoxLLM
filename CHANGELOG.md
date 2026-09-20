@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 518 cas, auxquels s’ajoutent les contrôles C++ du cache.
+441 à 520 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -188,6 +188,14 @@ Rien de visible à l'usage, mais l'écran de chat portait un état de trente-cin
 champs et quatre-vingt-quatre méthodes : de quoi rendre invérifiable ce qui
 décide d'effacer un fichier ou d'écrire dans une conversation.
 
+- **le pont natif range ses vérifications au même endroit.** Le dépôt porte
+  deux paquets Dart, donc deux dossiers `test` : celui de la racine appartient
+  à l'application, celui de `packages/foxllm_native` au pont. Ce n'est pas un
+  éparpillement mais la règle des paquets Dart, et y déroger empêcherait les
+  tests de s'exécuter. En revanche le pont rangeait la moitié des siens dans
+  `tool` : le test de fumée FFI et le banc AddressSanitizer rejoignent son
+  `test`. Un contrôle refuse désormais qu'une vérification vive ailleurs, et
+  qu'un travail d'intégration continue désigne un fichier déplacé ;
 - **les deux décisions d'entretien de l'historique** sortent de l'écran :
   laquelle des conversations ne tient plus sous le plafond, et quelles pièces
   jointes plus personne ne cite. Elles ne dépendent que de leurs arguments, et

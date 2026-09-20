@@ -33,4 +33,4 @@ jobs:
       - name: Resolve native package dependencies
         run: dart pub get
       - name: Run FFI smoke test
-        run: dart run tool/native_smoke.dart
+        run: dart run test/native_smoke.dart
