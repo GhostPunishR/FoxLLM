@@ -202,11 +202,19 @@ décide d'effacer un fichier ou d'écrire dans une conversation.
   deux noms, et un contrôle du dépôt refuse qu'une cinquième copie
   réapparaisse. Trois des défauts les plus coûteux corrigés cette année
   venaient de là ;
-- **la préparation d'un envoi est séparée de l'envoi lui-même.** Avant, rien
-  n'est engagé et tout peut être abandonné sans laisser de trace ; après, le
-  fil est modifié et chaque sortie doit le remettre d'aplomb. Les deux
-  vivaient dans une même méthode de trois cent vingt-sept lignes, qui en fait
-  désormais deux cent soixante-six.
+- **l'envoi d'un message se lit en cinq phases** au lieu d'une méthode de
+  trois cent vingt-sept lignes, qui en fait désormais cent quatre-vingt-quatre.
+  La préparation, où rien n'est encore engagé et où tout peut être abandonné
+  sans laisser de trace. La validation, à partir de laquelle le fil est
+  modifié et chaque sortie doit le remettre d'aplomb. Le flux. Le bilan d'une
+  génération terminée. Et la remise d'aplomb après un échec, dont les quatre
+  situations deviennent lisibles d'un coup d'œil : du texte reçu ou non, une
+  version remplacée ou non ;
+- ce découpage a montré qu'une de ces quatre situations était vérifiée dans
+  ses effets mais pas dans ce qu'elle dit à l'utilisateur. Une régénération
+  qui échoue avant le premier mot remet le fil en place ; le test le
+  vérifiait, mais aucun ne vérifiait qu'on le dise. Un rétablissement muet ne
+  se distingue pourtant pas d'un oubli.
 
 ### Documents légaux
 

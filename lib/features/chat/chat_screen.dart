@@ -69,6 +69,19 @@ class _PreparedSend {
   final ChatModes modes;
 }
 
+/// Ce qu'un envoi engagé laisse derrière lui.
+///
+/// [conversationId] peut être celui d'un fil que ce message vient de créer :
+/// l'envoi doit alors suivre cette nouvelle identité, pas celle qu'il visait.
+/// [replaced] est la version que le remplacement efface, `null` quand l'envoi
+/// n'en remplace aucune.
+class _CommittedSend {
+  const _CommittedSend({required this.conversationId, required this.replaced});
+
+  final int? conversationId;
+  final List<ChatMessage>? replaced;
+}
+
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
 
@@ -1074,8 +1087,174 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
   }
 
+  /// Inscrit au fil ce qu'une génération terminée y laisse, et rend son issue.
+  ///
+  /// Appelée seulement quand le fil visé est toujours celui qui est ouvert :
+  /// ce qui suit touche à ce que l'utilisateur regarde.
+  ///
+  /// Le mot « terminée » n'engage rien sur la réussite : un flux arrêté ou
+  /// écourté passe aussi par ici, et c'est justement l'issue rendue qui le
+  /// dira.
+  GenerationOutcome _settleFinishedGeneration(
+    LocalLlmBackend backend, {
+    required String response,
+    required List<ChatMessage>? replaced,
+    required int generationEpoch,
+    required int? conversationId,
+  }) {
+    if (response.isNotEmpty) {
+      _attachCitations(backend);
+      unawaited(
+        _attachGenerationSpeed(backend, generationEpoch, conversationId),
+      );
+    }
+
+    // Lue même sans un mot reçu : un flux qui s'annonce écourté avant le
+    // premier fragment reste écourté, et le traiter comme une réussite
+    // faisait disparaître la bulle sans rien dire.
+    final outcome = _recordOutcome(backend, generationEpoch);
+    if (response.isEmpty && outcome == GenerationOutcome.complete) {
+      // Une réponse vide et pourtant aboutie n'a rien à montrer.
+      _removeEmptyAssistantPlaceholder();
+    }
+    if (replaced != null) {
+      // Un remplacement abouti rend caduque la version d'avant ; un
+      // remplacement écourté ou arrêté la garde reprenable, sans limite de
+      // temps.
+      _keepPreviousVersion(
+        outcome == GenerationOutcome.complete ? null : replaced,
+        generationEpoch,
+        conversationId,
+      );
+    }
+    return outcome;
+  }
+
+  /// Remet le fil d'aplomb après une génération interrompue, et dit pourquoi.
+  ///
+  /// Quatre situations, et quatre issues différentes. Le fil peut porter ou
+  /// non du texte reçu avant la coupure ; l'envoi peut remplacer ou non une
+  /// version précédente. Rien n'est jeté dans aucune d'elles : le texte reçu
+  /// reste affiché parce que c'est ce que l'utilisateur a vu, et la version
+  /// remplacée reste reprenable parce qu'elle est la seule trace de ce qui a
+  /// été effacé.
+  ///
+  /// Appelée seulement quand le fil visé est encore celui qui est ouvert.
+  /// Rend l'issue à retenir pour la réponse affichée.
+  GenerationOutcome _recoverFromFailure(
+    Object error, {
+    required String response,
+    required List<ChatMessage>? replaced,
+    required int generationEpoch,
+    required int? conversationId,
+    required GenerationOutcome outcome,
+  }) {
+    var settled = outcome;
+    if (response.isNotEmpty) {
+      // Le texte reçu reste à l'écran, c'est ce que l'utilisateur a vu, mais
+      // il ne doit pas passer pour une réponse entière.
+      _markLastAssistantOutcome(GenerationOutcome.failed, null);
+      settled = GenerationOutcome.failed;
+    }
+
+    if (replaced == null) {
+      if (response.isEmpty) {
+        // Rien n'est arrivé : seule la bulle restée vide s'en va.
+        _removeEmptyAssistantPlaceholder();
+      }
+      _showSnack('Génération impossible : ${_describeError(error)}');
+    } else if (response.isEmpty) {
+      // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le fil
+      // revient tel qu'il était, réponse effacée comprise, plutôt que de
+      // rester amputé de tout ce qui suivait la question.
+      _restoreThread(replaced, generationEpoch, conversationId);
+      _showSnack(
+        'Génération impossible : ${_describeError(error)}. '
+        'Réponse précédente conservée.',
+      );
+    } else {
+      // Du texte est arrivé avant la coupure : il reste affiché, et la
+      // version qu'il a remplacée est conservée avec la conversation. Les
+      // deux survivent donc à la navigation et au redémarrage, là où une
+      // action de bandeau disparaissait au bout de quelques secondes.
+      _keepPreviousVersion(replaced, generationEpoch, conversationId);
+      _showSnack(
+        'Génération interrompue : ${_describeError(error)}. '
+        'Version précédente conservée.',
+      );
+    }
+    return settled;
+  }
+
+  /// Engage l'envoi dans le fil : à partir d'ici, l'écran est modifié.
+  ///
+  /// Tout ce qui précède pouvait être abandonné sans laisser de trace. Ce
+  /// n'est plus vrai après : la question est posée, la bulle de réponse est
+  /// ouverte, et chaque sortie devra remettre le fil d'aplomb.
+  ///
+  /// Rend l'identité du fil, qui vient peut-être d'être créé par ce message,
+  /// et la version qu'un remplacement efface.
+  _CommittedSend _commitOutgoing(
+    _Outgoing outgoing, {
+    required List<ChatMessage> history,
+    required int generationEpoch,
+  }) {
+    // La lecture d'un message sur le point de disparaître s'arrête.
+    if (outgoing.replaceFrom case final from?) {
+      final speaking = _speech?.speaking.value;
+      if (speaking != null &&
+          _messages
+              .skip(from)
+              .any((message) => message.content.trim() == speaking)) {
+        _stopSpeaking();
+      }
+    }
+
+    // Version d'avant le remplacement, copiée juste avant la mutation. Une
+    // régénération ou une modification coupe la fin du fil : si la génération
+    // échoue, c'est la seule trace qui reste de la réponse effacée, de ses
+    // pièces jointes et de ses citations.
+    final replaced = outgoing.replaceFrom == null
+        ? null
+        : List<ChatMessage>.of(_messages);
+
+    late final int? conversationId;
+    setState(() {
+      _ensureActiveConversation(outgoing.text);
+      conversationId = _activeConversationId;
+      // Ce fil appartient désormais à cette génération : une opération plus
+      // ancienne qui reviendrait plus tard n'a plus rien à y faire.
+      _lastGeneration[conversationId!] = generationEpoch;
+      if (outgoing.conversationId == null) {
+        // Ce premier message vient de créer le fil. Ceux mis en attente
+        // pendant sa préparation visaient ce même fil, qui n'avait pas encore
+        // d'identifiant : ils le reçoivent maintenant, au lieu d'être refusés
+        // pour une identité qu'ils ne pouvaient pas connaître.
+        _adoptQueuedIntoNewThread(conversationId!);
+      }
+      _messages
+        ..clear()
+        ..addAll(history)
+        ..add(const ChatMessage.assistant(''));
+      _isGenerating = true;
+      _syncActiveConversation();
+    });
+
+    if (outgoing.fromComposer && _draftStillMatches(outgoing)) {
+      // Le brouillon n'est vidé qu'une fois le message parti, et seulement
+      // s'il porte encore ce qui est parti : la préparation dure parfois
+      // plusieurs secondes, pendant lesquelles l'utilisateur écrit la suite.
+      setState(() {
+        _inputController.clear();
+        _pendingAttachments.clear();
+      });
+    }
+    _scrollToBottom();
+
+    return _CommittedSend(conversationId: conversationId, replaced: replaced);
+  }
+
   Future<_SendOutcome> _send(_Outgoing outgoing) async {
-    final text = outgoing.text;
     final backend = ref.read(chatBackendProvider);
 
     // Identité de cet envoi, prise avant la moindre attente. Le chargement du
@@ -1108,55 +1287,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final requestMessages = prepared.requestMessages;
     final modes = prepared.modes;
 
-    // Validé : la lecture d'un message sur le point de disparaître s'arrête.
-    if (outgoing.replaceFrom case final from?) {
-      final speaking = _speech?.speaking.value;
-      if (speaking != null &&
-          _messages
-              .skip(from)
-              .any((message) => message.content.trim() == speaking)) {
-        _stopSpeaking();
-      }
-    }
-
-    // Version d'avant le remplacement, copiée juste avant la mutation. Une
-    // régénération ou une modification coupe la fin du fil : si la génération
-    // échoue, c'est la seule trace qui reste de la réponse effacée, de ses
-    // pièces jointes et de ses citations.
-    final replaced = outgoing.replaceFrom == null
-        ? null
-        : List<ChatMessage>.of(_messages);
-
-    setState(() {
-      _ensureActiveConversation(text);
-      conversationId = _activeConversationId;
-      // Ce fil appartient désormais à cette génération : une opération plus
-      // ancienne qui reviendrait plus tard n'a plus rien à y faire.
-      _lastGeneration[conversationId!] = generationEpoch;
-      if (outgoing.conversationId == null) {
-        // Ce premier message vient de créer le fil. Ceux mis en attente
-        // pendant sa préparation visaient ce même fil, qui n'avait pas encore
-        // d'identifiant : ils le reçoivent maintenant, au lieu d'être refusés
-        // pour une identité qu'ils ne pouvaient pas connaître.
-        _adoptQueuedIntoNewThread(conversationId!);
-      }
-      _messages
-        ..clear()
-        ..addAll(history)
-        ..add(const ChatMessage.assistant(''));
-      _isGenerating = true;
-      _syncActiveConversation();
-    });
-    if (outgoing.fromComposer && _draftStillMatches(outgoing)) {
-      // Le brouillon n'est vidé qu'une fois le message parti, et seulement
-      // s'il porte encore ce qui est parti : la préparation dure parfois
-      // plusieurs secondes, pendant lesquelles l'utilisateur écrit la suite.
-      setState(() {
-        _inputController.clear();
-        _pendingAttachments.clear();
-      });
-    }
-    _scrollToBottom();
+    final committed = _commitOutgoing(
+      outgoing,
+      history: history,
+      generationEpoch: generationEpoch,
+    );
+    // Le fil vient peut-être de naître : l'envoi suit désormais son identité,
+    // et `stillCurrent` avec lui, puisqu'il la referme.
+    conversationId = committed.conversationId;
+    final replaced = committed.replaced;
 
     var response = '';
     var failed = false;
@@ -1245,30 +1384,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           : GenerationOutcome.incomplete;
 
       if (stillCurrent()) {
-        if (response.isNotEmpty) {
-          _attachCitations(backend);
-          unawaited(
-            _attachGenerationSpeed(backend, generationEpoch, conversationId),
-          );
-        }
-        // Lue même sans un mot reçu : un flux qui s'annonce écourté avant le
-        // premier fragment reste écourté, et le traiter comme une réussite
-        // faisait disparaître la bulle sans rien dire.
-        outcome = _recordOutcome(backend, generationEpoch);
-        if (response.isEmpty && outcome == GenerationOutcome.complete) {
-          // Une réponse vide et pourtant aboutie n'a rien à montrer.
-          _removeEmptyAssistantPlaceholder();
-        }
-        if (replaced != null) {
-          // Un remplacement abouti rend caduque la version d'avant ; un
-          // remplacement écourté ou arrêté la garde reprenable, sans limite
-          // de temps.
-          _keepPreviousVersion(
-            outcome == GenerationOutcome.complete ? null : replaced,
-            generationEpoch,
-            conversationId,
-          );
-        }
+        outcome = _settleFinishedGeneration(
+          backend,
+          response: response,
+          replaced: replaced,
+          generationEpoch: generationEpoch,
+          conversationId: conversationId,
+        );
       }
     } catch (error) {
       // Avant toute chose : ce qui est arrivé avant la coupure doit être
@@ -1280,38 +1402,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         abandonedOutcome = GenerationOutcome.failed;
         return _SendOutcome.sent;
       }
-      if (response.isNotEmpty) {
-        // Le texte reçu reste à l'écran, c'est ce que l'utilisateur a vu,
-        // mais il ne doit pas passer pour une réponse entière.
-        _markLastAssistantOutcome(GenerationOutcome.failed, null);
-        outcome = GenerationOutcome.failed;
-      }
-      if (replaced == null) {
-        if (response.isEmpty) {
-          // Rien n'est arrivé : seule la bulle restée vide s'en va.
-          _removeEmptyAssistantPlaceholder();
-        }
-        _showSnack('Génération impossible : ${_describeError(error)}');
-      } else if (response.isEmpty) {
-        // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le
-        // fil revient tel qu'il était, réponse effacée comprise, plutôt que
-        // de rester amputé de tout ce qui suivait la question.
-        _restoreThread(replaced, generationEpoch, conversationId);
-        _showSnack(
-          'Génération impossible : ${_describeError(error)}. '
-          'Réponse précédente conservée.',
-        );
-      } else {
-        // Du texte est arrivé avant la coupure : il reste affiché, et la
-        // version qu'il a remplacée est conservée avec la conversation. Les
-        // deux survivent donc à la navigation et au redémarrage, là où une
-        // action de bandeau disparaissait au bout de quelques secondes.
-        _keepPreviousVersion(replaced, generationEpoch, conversationId);
-        _showSnack(
-          'Génération interrompue : ${_describeError(error)}. '
-          'Version précédente conservée.',
-        );
-      }
+      outcome = _recoverFromFailure(
+        error,
+        response: response,
+        replaced: replaced,
+        generationEpoch: generationEpoch,
+        conversationId: conversationId,
+        outcome: outcome,
+      );
       failed = true;
     } finally {
       if (stillCurrent()) {

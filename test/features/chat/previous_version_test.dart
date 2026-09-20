@@ -34,6 +34,13 @@ void main() {
       expect(_inThread(tester, 'Première réponse'), isTrue);
       // Rien n'a été remplacé : il n'y a aucune version à proposer.
       expect(find.text('Version précédente conservée'), findsNothing);
+      // Le fil est revenu tout seul : il faut le dire, sinon l'utilisateur
+      // croit que sa régénération a simplement disparu.
+      expect(
+        find.textContaining('Réponse précédente conservée'),
+        findsOneWidget,
+        reason: 'un rétablissement muet ne se distingue pas d’un oubli',
+      );
     });
 
     testWidgets('une erreur après des fragments garde les deux versions', (
