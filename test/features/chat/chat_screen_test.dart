@@ -7,18 +7,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/core/ui/fox_mark.dart';
 import 'package:foxllm/features/chat/chat_screen.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   testWidgets('shows the FoxLLM chat home on launch', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: ChatScreen(),
-        ),
-      ),
+      ProviderScope(child: localizedApp(home: const ChatScreen())),
     );
     await tester.pump();
 
@@ -42,7 +39,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: ChatScreen())),
+      ProviderScope(child: localizedApp(home: ChatScreen())),
     );
     await tester.pump();
 
@@ -71,7 +68,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: ChatScreen())),
+      ProviderScope(child: localizedApp(home: ChatScreen())),
     );
 
     await tester.tap(find.byTooltip('Menu'));
@@ -91,7 +88,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: ChatScreen())),
+      ProviderScope(child: localizedApp(home: ChatScreen())),
     );
 
     await tester.tap(find.byTooltip('Menu'));

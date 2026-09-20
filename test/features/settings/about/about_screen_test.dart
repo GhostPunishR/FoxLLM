@@ -11,13 +11,15 @@ import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/about/legal_documents.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   testWidgets('les Paramètres ouvrent À propos et n’affichent plus le pied de '
       'page', (tester) async {
     await _useTallSurface(tester);
 
     await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: SettingsScreen())),
+      ProviderScope(child: localizedApp(home: SettingsScreen())),
     );
     await tester.pump();
 
@@ -38,7 +40,7 @@ void main() {
   testWidgets('chaque document légal est consultable', (tester) async {
     await _useTallSurface(tester);
 
-    await tester.pumpWidget(const MaterialApp(home: AboutScreen()));
+    await tester.pumpWidget(localizedApp(home: AboutScreen()));
     await tester.pump();
 
     for (final document in <LegalDocument>[
@@ -74,7 +76,10 @@ void main() {
       );
       expect(tester.takeException(), isNull);
 
-      await tester.pageBack();
+      // `pageBack` cherche l'infobulle « Back » : depuis que l'application
+      // est traduite, le bouton dit « Retour » et l'aide ne le trouve plus.
+      // Le type, lui, ne dépend d'aucune langue.
+      await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
     }
   });

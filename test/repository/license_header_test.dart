@@ -16,6 +16,9 @@ const _ownedRoots = <String, List<String>>{
   'android/app/src/main/kotlin': <String>['.kt'],
 };
 
+/// Fichiers produits par un outil, donc hors de la règle.
+bool _isGenerated(String path) => path.contains('/l10n/app_localizations');
+
 void main() {
   test('chaque fichier source porte la notice de licence', () {
     // L'AGPL demande d'attacher la notice aux fichiers du programme : sans
@@ -31,6 +34,14 @@ void main() {
       for (final file
           in directory.listSync(recursive: true).whereType<File>()) {
         if (!entry.value.any(file.path.endsWith)) {
+          continue;
+        }
+        // Les traductions sont écrites par `flutter gen-l10n` à partir des
+        // fichiers ARB, jamais à la main, et ne sont pas versées. Exiger
+        // d'elles une notice reviendrait à demander à un outil d'en poser
+        // une, ou à retoucher à chaque régénération un fichier que personne
+        // ne relit.
+        if (_isGenerated(file.path)) {
           continue;
         }
         final head = file.readAsStringSync();

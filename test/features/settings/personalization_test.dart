@@ -9,6 +9,8 @@ import 'package:foxllm/features/settings/personalization_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('PersonalizationController', () {
     test(
@@ -174,7 +176,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [personalizationStoreProvider.overrideWithValue(store)],
-      child: MaterialApp(theme: FoxTheme.dark.themeData, home: screen),
+      child: localizedApp(theme: FoxTheme.dark.themeData, home: screen),
     ),
   );
   await tester.pump();

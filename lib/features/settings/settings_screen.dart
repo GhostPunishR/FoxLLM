@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_theme_labels.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/features/local_models/current_local_model.dart';
 import 'package:foxllm/features/local_models/local_models_screen.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
@@ -98,7 +100,9 @@ class SettingsScreen extends ConsumerWidget {
               _SettingsTile(
                 icon: Icons.palette_outlined,
                 title: 'Apparence',
-                subtitle: ref.watch(foxThemeProvider).label,
+                subtitle: ref
+                    .watch(foxThemeProvider)
+                    .label(AppLocalizations.of(context)),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(

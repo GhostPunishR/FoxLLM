@@ -11,7 +11,17 @@ import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/core/theme/system_appearance.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/core/l10n/fox_language.dart';
+import 'package:foxllm/core/theme/fox_theme_labels.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/main.dart';
+
+import '../../support/localized_app.dart';
+
+/// Les libellés se traduisent : ils se lisent donc dans les traductions, et
+/// non plus sur l'énumération. `lookupAppLocalizations` les rend sans arbre de
+/// widgets, ce dont ces contrôles ont besoin.
+final l10n = lookupAppLocalizations(const Locale('fr'));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -23,8 +33,8 @@ void main() {
         expect(data.brightness, theme.brightness);
         expect(data.extension<FoxPalette>(), theme.palette);
         expect(data.scaffoldBackgroundColor, theme.palette.background);
-        expect(theme.label, isNotEmpty);
-        expect(theme.description, isNotEmpty);
+        expect(theme.label(l10n), isNotEmpty);
+        expect(theme.description(l10n), isNotEmpty);
       }
     });
 
@@ -44,7 +54,7 @@ void main() {
         expect(
           ratio,
           greaterThanOrEqualTo(4.5),
-          reason: '${theme.label} : contraste du texte principal insuffisant',
+          reason: '${theme.name} : contraste du texte principal insuffisant',
         );
         // 4,5 et non 3 : ces deux teintes servent à des textes de douze ou
         // treize points, la date d'une conversation, une aide de réglage, la
@@ -53,17 +63,17 @@ void main() {
         expect(
           _contrast(palette.textSecondary, palette.background),
           greaterThanOrEqualTo(4.5),
-          reason: '${theme.label} : contraste du texte secondaire insuffisant',
+          reason: '${theme.name} : contraste du texte secondaire insuffisant',
         );
         expect(
           _contrast(palette.textTertiary, palette.background),
           greaterThanOrEqualTo(4.5),
-          reason: '${theme.label} : contraste du texte tertiaire insuffisant',
+          reason: '${theme.name} : contraste du texte tertiaire insuffisant',
         );
         expect(
           _contrast(palette.onAccent, palette.accent),
           greaterThanOrEqualTo(3.0),
-          reason: '${theme.label} : contraste sur l’orange insuffisant',
+          reason: '${theme.name} : contraste sur l’orange insuffisant',
         );
       }
     });
@@ -95,7 +105,7 @@ void main() {
           overrides: [
             foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
           ],
-          child: MaterialApp(
+          child: localizedApp(
             theme: FoxTheme.light.themeData,
             home: const AppearanceScreen(),
           ),
@@ -104,8 +114,8 @@ void main() {
       await tester.pump();
 
       expect(
-        tester.getTopLeft(find.text(FoxTheme.light.label)).dy,
-        lessThan(tester.getTopLeft(find.text(FoxTheme.dark.label)).dy),
+        tester.getTopLeft(find.text(l10n.themeLightLabel)).dy,
+        lessThan(tester.getTopLeft(find.text(l10n.themeDarkLabel)).dy),
       );
     });
   });
@@ -203,7 +213,7 @@ void main() {
         overrides: [
           foxThemeStoreProvider.overrideWithValue(_MemoryThemeStore()),
         ],
-        child: MaterialApp(
+        child: localizedApp(
           theme: FoxTheme.light.themeData,
           home: const AppearanceScreen(),
         ),
@@ -212,18 +222,19 @@ void main() {
     await tester.pump();
 
     for (final theme in FoxTheme.values) {
-      expect(find.text(theme.label), findsOneWidget);
+      expect(find.text(theme.label(l10n)), findsOneWidget);
     }
-    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
-    expect(
-      find.byIcon(Icons.radio_button_unchecked),
-      findsNWidgets(FoxTheme.values.length - 1),
-    );
+    // L'écran porte désormais deux sections : la déclinaison et la langue.
+    // Chacune a exactement une rangée cochée, et le reste ne l'est pas.
+    final rows = FoxTheme.values.length + FoxLanguage.values.length;
+    expect(find.byIcon(Icons.radio_button_checked), findsNWidgets(2));
+    expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(rows - 2));
 
-    await tester.tap(find.text(FoxTheme.dark.label));
+    await tester.tap(find.text(l10n.themeDarkLabel));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+    // Toujours deux coches : la déclinaison a changé, la langue n'a pas bougé.
+    expect(find.byIcon(Icons.radio_button_checked), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 

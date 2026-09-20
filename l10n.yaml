@@ -1,0 +1,10 @@
+# Génération des traductions.
+#
+# Le français est la langue source : c'est dans `app_fr.arb` que les textes
+# sont écrits, et `app_en.arb` en donne la traduction. L'inverse obligerait à
+# écrire en anglais des textes pensés en français, et la nuance s'y perdrait.
+arb-dir: lib/l10n
+template-arb-file: app_fr.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false

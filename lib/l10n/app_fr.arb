@@ -1,0 +1,31 @@
+{
+  "@@locale": "fr",
+  "appTitle": "FoxLLM",
+  "@appTitle": {
+    "description": "Nom de l'application, jamais traduit."
+  },
+  "appearanceTitle": "Apparence",
+  "@appearanceTitle": {
+    "description": "Titre de l'écran Paramètres, Apparence."
+  },
+  "appearanceThemeIntro": "Deux déclinaisons aux couleurs du renard. Le choix est conservé entre deux lancements.",
+  "@appearanceThemeIntro": {
+    "description": "Phrase d'introduction au choix de déclinaison."
+  },
+  "themeLightLabel": "Clair renard",
+  "themeLightDescription": "Blanc crème et orange",
+  "themeDarkLabel": "Sombre renard",
+  "themeDarkDescription": "Noir chaud et orange",
+  "appearanceLanguageTitle": "Langue",
+  "@appearanceLanguageTitle": {
+    "description": "Titre de la section qui choisit la langue de l'interface."
+  },
+  "appearanceLanguageIntro": "La langue de l'interface. Les documents légaux restent en français, seule version faisant foi.",
+  "@appearanceLanguageIntro": {
+    "description": "Introduction au choix de langue, qui signale que les conditions et la politique restent françaises."
+  },
+  "languageSystemLabel": "Suivre l'appareil",
+  "languageSystemDescription": "La langue du téléphone, ou le français si elle n'est pas servie",
+  "languageFrenchDescription": "Toujours en français",
+  "languageEnglishDescription": "Toujours en anglais"
+}
