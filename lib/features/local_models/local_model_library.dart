@@ -32,7 +32,12 @@ class LocalModelLibrary {
       if (_isPartialImport(entity.path)) {
         final partialPath = entity.absolute.path;
         if (!_activePartialPaths.contains(partialPath)) {
-          await entity.delete();
+          try {
+            await entity.delete();
+          } catch (_) {
+            // Ce ménage est un à-côté : un reliquat impossible à effacer ne
+            // doit pas priver l'écran de la liste des modèles.
+          }
         }
         continue;
       }
@@ -128,11 +133,20 @@ class LocalModelLibrary {
       final imported = await partial.rename(destination.path);
       return await _describe(imported);
     } catch (_) {
-      if (output != null) {
-        await output.close();
-      }
-      if (await partial.exists()) {
-        await partial.delete();
+      // Le ménage ne doit pas remplacer la cause : sur un disque plein, la
+      // fermeture comme l'effacement peuvent échouer à leur tour, et
+      // l'utilisateur lirait une erreur de suppression au lieu d'apprendre
+      // qu'il manque de place.
+      try {
+        if (output != null) {
+          await output.close();
+        }
+        if (await partial.exists()) {
+          await partial.delete();
+        }
+      } catch (_) {
+        // Le fichier partiel reste : `_activePartialPaths` le connaît, et le
+        // prochain inventaire de la bibliothèque s'en chargera.
       }
       rethrow;
     } finally {

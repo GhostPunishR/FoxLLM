@@ -8,7 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:foxllm/llm/backend/llm_http.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 
-export 'package:foxllm/llm/backend/llm_http.dart' show PersonalApiHttpException;
+export 'package:foxllm/llm/backend/llm_http.dart'
+    show PersonalApiHttpException, PersonalApiTimeoutException;
 
 /// Dialecte d'API parlé par un fournisseur.
 enum PersonalApiProtocol {
@@ -46,12 +47,11 @@ class PersonalApiProvider {
   ///
   /// Nommés un par un, et non par défaut : proposer le mode Recherche à un
   /// moteur qui ne l'a pas laisserait croire à une réponse sourcée qui ne le
-  /// serait pas. Anthropic a bien un outil de recherche, mais FoxLLM ne le
-  /// demande pas encore : tant qu'il n'est pas déclaré dans la requête, le
-  /// mode n'aurait aucun effet.
+  /// serait pas.
   bool get supportsWebSearch =>
       protocol == PersonalApiProtocol.openAiResponses ||
-      protocol == PersonalApiProtocol.gemini;
+      protocol == PersonalApiProtocol.gemini ||
+      protocol == PersonalApiProtocol.anthropic;
 
   String resolveBaseUrl(String customBaseUrl) {
     if (custom) {
@@ -66,6 +66,13 @@ class PersonalApiProvider {
 /// Figée : c'est ce qui garantit que le format des réponses ne change pas sous
 /// l'application. La faire évoluer demande de relire le format des évènements.
 const anthropicApiVersion = '2023-06-01';
+
+/// Outil de recherche web d'Anthropic, désigné par sa date de version.
+///
+/// Anthropic date ses outils plutôt que de les versionner : changer cette
+/// valeur change d'outil, et une valeur inconnue fait refuser la requête
+/// entière. Elle est donc nommée ici, et non écrite au milieu d'une requête.
+const anthropicWebSearchTool = 'web_search_20250305';
 
 const anthropicPersonalApiProvider = PersonalApiProvider(
   id: 'anthropic',
@@ -170,6 +177,9 @@ PersonalApiProvider inferPersonalApiProvider(String baseUrl) {
   return customPersonalApiProvider;
 }
 
+/// Attente maximale de la liste des modèles d'un fournisseur.
+const modelsTimeout = Duration(seconds: 30);
+
 Future<List<String>> fetchPersonalApiModels({
   required PersonalApiProvider provider,
   required String apiKey,
@@ -210,7 +220,19 @@ Future<List<String>> fetchPersonalApiModels({
       }
     }
 
-    final response = await httpClient.get(uri, headers: headers);
+    // Même raison que pour la génération : sans délai, un fournisseur qui
+    // accepte la connexion puis se tait laisse l'écran des réglages sur son
+    // rond indéfiniment. La liste des modèles est un appel court, le délai
+    // peut donc l'être aussi.
+    final response = await httpClient
+        .get(uri, headers: headers)
+        .timeout(
+          modelsTimeout,
+          onTimeout: () => throw PersonalApiTimeoutException(
+            '${provider.displayName} n’a pas répondu dans les '
+            '${modelsTimeout.inSeconds} secondes.',
+          ),
+        );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw PersonalApiHttpException(
         statusCode: response.statusCode,

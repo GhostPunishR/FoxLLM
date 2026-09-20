@@ -46,10 +46,19 @@ void main() {
           greaterThanOrEqualTo(4.5),
           reason: '${theme.label} : contraste du texte principal insuffisant',
         );
+        // 4,5 et non 3 : ces deux teintes servent à des textes de douze ou
+        // treize points, la date d'une conversation, une aide de réglage, la
+        // mention de copyright. Le seuil de 3 ne vaut que pour du texte large,
+        // que l'application n'utilise nulle part pour ces rôles.
         expect(
           _contrast(palette.textSecondary, palette.background),
-          greaterThanOrEqualTo(3.0),
+          greaterThanOrEqualTo(4.5),
           reason: '${theme.label} : contraste du texte secondaire insuffisant',
+        );
+        expect(
+          _contrast(palette.textTertiary, palette.background),
+          greaterThanOrEqualTo(4.5),
+          reason: '${theme.label} : contraste du texte tertiaire insuffisant',
         );
         expect(
           _contrast(palette.onAccent, palette.accent),

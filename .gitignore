@@ -1,4 +1,8 @@
 # Dart / Flutter
+# Volontairement non versionné : l'application se construit avec les versions
+# résolues au moment de la compilation, et le fichier se régénère à chaque
+# `flutter pub get`. Versionné, il salirait l'arbre à chaque commande.
+pubspec.lock
 .dart_tool/
 .packages
 .pub/

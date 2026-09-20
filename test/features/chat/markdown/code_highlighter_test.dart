@@ -140,7 +140,7 @@ int add(int a, int b) {
           'chaîne': p.codeString,
           'nombre': p.codeNumber,
           'appel': p.codeCall,
-          'texte courant': p.textPrimary,
+          'texte courant': p.codePlain,
         };
         roles.forEach((name, color) {
           expect(
@@ -161,7 +161,7 @@ int add(int a, int b) {
           p.codeString,
           p.codeNumber,
           p.codeCall,
-          p.textPrimary,
+          p.codePlain,
         };
         expect(
           colors,
@@ -169,6 +169,103 @@ int add(int a, int b) {
           reason: '${theme.label} : rôles confondus',
         );
       }
+    });
+  });
+
+  group('couleurs de GitHub', () {
+    test('les six rôles reprennent les teintes du thème Primer', () {
+      // Un extrait de code se lit partout ailleurs avec ces couleurs là.
+      // Les écrire ici plutôt que de les décrire évite qu'une retouche de
+      // palette les emporte sans qu'on s'en aperçoive.
+      const githubDark = <String, int>{
+        'plain': 0xFFF0F6FC,
+        'comment': 0xFF9198A1,
+        'keyword': 0xFFFF7B72,
+        'string': 0xFFA5D6FF,
+        'number': 0xFF79C0FF,
+        'call': 0xFFD2A8FF,
+      };
+      const githubLight = <String, int>{
+        'plain': 0xFF1F2328,
+        'comment': 0xFF59636E,
+        'keyword': 0xFFCF222E,
+        'string': 0xFF0A3069,
+        'number': 0xFF0550AE,
+        'call': 0xFF8250DF,
+      };
+
+      for (final theme in FoxTheme.values) {
+        final p = theme.palette;
+        final expected = theme == FoxTheme.dark ? githubDark : githubLight;
+        expect(p.codePlain.toARGB32(), expected['plain']);
+        expect(p.codeComment.toARGB32(), expected['comment']);
+        expect(p.codeKeyword.toARGB32(), expected['keyword']);
+        expect(p.codeString.toARGB32(), expected['string']);
+        expect(p.codeNumber.toARGB32(), expected['number']);
+        expect(p.codeCall.toARGB32(), expected['call']);
+      }
+    });
+
+    test('le texte d’un bloc de code ne suit pas celui de l’application', () {
+      // Le fil garde la chaleur de FoxLLM, le bloc de code prend le gris de
+      // GitHub : confondre les deux ferait revenir l'un avec l'autre.
+      for (final theme in FoxTheme.values) {
+        expect(theme.palette.codePlain, isNot(theme.palette.textPrimary));
+      }
+    });
+  });
+
+  group('coût de la coloration', () {
+    test('le travail croît avec la taille, pas avec son carré', () {
+      // La boucle recopiait tout le code restant à chaque caractère, ce qui
+      // rendait la passe quadratique. Refaite à chaque image tant que la
+      // réponse s'écrit, elle faisait sauter des images sur un extrait de
+      // quelques kilooctets.
+      //
+      // Ce contrôle regarde la forme de la courbe, pas une vitesse : sur une
+      // machine d'intégration chargée, les deux mesures se dégradent
+      // ensemble, et c'est leur rapport qui reste parlant. Quadratique, un
+      // texte quatre fois plus long coûte seize fois plus ; linéaire, quatre.
+      String sample(int lines) {
+        final buffer = StringBuffer();
+        for (var index = 0; index < lines; index++) {
+          buffer.writeln('  final valeur = calcul($index, "texte"); // note');
+        }
+        return buffer.toString();
+      }
+
+      final small = sample(100);
+      final large = sample(400);
+
+      // Mise en jambes : le premier passage paie la compilation à la volée.
+      for (var index = 0; index < 5; index++) {
+        highlightCode(small, language: 'dart');
+        highlightCode(large, language: 'dart');
+      }
+
+      final smallClock = Stopwatch()..start();
+      for (var index = 0; index < 20; index++) {
+        highlightCode(small, language: 'dart');
+      }
+      smallClock.stop();
+
+      final largeClock = Stopwatch()..start();
+      for (var index = 0; index < 20; index++) {
+        highlightCode(large, language: 'dart');
+      }
+      largeClock.stop();
+
+      final ratio =
+          largeClock.elapsedMicroseconds /
+          smallClock.elapsedMicroseconds.clamp(1, 1 << 30);
+
+      expect(
+        ratio,
+        lessThan(10),
+        reason:
+            'quatre fois plus de code a coûté ${ratio.toStringAsFixed(1)} '
+            'fois plus de temps : la coloration est redevenue quadratique',
+      );
     });
   });
 }

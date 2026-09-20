@@ -1,0 +1,112 @@
+name: llama.cpp Integration
+
+# Le seul travail qui exécute réellement le moteur local.
+#
+# « C++ Compile » ne compile que le bouchon, et « Dart ↔ C++ FFI Smoke » ne
+# traverse le pont qu'à vide : ni l'un ni l'autre ne charge de modèle. Tout ce
+# qui fait le moteur local restait donc non vérifié à l'exécution, cache KV
+# compris.
+#
+# Ce travail comble ce trou avec un modèle témoin construit sur place, aux
+# poids aléatoires. Les réponses n'ont aucun sens, et c'est sans importance :
+# ce qui est vérifié, c'est que le cache ne les change pas.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: llama-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    name: llama.cpp Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le tag est lu dans le CMakeLists du pont natif plutôt que recopié ici.
+      # Une version épinglée à deux endroits finit toujours par diverger, et
+      # ce travail vérifierait alors une autre bibliothèque que celle qui part
+      # dans l'application.
+      - name: Read the pinned llama.cpp tag
+        id: pin
+        run: |
+          tag="$(sed -n 's/^[[:space:]]*GIT_TAG[[:space:]]\{1,\}//p' \
+            packages/foxllm_native/CMakeLists.txt | head -1)"
+          if [ -z "$tag" ]; then
+            echo "GIT_TAG introuvable dans packages/foxllm_native/CMakeLists.txt" >&2
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "llama.cpp epingle sur $tag"
+
+      # La compilation de llama.cpp dure plusieurs minutes. Comme le tag ne
+      # bouge qu'aux montées de version, la garder d'une exécution sur l'autre
+      # ramène ce travail à quelques secondes le reste du temps.
+      - name: Cache llama.cpp
+        id: llama-cache
+        uses: actions/cache@v4
+        with:
+          path: llama.cpp
+          key: llama-${{ runner.os }}-${{ steps.pin.outputs.tag }}
+
+      - name: Fetch and build llama.cpp
+        if: steps.llama-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${{ steps.pin.outputs.tag }}" \
+            https://github.com/ggml-org/llama.cpp.git llama.cpp
+          cmake -B llama.cpp/build -S llama.cpp \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_NATIVE=OFF \
+            -DLLAMA_CURL=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_SERVER=OFF \
+            -DLLAMA_BUILD_TOOLS=OFF \
+            -DBUILD_SHARED_LIBS=OFF
+          cmake --build llama.cpp/build --target llama -j"$(nproc)"
+
+      - name: Install the GGUF writer
+        run: python3 -m pip install --quiet --disable-pip-version-check gguf numpy
+
+      # Le modèle est construit à chaque fois plutôt que versé dans le dépôt :
+      # sept cents kilooctets de binaire n'ont rien à y faire quand deux cents
+      # lignes de Python les reproduisent au bit près.
+      - name: Build the witness model
+        run: |
+          python3 packages/foxllm_native/test/make_tiny_gguf.py \
+            --out /tmp/foxllm-tiny.gguf
+
+      # Le vrai chemin, celui que l'application emprunte sur un téléphone :
+      # `FOXLLM_WITH_LLAMA_CPP` activé, contre la bibliothèque réelle.
+      - name: Build the bridge against llama.cpp
+        run: |
+          g++ \
+            -std=c++17 \
+            -O2 \
+            -Wall \
+            -Wextra \
+            -Werror \
+            -DFOXLLM_WITH_LLAMA_CPP=1 \
+            -I llama.cpp/include \
+            -I llama.cpp/ggml/include \
+            packages/foxllm_native/src/foxllm_native.cpp \
+            packages/foxllm_native/test/kv_cache_integration_test.cpp \
+            -o /tmp/foxllm_kv_integration \
+            llama.cpp/build/src/libllama.a \
+            llama.cpp/build/ggml/src/libggml.a \
+            llama.cpp/build/ggml/src/libggml-cpu.a \
+            llama.cpp/build/ggml/src/libggml-base.a \
+            -lpthread -lm -ldl -fopenmp
+
+      - name: Check the KV cache against a real model
+        run: /tmp/foxllm_kv_integration /tmp/foxllm-tiny.gguf

@@ -721,7 +721,7 @@ List<InlineSpan> codeSpans(
   required FoxPalette palette,
 }) {
   Color colorOf(CodeTokenType type) => switch (type) {
-    CodeTokenType.plain => palette.textPrimary,
+    CodeTokenType.plain => palette.codePlain,
     CodeTokenType.comment => palette.codeComment,
     CodeTokenType.string => palette.codeString,
     CodeTokenType.number => palette.codeNumber,

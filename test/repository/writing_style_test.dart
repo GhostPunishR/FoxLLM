@@ -13,7 +13,7 @@ const _ownedRoots = <String, List<String>>{
   'test': <String>['.dart'],
   'docs': <String>['.html', '.css', '.js'],
   'packages/foxllm_native/lib': <String>['.dart'],
-  'packages/foxllm_native/tool': <String>['.dart'],
+  'packages/foxllm_native/test': <String>['.dart', '.cpp', '.py'],
   'packages/foxllm_native/hook': <String>['.dart'],
   'packages/foxllm_native/src': <String>['.cpp', '.h'],
   'android/app/src/main/kotlin': <String>['.kt'],

@@ -7,11 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:foxllm/core/diagnostics/first_error.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
 import 'package:foxllm/features/chat/chat_backend_host.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Avant tout le reste : une erreur au démarrage doit pouvoir se lire sur
+  // l'appareil, et non seulement dans un journal branché à un ordinateur.
+  installFirstErrorScreen();
   unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
   runApp(const ProviderScope(child: FoxLlmApp()));
 }

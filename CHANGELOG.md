@@ -2,7 +2,13 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
-## [Non publié]
+## [0.1.5] - 2026-09-19
+
+Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
+correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
+les erreurs de fournisseur se lisent en français dans le chat, et les copies
+de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
+441 à 531 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -31,6 +37,255 @@ Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
   bien un outil de recherche, mais FoxLLM ne le déclare pas encore dans ses
   requêtes, et le proposer laisserait attendre des sources qui ne viendraient
   jamais.
+
+### Corrections
+
+- **le réseau pouvait attendre indéfiniment.** Il n'y avait pas un seul délai
+  d'expiration dans l'application : un fournisseur qui acceptait la connexion
+  puis se taisait laissait le rond tourner pour toujours, sans que rien
+  n'indique que plus rien ne viendrait. Trois délais sont posés : l'ouverture
+  de la réponse, le silence entre deux fragments d'un flux, et la liste des
+  modèles. Celui du flux se recompte à chaque fragment : une réponse peut
+  prendre dix minutes tant qu'elle avance, c'est le silence qui est borné ;
+- **un battement de cœur suffisait à désarmer ce délai.** Le compte était
+  relancé par chaque ligne reçue, or le `: ping` d'OpenRouter et les
+  commentaires qu'un proxy intercale pour tenir la connexion ouverte en sont.
+  Un fournisseur bloqué derrière un proxy bavard faisait donc tourner le rond
+  indéfiniment, ce que ce délai venait précisément d'interdire. Seule une
+  charge utile atteste d'un progrès, et seule une charge utile relance
+  désormais le compte ;
+- **le corps d'une réponse en échec échappait à tout délai.** Celui de la
+  réponse s'arrête aux en-têtes : un fournisseur qui annonçait 500 puis se
+  taisait en écrivant le détail laissait la lecture attendre sans fin, pour
+  une requête déjà perdue. Cette lecture est bornée, et son expiration ne
+  coûte que le détail de l'erreur, jamais son signalement ;
+- **un modèle encodeur-décodeur au prompt un peu long arrêtait
+  l'application.** Ces modèles lisent tout leur prompt d'un seul appel, et
+  llama.cpp exige que le lot le tienne en entier : il le vérifie par une
+  assertion, donc un arrêt net du processus et non une erreur rendue. Le
+  micro-lot restant plafonné à 512 jetons, tout prompt au-dessus tombait.
+  Pour ces modèles le lot suit maintenant le prompt ;
+- **le chat versait les erreurs brutes dans le bandeau.** Un refus HTTP y
+  déversait le corps entier de la réponse, page d'erreur de proxy ou pavé
+  JSON compris. La traduction française existait déjà, mais n'était utilisée
+  que sur l'écran des réglages : « La clé API est invalide ou a été révoquée »
+  plutôt que quatre lignes d'anglais et d'accolades ;
+- **les pièces jointes d'une version conservée n'étaient jamais effacées.**
+  Supprimer une conversation ne parcourait que le fil visible : les copies
+  citées par la seule version conservée restaient sur le disque, sans que
+  rien ne puisse plus les rouvrir ni les effacer. Le parcours est désormais
+  porté par la conversation elle-même, pour qu'une troisième liste, un jour,
+  ne soit pas oubliée à son tour ;
+- **au-delà de cent conversations, les plus anciennes disparaissaient en
+  silence.** L'historique n'en enregistre que cent : les suivantes restaient
+  à l'écran jusqu'à la fermeture, puis s'évanouissaient au lancement suivant
+  en laissant leurs pièces jointes derrière elles. Le plafond est maintenant
+  tenu en mémoire, et jamais au détriment de la conversation ouverte ;
+- **les sources d'une génération abandonnée s'invitaient dans la suivante.**
+  Quitter un fil pendant qu'il répond laisse l'ancienne génération se
+  terminer après le départ de la nouvelle. Les relevés étant rangés sur le
+  moteur, cette retardataire y versait ses sources : le fil ouvert se
+  retrouvait avec des sources qu'il n'avait jamais demandées. Ils
+  appartiennent désormais à la génération qui les a produits ;
+- **un message pouvait fabriquer un faux tour de parole.** Dans le repli
+  ChatML, utilisé quand un GGUF ne porte pas de gabarit de conversation, un
+  message contenant `<|im_end|>` fermait son propre tour et ouvrait ce qu'il
+  voulait derrière : de quoi faire passer une instruction pour une consigne
+  système. Les balises sont neutralisées sans rien retirer au texte ;
+- **le drapeau d'arrêt natif n'était pas remis à zéro** par la génération en
+  flux, contrairement à la génération simple. Le worker s'en chargeait, mais
+  faire dépendre la correction d'un appelant discipliné n'est pas une
+  garantie : une réponse vide sans erreur pour l'expliquer était au bout.
+
+### Modèles locaux
+
+- **le cache KV est en place.** Le contexte d'inférence était créé puis jeté à
+  chaque réponse : toute la conversation était relue depuis le début à chaque
+  message, et le coût croissait avec sa longueur. Or une conversation ne fait
+  qu'allonger son début, le prompt d'un tour commençant par celui du tour
+  précédent. Le contexte est désormais gardé, avec la liste des jetons qu'il a
+  lus ; seul ce qui a changé est relu. Un fil qui diverge, par une
+  régénération ou une modification, voit la partie devenue fausse retirée du
+  cache et relue, jamais réutilisée à tort ;
+- **la mémoire n'est pas réservée d'avance pour autant.** Un contexte fixé à
+  quelques milliers de jetons coûterait des centaines de mégaoctets qu'un
+  téléphone n'a pas. Le contexte suit donc la conversation par doublements :
+  assez rare pour que le cache serve entre deux agrandissements, assez souple
+  pour qu'une question d'une ligne ne paie pas la mémoire d'un long fil ;
+- le prompt se lit par lots de 512 jetons au lieu d'un seul lot de sa taille,
+  ce qui borne les tampons de calcul et permet à un long fil de passer.
+
+### Ajouts
+
+- **la vitesse d'écriture s'affiche sous une réponse locale**, en jetons par
+  seconde. Le pont natif la mesurait déjà et la jetait. C'est la façon de voir
+  l'effet du cache KV, de comparer deux modèles ou de juger d'un réglage, sans
+  rien avoir à refaire. Discrète à dessein, et enregistrée avec le message.
+  Une réponse distante n'en porte aucune : un fournisseur ne donne pas ce
+  compte, et l'inventer serait pire que de se taire ;
+- **la recherche web fonctionne chez Anthropic.** L'outil était laissé de côté
+  faute d'être déclaré dans les requêtes ; il l'est maintenant, et les sources
+  reviennent par les deux chemins qu'Anthropic emploie : les pages consultées
+  dès que la recherche aboutit, puis les citations au fil des phrases qu'elles
+  appuient. Trois fournisseurs savent donc consulter le web, contre deux.
+
+### Modèles locaux, suite
+
+- **le cache KV tient dans la moitié de la mémoire.** En `q8_0` plutôt qu'en
+  `f16`, c'est deux fois plus de conversation gardée à mémoire égale, pour une
+  perte de qualité négligeable à huit bits. llama.cpp marque ces réglages
+  comme expérimentaux et le cache V quantifié demande l'attention flash : un
+  repli sur le cache ordinaire est prévu, pour qu'un téléphone qui la refuse
+  garde son moteur local plutôt que de le perdre.
+
+### Accessibilité, suite
+
+- **l'accueil du chat tient à deux fois la taille de texte.** Le bloc de
+  bienvenue était posé à 39 % de la hauteur avec une largeur fixe : agrandi,
+  il débordait de 194 points et affichait la bande rayée par-dessus l'écran.
+  L'espace au-dessus lui cède maintenant du terrain à mesure que le texte
+  grandit, sa largeur suit l'écran, et il défile si cela ne suffit pas. Douze
+  contrôles vérifient les quatre écrans principaux à une fois et demie, et
+  deux fois, la taille ordinaire.
+
+### Blocs de code
+
+- **les couleurs sont celles de GitHub**, thème Primer, clair et sombre. Un
+  extrait de code se lit partout ailleurs avec ces teintes : les reprendre
+  évite d'avoir à réapprendre ce que veut dire un rouge ou un violet. Les
+  douze valeurs sont vérifiées lisibles sur le fond des blocs de FoxLLM, qui
+  n'est pas celui de GitHub, et un contrôle les compare une à une au thème
+  d'origine ;
+- le texte non coloré d'un bloc a désormais son propre rôle : le fil garde la
+  chaleur de FoxLLM, le code prend le gris de GitHub.
+
+### Performance et accessibilité
+
+- **la coloration du code était quadratique.** La boucle recopiait tout le
+  code restant à chaque caractère : sur un extrait de sept kilooctets, douze
+  millions de caractères recopiés par passage. Mesuré avant et après sur le
+  même extrait, vingt passages tombent de 107 ms à 7 ms, quinze fois moins.
+  Un contrôle compare désormais la forme de la courbe plutôt qu'une vitesse :
+  quatre fois plus de code ne doit pas coûter seize fois plus de temps ;
+- **le fil était repeint à chaque fragment reçu.** Or afficher un message
+  ré-analyse son markdown et recolore son code, pour tous les messages
+  visibles : le travail croissait donc avec le carré de la longueur de la
+  réponse, sur le fil principal, au moment précis où l'appareil produit la
+  suite. Les fragments sont groupés sur cinquante millisecondes, ce qui
+  laisse le texte paraître s'écrire. Ce qu'un groupement retient est poussé à
+  l'écran à la fin du flux, échec compris : c'est justement après une coupure
+  que le texte déjà reçu compte le plus ;
+- **les cibles tactiles passent à 48 points.** La barre du haut était à 42, et
+  les six boutons sous une réponse à 40, là où Android demande 48 pour ce qui
+  se touche. Les dessins gardent leur taille : seule la zone sensible autour
+  d'eux s'élargit, et la barre d'actions passe à la ligne plutôt que de
+  déborder sur un écran étroit ;
+- **le texte tertiaire clair remonte à 4,5 de contraste**, contre 3,36. Il
+  sert aux dates de conversation, aux aides de réglage et à la mention de
+  copyright, tous en douze ou treize points, où la règle WCAG demande 4,5. Le
+  contrôle de palette l'exige désormais pour le texte secondaire comme pour le
+  tertiaire, au lieu de se contenter de 3 ;
+- **un import de modèle qui échoue dit pourquoi.** Le ménage qui suivait
+  l'échec pouvait échouer à son tour sur un disque plein, et remplaçait alors
+  la vraie cause par une erreur de suppression.
+
+### Durcissement
+
+- **l'analyseur passe en mode strict** (`strict-casts`, `strict-inference`,
+  `strict-raw-types`). Le code relit du JSON en permanence, réponses de
+  fournisseurs, historique, réglages : sans ces règles, une valeur `dynamic`
+  se glisse dans un type déclaré sans un mot, et la faute ne se voit qu'à
+  l'exécution, sur l'appareil de quelqu'un ;
+- `pubspec.lock` est ignoré par git, ce qu'il n'était ni d'un côté ni de
+  l'autre : chaque `flutter pub get` salissait l'arbre de travail ;
+- la version du paquet natif s'aligne sur celle que la bibliothèque annonce.
+
+### Correction d'une régression
+
+- **l'application ne démarrait plus sur certains appareils.** Le correctif de
+  mise à l'échelle du texte calculait la largeur du bloc d'accueil par une
+  soustraction, sans la borner. Or la première image d'un lancement arrive
+  avant que la fenêtre ait ses dimensions, donc avec une largeur nulle : la
+  soustraction donnait une largeur négative, qu'un `SizedBox` refuse, et toute
+  l'application tombait au démarrage. Le mode immersif allonge encore cet
+  instant, le temps que les barres système cèdent la place.
+- **aucun test ne pouvait l'attraper** : un banc de test pose toujours une
+  taille d'écran, et ne voit donc jamais cette première image sans dimensions.
+  Sept contrôles couvrent désormais les tailles qu'un appareil produit
+  vraiment : la fenêtre encore vide, le plus petit écran Android courant, un
+  écran partagé en hauteur, et l'enchaînement d'un lancement, du rien vers
+  l'écran.
+
+### Diagnostic
+
+- **une version de débogage affiche désormais la première erreur**, et non la
+  dernière. Quand une construction échoue, Flutter remplace le sous-arbre
+  abîmé puis démonte ce qui l'entourait ; ce démontage échoue à son tour, et
+  c'est cette seconde erreur, sans rapport avec la cause, qui reste à l'écran.
+  On lit une conséquence pendant que la cause défile dans un journal qu'on n'a
+  pas. L'écran donne maintenant l'erreur d'origine et le début de sa pile
+  d'appels, de quoi nommer un fichier et une ligne depuis un téléphone, sans
+  câble ni outil. Il tient sans thème, sans police et sans image, puisqu'il
+  doit s'afficher quand tout le reste a échoué. Les versions de distribution
+  gardent l'écran discret de Flutter.
+
+### Travaux internes
+
+Rien de visible à l'usage, mais l'écran de chat portait un état de trente-cinq
+champs et quatre-vingt-quatre méthodes : de quoi rendre invérifiable ce qui
+décide d'effacer un fichier ou d'écrire dans une conversation.
+
+- **le moteur local est enfin exécuté par l'intégration continue.** Aucun
+  travail ne chargeait de modèle : l'un ne compilait que le bouchon, l'autre
+  ne traversait le pont qu'à vide. Tout ce qui fait le moteur local restait
+  donc non vérifié à l'exécution, cache KV compris. Un modèle témoin est
+  maintenant construit à chaque fois par un script de deux cents lignes, puis
+  le pont est compilé contre la vraie bibliothèque et le cache mis à l'épreuve.
+
+  Le modèle pèse sept cents kilooctets, porte des poids aléatoires et répond
+  donc du charabia. C'est sans importance : avec un échantillonnage glouton,
+  la réponse ne dépend que du prompt, et un cache correct n'en change pas un
+  jeton. Quatre contrôles en découlent : un fil qui s'allonge, un cache cumulé
+  sur trois tours, un message modifié en cours de route, et un témoin qui
+  vérifie que deux prompts différents donnent bien deux réponses différentes,
+  sans quoi les trois premiers ne prouveraient rien. Le tag de llama.cpp est
+  lu dans le `CMakeLists` du pont plutôt que recopié, pour qu'une version
+  épinglée à deux endroits ne diverge pas ;
+- **le pont natif range ses vérifications au même endroit.** Le dépôt porte
+  deux paquets Dart, donc deux dossiers `test` : celui de la racine appartient
+  à l'application, celui de `packages/foxllm_native` au pont. Ce n'est pas un
+  éparpillement mais la règle des paquets Dart, et y déroger empêcherait les
+  tests de s'exécuter. En revanche le pont rangeait la moitié des siens dans
+  `tool` : le test de fumée FFI et le banc AddressSanitizer rejoignent son
+  `test`. Un contrôle refuse désormais qu'une vérification vive ailleurs, et
+  qu'un travail d'intégration continue désigne un fichier déplacé ;
+- **les deux décisions d'entretien de l'historique** sortent de l'écran :
+  laquelle des conversations ne tient plus sous le plafond, et quelles pièces
+  jointes plus personne ne cite. Elles ne dépendent que de leurs arguments, et
+  douze contrôles les couvrent une à une, y compris la conversation ouverte
+  qu'on épargne et les deux objets distincts qui désignent le même fichier ;
+- **la règle d'identité d'un fil n'est plus écrite qu'une fois.** Quatre
+  copies écrites à la main décidaient si une opération asynchrone avait encore
+  le droit d'écrire, et deux d'entre elles étaient volontairement
+  différentes : écrire dans une conversation par son identifiant n'exige pas
+  qu'elle soit affichée, toucher au fil visible si. La distinction était
+  correcte mais implicite, donc recopiable de travers ; elle porte désormais
+  deux noms, et un contrôle du dépôt refuse qu'une cinquième copie
+  réapparaisse. Trois des défauts les plus coûteux corrigés cette année
+  venaient de là ;
+- **l'envoi d'un message se lit en cinq phases** au lieu d'une méthode de
+  trois cent vingt-sept lignes, qui en fait désormais cent quatre-vingt-quatre.
+  La préparation, où rien n'est encore engagé et où tout peut être abandonné
+  sans laisser de trace. La validation, à partir de laquelle le fil est
+  modifié et chaque sortie doit le remettre d'aplomb. Le flux. Le bilan d'une
+  génération terminée. Et la remise d'aplomb après un échec, dont les quatre
+  situations deviennent lisibles d'un coup d'œil : du texte reçu ou non, une
+  version remplacée ou non ;
+- ce découpage a montré qu'une de ces quatre situations était vérifiée dans
+  ses effets mais pas dans ce qu'elle dit à l'utilisateur. Une régénération
+  qui échoue avant le premier mot remet le fil en place ; le test le
+  vérifiait, mais aucun ne vérifiait qu'on le dise. Un rétablissement muet ne
+  se distingue pourtant pas d'un oubli.
 
 ### Documents légaux
 

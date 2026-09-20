@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:foxllm/llm/backend/llm_http.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
+import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
@@ -80,8 +81,69 @@ class AnthropicBackend extends HttpStreamingBackend {
         // refusent avec une erreur 400, et les anciens s'en passent très bien.
         'stream': true,
         if (systemText.isNotEmpty) 'system': systemText,
+        // L'outil de recherche d'Anthropic s'exécute chez lui : le modèle
+        // décide seul d'y recourir, et rend ses sources dans le flux. Rien
+        // n'est demandé au téléphone, qui ne consulte aucune page.
+        if (settings.webSearch)
+          'tools': <Map<String, Object>>[
+            <String, Object>{
+              'type': anthropicWebSearchTool,
+              'name': 'web_search',
+            },
+          ],
         'messages': turns,
       });
+  }
+
+  @override
+  Iterable<Citation> extractCitations(Map<String, dynamic> event) sync* {
+    // Deux chemins, et les deux comptent. Le résultat de l'outil énumère les
+    // pages consultées dès que la recherche aboutit ; les citations du texte
+    // arrivent ensuite, au fil des phrases qu'elles appuient. Une réponse peut
+    // citer moins de pages qu'elle n'en a lues, et l'utilisateur a intérêt à
+    // voir les deux.
+    final delta = event['delta'];
+    if (delta is Map<String, dynamic> && delta['type'] == 'citations_delta') {
+      final citation = delta['citation'];
+      if (citation is Map<String, dynamic>) {
+        final found = _citationOf(citation);
+        if (found != null) {
+          yield found;
+        }
+      }
+    }
+
+    final block = event['content_block'];
+    if (block is! Map<String, dynamic> ||
+        block['type'] != 'web_search_tool_result') {
+      return;
+    }
+    final results = block['content'];
+    if (results is! List) {
+      return;
+    }
+    for (final result in results) {
+      if (result is! Map<String, dynamic>) {
+        continue;
+      }
+      final found = _citationOf(result);
+      if (found != null) {
+        yield found;
+      }
+    }
+  }
+
+  /// Rend la source décrite par [entry], ou `null` si elle n'a pas d'adresse.
+  static Citation? _citationOf(Map<String, dynamic> entry) {
+    final url = entry['url'];
+    if (url is! String || url.trim().isEmpty) {
+      return null;
+    }
+    final title = entry['title'];
+    return Citation(
+      url: url.trim(),
+      title: title is String ? title.trim() : '',
+    );
   }
 
   /// Vrai pour un message qui n'apporte rien : Anthropic refuse un contenu

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ import 'package:foxllm/features/chat/chat_backend_host.dart';
 import 'package:foxllm/features/chat/chat_modes.dart';
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_date.dart';
+import 'package:foxllm/features/chat/conversations/conversation_housekeeping.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
 import 'package:foxllm/features/chat/dictation.dart';
 import 'package:foxllm/features/chat/markdown/message_markdown.dart';
@@ -34,11 +36,51 @@ import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/llm/personal_api/personal_api_chat_backend.dart';
+import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 
 part 'chat_top_bar.dart';
 part 'chat_messages.dart';
 part 'chat_composer.dart';
 part 'chat_drawer.dart';
+
+/// Écart minimal entre deux peintures du message en cours de réception.
+///
+/// Vingt images par seconde : assez pour que le texte paraisse s'écrire, et
+/// dix à vingt fois moins de travail qu'une peinture par fragment reçu. Un
+/// fournisseur rapide en envoie plusieurs dizaines par seconde, dont personne
+/// ne peut lire la différence.
+const _streamPaintInterval = Duration(milliseconds: 50);
+
+/// Ce qu'un envoi a réuni avant de partir.
+///
+/// [history] est le fil tel qu'il sera affiché ; [requestMessages] ce qui part
+/// au modèle, consigne système et contenu des pièces jointes compris. Les deux
+/// diffèrent à dessein : la conversation enregistrée ne doit pas figer les
+/// instructions du jour.
+class _PreparedSend {
+  const _PreparedSend({
+    required this.history,
+    required this.requestMessages,
+    required this.modes,
+  });
+
+  final List<ChatMessage> history;
+  final List<ChatMessage> requestMessages;
+  final ChatModes modes;
+}
+
+/// Ce qu'un envoi engagé laisse derrière lui.
+///
+/// [conversationId] peut être celui d'un fil que ce message vient de créer :
+/// l'envoi doit alors suivre cette nouvelle identité, pas celle qu'il visait.
+/// [replaced] est la version que le remplacement efface, `null` quand l'envoi
+/// n'en remplace aucune.
+class _CommittedSend {
+  const _CommittedSend({required this.conversationId, required this.replaced});
+
+  final int? conversationId;
+  final List<ChatMessage>? replaced;
+}
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -317,13 +359,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
 
-    // Les copies des pièces jointes ne servent plus à personne.
+    // Les copies des pièces jointes ne servent plus à personne, y compris
+    // celles d'une version conservée : elles n'étaient citées que par cette
+    // conversation, et resteraient sinon sur le disque sans que rien ne
+    // puisse plus les rouvrir ni les effacer.
     unawaited(
-      ref
-          .read(attachmentStoreProvider)
-          .delete(
-            conversation.messages.expand((message) => message.attachments),
-          ),
+      ref.read(attachmentStoreProvider).delete(conversation.attachments),
     );
 
     setState(() {
@@ -427,25 +468,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (attachments.isEmpty) {
       return;
     }
-    // Un fichier encore cité quelque part ne doit pas être effacé : ni par
-    // l'historique, ni par le fil affiché, ni par une version conservée, ni
-    // par le brouillon en cours, ni par la file d'attente.
-    final referenced = <String>{
-      for (final conversation in _conversations) ...<String>[
-        for (final message in conversation.messages)
-          for (final attachment in message.attachments) attachment.path,
-        for (final message in conversation.previousMessages ?? const [])
-          for (final attachment in message.attachments) attachment.path,
-      ],
-      for (final message in _messages)
-        for (final attachment in message.attachments) attachment.path,
-      for (final attachment in _pendingAttachments) attachment.path,
-      for (final queued in _queued)
-        for (final attachment in queued.attachments) attachment.path,
-    };
-    final removable = attachments
-        .where((attachment) => !referenced.contains(attachment.path))
-        .toList(growable: false);
+    final removable = unreferencedAttachments(
+      candidates: attachments,
+      conversations: _conversations,
+      thread: _messages,
+      pending: _pendingAttachments,
+      queued: _queued.map((outgoing) => outgoing.attachments),
+    );
     if (removable.isEmpty) {
       return;
     }
@@ -622,6 +651,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() {
       _messages[last] = _messages[last].copyWith(
         citations: List<Citation>.of(citations),
+      );
+      _syncActiveConversation();
+    });
+  }
+
+  /// Note la vitesse d'écriture d'une réponse produite sur l'appareil.
+  ///
+  /// Seul le moteur local la mesure, et `PersonalApiChatBackend` renvoie
+  /// toujours vers le fournisseur distant : c'est donc l'absence de celui-ci
+  /// qui dit qu'on vient de générer ici. Sans ce contrôle, une réponse
+  /// distante hériterait de la vitesse de la dernière génération locale,
+  /// mesurée pour un tout autre modèle.
+  Future<void> _attachGenerationSpeed(
+    LocalLlmBackend backend,
+    int generationEpoch,
+    int? conversationId,
+  ) async {
+    if (backend is PersonalApiChatBackend) {
+      return;
+    }
+
+    final stats = await backend.lastGenerationStats;
+    if (stats == null ||
+        stats.generatedTokens <= 0 ||
+        stats.tokensPerSecond <= 0) {
+      return;
+    }
+    // La lecture est asynchrone : le fil a pu changer entre-temps, et la
+    // vitesse n'appartiendrait plus à ce qui est à l'écran.
+    if (!_isCurrentThread(generationEpoch, conversationId) ||
+        _messages.isEmpty ||
+        _messages.last.role != ChatRole.assistant) {
+      return;
+    }
+
+    setState(() {
+      _messages[_messages.length - 1] = _messages.last.copyWith(
+        generationSpeed: stats.tokensPerSecond,
       );
       _syncActiveConversation();
     });
@@ -917,45 +984,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// refuser l'envoi (modèle absent, mode incompatible, pièce jointe refusée,
   /// changement de fil) est vérifié avant la moindre mutation : une
   /// régénération refusée tronquait sinon la conversation pour rien.
-  Future<_SendOutcome> _send(_Outgoing outgoing) async {
+  /// Réunit tout ce qu'un envoi doit avoir avant de partir, ou rend `null`.
+  ///
+  /// Cette phase n'écrit rien dans le fil : elle ouvre le modèle s'il le
+  /// faut, compose l'historique, refuse ce qui ne peut pas aboutir, et lit le
+  /// contenu des pièces jointes. Chaque refus a déjà été expliqué à
+  /// l'utilisateur quand elle rend `null`.
+  ///
+  /// Elle dure : un modèle local met plusieurs secondes à s'ouvrir, une pièce
+  /// jointe à se lire. L'identité de l'envoi est donc revérifiée à chaque
+  /// reprise, car l'utilisateur a pu changer de fil entre-temps.
+  ///
+  /// Séparée de l'envoi lui-même parce qu'elle n'a rien de commun avec lui :
+  /// ici rien n'est encore engagé, et tout peut être abandonné sans laisser
+  /// de trace. Passé ce point, le fil est modifié et chaque sortie doit le
+  /// remettre d'aplomb.
+  Future<_PreparedSend?> _prepareSend(
+    _Outgoing outgoing, {
+    required LocalLlmBackend backend,
+    required int generationEpoch,
+    required int? conversationId,
+  }) async {
     final text = outgoing.text;
-    final backend = ref.read(chatBackendProvider);
-
-    // Identité de cet envoi, prise avant la moindre attente. Le chargement du
-    // modèle prend plusieurs secondes, pendant lesquelles l'utilisateur peut
-    // ouvrir un autre fil ou en créer un : l'envoi reprenait alors avec
-    // l'ancien texte et le nouvel historique.
-    final generationEpoch = ++_generationEpoch;
-    // Le fil visé est celui d'où l'envoi est parti, pas celui affiché au
-    // moment d'aboutir.
-    var conversationId = outgoing.conversationId;
-    // `null` désigne le fil qui reste à créer, jamais « n'importe lequel » :
-    // il n'est accepté que tant qu'aucun fil n'est ouvert. Les messages mis
-    // en attente pendant cette création sont rattachés plus bas, dès que le
-    // fil a une identité.
-    if (conversationId != _activeConversationId) {
-      return _SendOutcome.refused;
-    }
-    bool stillCurrent() =>
-        mounted &&
-        generationEpoch == _generationEpoch &&
-        conversationId == _activeConversationId;
-
     if (backend.loadedModelPath == null) {
       // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
       // retarder l'affichage du chat au lancement.
       final restorable = _restorableModelPath;
       if (restorable == null) {
         _showModelRequired();
-        return _SendOutcome.refused;
+        return null;
       }
       if (!await _restoreModel(backend, restorable)) {
-        return _SendOutcome.refused;
+        return null;
       }
-      if (!stillCurrent()) {
+      if (!_isCurrentThread(generationEpoch, conversationId)) {
         // Fil abandonné pendant le chargement. Le brouillon de celui qui est
         // à l'écran maintenant appartient à l'utilisateur : on n'y touche pas.
-        return _SendOutcome.refused;
+        return null;
       }
     }
 
@@ -980,10 +1045,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (modes.webSearch &&
         !(backend is PersonalApiChatBackend && backend.supportsWebSearch)) {
       _showSnack(
-        'La recherche web demande une API personnelle OpenAI ou Google. '
+        'La recherche web demande une API personnelle Anthropic, Google ou '
+        'OpenAI. '
         'Désactive-la ou change de fournisseur.',
       );
-      return _SendOutcome.refused;
+      return null;
     }
 
     // Réflexion et personnalisation parlent au modèle de la même façon : une
@@ -1008,13 +1074,132 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ];
     } on UnsupportedAttachmentException catch (error) {
       _showSnack(error.message);
-      return _SendOutcome.refused;
+      return null;
     }
-    if (!stillCurrent()) {
-      return _SendOutcome.refused;
+    if (!_isCurrentThread(generationEpoch, conversationId)) {
+      return null;
     }
 
-    // Validé : la lecture d'un message sur le point de disparaître s'arrête.
+    return _PreparedSend(
+      history: history,
+      requestMessages: requestMessages,
+      modes: modes,
+    );
+  }
+
+  /// Inscrit au fil ce qu'une génération terminée y laisse, et rend son issue.
+  ///
+  /// Appelée seulement quand le fil visé est toujours celui qui est ouvert :
+  /// ce qui suit touche à ce que l'utilisateur regarde.
+  ///
+  /// Le mot « terminée » n'engage rien sur la réussite : un flux arrêté ou
+  /// écourté passe aussi par ici, et c'est justement l'issue rendue qui le
+  /// dira.
+  GenerationOutcome _settleFinishedGeneration(
+    LocalLlmBackend backend, {
+    required String response,
+    required List<ChatMessage>? replaced,
+    required int generationEpoch,
+    required int? conversationId,
+  }) {
+    if (response.isNotEmpty) {
+      _attachCitations(backend);
+      unawaited(
+        _attachGenerationSpeed(backend, generationEpoch, conversationId),
+      );
+    }
+
+    // Lue même sans un mot reçu : un flux qui s'annonce écourté avant le
+    // premier fragment reste écourté, et le traiter comme une réussite
+    // faisait disparaître la bulle sans rien dire.
+    final outcome = _recordOutcome(backend, generationEpoch);
+    if (response.isEmpty && outcome == GenerationOutcome.complete) {
+      // Une réponse vide et pourtant aboutie n'a rien à montrer.
+      _removeEmptyAssistantPlaceholder();
+    }
+    if (replaced != null) {
+      // Un remplacement abouti rend caduque la version d'avant ; un
+      // remplacement écourté ou arrêté la garde reprenable, sans limite de
+      // temps.
+      _keepPreviousVersion(
+        outcome == GenerationOutcome.complete ? null : replaced,
+        generationEpoch,
+        conversationId,
+      );
+    }
+    return outcome;
+  }
+
+  /// Remet le fil d'aplomb après une génération interrompue, et dit pourquoi.
+  ///
+  /// Quatre situations, et quatre issues différentes. Le fil peut porter ou
+  /// non du texte reçu avant la coupure ; l'envoi peut remplacer ou non une
+  /// version précédente. Rien n'est jeté dans aucune d'elles : le texte reçu
+  /// reste affiché parce que c'est ce que l'utilisateur a vu, et la version
+  /// remplacée reste reprenable parce qu'elle est la seule trace de ce qui a
+  /// été effacé.
+  ///
+  /// Appelée seulement quand le fil visé est encore celui qui est ouvert.
+  /// Rend l'issue à retenir pour la réponse affichée.
+  GenerationOutcome _recoverFromFailure(
+    Object error, {
+    required String response,
+    required List<ChatMessage>? replaced,
+    required int generationEpoch,
+    required int? conversationId,
+    required GenerationOutcome outcome,
+  }) {
+    var settled = outcome;
+    if (response.isNotEmpty) {
+      // Le texte reçu reste à l'écran, c'est ce que l'utilisateur a vu, mais
+      // il ne doit pas passer pour une réponse entière.
+      _markLastAssistantOutcome(GenerationOutcome.failed, null);
+      settled = GenerationOutcome.failed;
+    }
+
+    if (replaced == null) {
+      if (response.isEmpty) {
+        // Rien n'est arrivé : seule la bulle restée vide s'en va.
+        _removeEmptyAssistantPlaceholder();
+      }
+      _showSnack('Génération impossible : ${_describeError(error)}');
+    } else if (response.isEmpty) {
+      // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le fil
+      // revient tel qu'il était, réponse effacée comprise, plutôt que de
+      // rester amputé de tout ce qui suivait la question.
+      _restoreThread(replaced, generationEpoch, conversationId);
+      _showSnack(
+        'Génération impossible : ${_describeError(error)}. '
+        'Réponse précédente conservée.',
+      );
+    } else {
+      // Du texte est arrivé avant la coupure : il reste affiché, et la
+      // version qu'il a remplacée est conservée avec la conversation. Les
+      // deux survivent donc à la navigation et au redémarrage, là où une
+      // action de bandeau disparaissait au bout de quelques secondes.
+      _keepPreviousVersion(replaced, generationEpoch, conversationId);
+      _showSnack(
+        'Génération interrompue : ${_describeError(error)}. '
+        'Version précédente conservée.',
+      );
+    }
+    return settled;
+  }
+
+  /// Engage l'envoi dans le fil : à partir d'ici, l'écran est modifié.
+  ///
+  /// Tout ce qui précède pouvait être abandonné sans laisser de trace. Ce
+  /// n'est plus vrai après : la question est posée, la bulle de réponse est
+  /// ouverte, et chaque sortie devra remettre le fil d'aplomb.
+  ///
+  /// Rend l'identité du fil, qui vient peut-être d'être créé par ce message,
+  /// et la version qu'un remplacement efface.
+  _CommittedSend _commitOutgoing(
+    _Outgoing outgoing, {
+    required List<ChatMessage> history,
+    required int generationEpoch,
+  }) {
+    // La lecture d'un message sur le point de disparaître s'arrête.
     if (outgoing.replaceFrom case final from?) {
       final speaking = _speech?.speaking.value;
       if (speaking != null &&
@@ -1033,8 +1218,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ? null
         : List<ChatMessage>.of(_messages);
 
+    late final int? conversationId;
     setState(() {
-      _ensureActiveConversation(text);
+      _ensureActiveConversation(outgoing.text);
       conversationId = _activeConversationId;
       // Ce fil appartient désormais à cette génération : une opération plus
       // ancienne qui reviendrait plus tard n'a plus rien à y faire.
@@ -1053,6 +1239,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       _isGenerating = true;
       _syncActiveConversation();
     });
+
     if (outgoing.fromComposer && _draftStillMatches(outgoing)) {
       // Le brouillon n'est vidé qu'une fois le message parti, et seulement
       // s'il porte encore ce qui est parti : la préparation dure parfois
@@ -1064,6 +1251,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     _scrollToBottom();
 
+    return _CommittedSend(conversationId: conversationId, replaced: replaced);
+  }
+
+  Future<_SendOutcome> _send(_Outgoing outgoing) async {
+    final backend = ref.read(chatBackendProvider);
+
+    // Identité de cet envoi, prise avant la moindre attente. Le chargement du
+    // modèle prend plusieurs secondes, pendant lesquelles l'utilisateur peut
+    // ouvrir un autre fil ou en créer un : l'envoi reprenait alors avec
+    // l'ancien texte et le nouvel historique.
+    final generationEpoch = ++_generationEpoch;
+    // Le fil visé est celui d'où l'envoi est parti, pas celui affiché au
+    // moment d'aboutir.
+    var conversationId = outgoing.conversationId;
+    // `null` désigne le fil qui reste à créer, jamais « n'importe lequel » :
+    // il n'est accepté que tant qu'aucun fil n'est ouvert. Les messages mis
+    // en attente pendant cette création sont rattachés plus bas, dès que le
+    // fil a une identité.
+    if (conversationId != _activeConversationId) {
+      return _SendOutcome.refused;
+    }
+    bool stillCurrent() => _isCurrentThread(generationEpoch, conversationId);
+
+    final prepared = await _prepareSend(
+      outgoing,
+      backend: backend,
+      generationEpoch: generationEpoch,
+      conversationId: conversationId,
+    );
+    if (prepared == null) {
+      return _SendOutcome.refused;
+    }
+    final history = prepared.history;
+    final requestMessages = prepared.requestMessages;
+    final modes = prepared.modes;
+
+    final committed = _commitOutgoing(
+      outgoing,
+      history: history,
+      generationEpoch: generationEpoch,
+    );
+    // Le fil vient peut-être de naître : l'envoi suit désormais son identité,
+    // et `stillCurrent` avec lui, puisqu'il la referme.
+    conversationId = committed.conversationId;
+    final replaced = committed.replaced;
+
     var response = '';
     var failed = false;
     var outcome = GenerationOutcome.complete;
@@ -1071,6 +1304,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // Par défaut une interruption : quitter un fil en cours de réponse
     // l'interrompt, même si le moteur, lui, va au bout.
     var abandonedOutcome = GenerationOutcome.cancelled;
+
+    // `clock.now()` plutôt que `Stopwatch` : l'un comme l'autre donnent
+    // l'heure réelle sur un appareil, mais seul le premier suit l'horloge
+    // simulée des tests, qui vérifient l'affichage fragment par fragment.
+    var lastPaint = clock.now();
+    var shown = '';
+
+    // Pousse à l'écran ce que le groupement retient encore.
+    //
+    // Appelée à chaque sortie de la boucle, la fin normale comme l'échec : un
+    // flux qui casse après un fragment retenu perdrait sinon ce fragment,
+    // alors que c'est précisément ce que la gestion d'erreur s'attache à
+    // garder affiché.
+    void flushDisplay() {
+      if (shown == response || !stillCurrent()) {
+        return;
+      }
+      shown = response;
+      setState(() {
+        _messages[_messages.length - 1] = ChatMessage.assistant(response);
+        _syncActiveConversation(immediate: false);
+      });
+      _scrollToBottom();
+    }
+
     try {
       final settings = GenerationSettings(
         maxTokens: modes.reasoning
@@ -1078,6 +1336,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             : const GenerationSettings().maxTokens,
         webSearch: modes.webSearch,
       );
+      // Afficher un message coûte cher : le markdown est ré-analysé et le
+      // code recoloré à chaque image, pour tous les messages visibles.
+      // Repeindre à chaque fragment reçu faisait donc croître le travail avec
+      // le carré de la longueur de la réponse, sur le fil principal, et au
+      // moment précis où l'appareil est déjà occupé à produire la suite.
+      //
+      // Les fragments sont donc groupés. `shown` retient ce qui est affiché :
+      // une comparaison avec le texte reçu vaut mieux qu'un drapeau, car elle
+      // reste juste quelle que soit la façon dont la boucle s'est terminée.
+
       await for (final chunk in backend.generate(
         messages: requestMessages,
         settings: settings,
@@ -1087,6 +1355,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Le message a bien rejoint son fil : seule la suite est abandonnée.
           return _SendOutcome.sent;
         }
+        final now = clock.now();
+        if (now.difference(lastPaint) < _streamPaintInterval) {
+          continue;
+        }
+        lastPaint = now;
+        shown = response;
         setState(() {
           _messages[_messages.length - 1] = ChatMessage.assistant(response);
           // Un état intermédiaire que personne ne relira : il rejoint le
@@ -1095,6 +1369,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         });
         _scrollToBottom();
       }
+
+      // Le flux est fini : plus rien ne viendra pousser à l'écran ce que le
+      // groupement retenait.
+      flushDisplay();
 
       // Le flux s'est terminé, que le fil soit encore à l'écran ou non. Un
       // arrêt demandé, par le bouton comme par une navigation, l'a peut-être
@@ -1106,65 +1384,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           : GenerationOutcome.incomplete;
 
       if (stillCurrent()) {
-        if (response.isNotEmpty) {
-          _attachCitations(backend);
-        }
-        // Lue même sans un mot reçu : un flux qui s'annonce écourté avant le
-        // premier fragment reste écourté, et le traiter comme une réussite
-        // faisait disparaître la bulle sans rien dire.
-        outcome = _recordOutcome(backend, generationEpoch);
-        if (response.isEmpty && outcome == GenerationOutcome.complete) {
-          // Une réponse vide et pourtant aboutie n'a rien à montrer.
-          _removeEmptyAssistantPlaceholder();
-        }
-        if (replaced != null) {
-          // Un remplacement abouti rend caduque la version d'avant ; un
-          // remplacement écourté ou arrêté la garde reprenable, sans limite
-          // de temps.
-          _keepPreviousVersion(
-            outcome == GenerationOutcome.complete ? null : replaced,
-            generationEpoch,
-            conversationId,
-          );
-        }
+        outcome = _settleFinishedGeneration(
+          backend,
+          response: response,
+          replaced: replaced,
+          generationEpoch: generationEpoch,
+          conversationId: conversationId,
+        );
       }
     } catch (error) {
+      // Avant toute chose : ce qui est arrivé avant la coupure doit être
+      // visible, c'est sur lui que repose toute la suite.
+      flushDisplay();
       if (!stillCurrent()) {
         // Le fil n'est plus à l'écran : l'échec est noté pour lui, là où il
         // vit, plutôt que montré sur une conversation qui n'a rien demandé.
         abandonedOutcome = GenerationOutcome.failed;
         return _SendOutcome.sent;
       }
-      if (response.isNotEmpty) {
-        // Le texte reçu reste à l'écran, c'est ce que l'utilisateur a vu,
-        // mais il ne doit pas passer pour une réponse entière.
-        _markLastAssistantOutcome(GenerationOutcome.failed, null);
-        outcome = GenerationOutcome.failed;
-      }
-      if (replaced == null) {
-        if (response.isEmpty) {
-          // Rien n'est arrivé : seule la bulle restée vide s'en va.
-          _removeEmptyAssistantPlaceholder();
-        }
-        _showSnack('Génération impossible : $error');
-      } else if (response.isEmpty) {
-        // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le
-        // fil revient tel qu'il était, réponse effacée comprise, plutôt que
-        // de rester amputé de tout ce qui suivait la question.
-        _restoreThread(replaced, generationEpoch, conversationId);
-        _showSnack(
-          'Génération impossible : $error. Réponse précédente conservée.',
-        );
-      } else {
-        // Du texte est arrivé avant la coupure : il reste affiché, et la
-        // version qu'il a remplacée est conservée avec la conversation. Les
-        // deux survivent donc à la navigation et au redémarrage, là où une
-        // action de bandeau disparaissait au bout de quelques secondes.
-        _keepPreviousVersion(replaced, generationEpoch, conversationId);
-        _showSnack(
-          'Génération interrompue : $error. Version précédente conservée.',
-        );
-      }
+      outcome = _recoverFromFailure(
+        error,
+        response: response,
+        replaced: replaced,
+        generationEpoch: generationEpoch,
+        conversationId: conversationId,
+        outcome: outcome,
+      );
       failed = true;
     } finally {
       if (stillCurrent()) {
@@ -1272,6 +1517,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     );
     _conversations.insert(0, conversation);
     _activeConversationId = conversation.id;
+    _enforceConversationLimit();
+  }
+
+  /// Écarte les conversations que l'historique ne peut plus porter.
+  ///
+  /// `ConversationStore` n'enregistre que les [ConversationStore.maxConversations]
+  /// premières. Sans ce ménage, les suivantes restaient à l'écran jusqu'à la
+  /// fermeture puis disparaissaient au lancement suivant, en laissant leurs
+  /// pièces jointes sur le disque : une perte silencieuse, et des fichiers
+  /// que plus rien ne citait.
+  ///
+  /// La liste est rangée de la plus récente à la plus ancienne : ce sont donc
+  /// bien les plus anciennes qui partent, et jamais celle qui est ouverte.
+  void _enforceConversationLimit() {
+    final dropped = conversationsBeyondLimit(
+      conversations: _conversations,
+      activeConversationId: _activeConversationId,
+      limit: ConversationStore.maxConversations,
+    );
+    if (dropped.isEmpty) {
+      return;
+    }
+
+    _conversations.removeWhere(dropped.contains);
+    unawaited(
+      ref
+          .read(attachmentStoreProvider)
+          .delete(dropped.expand((conversation) => conversation.attachments)),
+    );
   }
 
   /// Titre de la barre du haut : celui du fil ouvert, sinon le nom de l'app.
@@ -1351,6 +1625,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       );
   }
 
+  /// Met un échec de génération en français.
+  ///
+  /// Interpolé tel quel, un échec HTTP versait le corps entier de la réponse
+  /// dans le bandeau : une page d'erreur de proxy, un pavé JSON. La
+  /// traduction existait déjà pour l'écran des réglages, elle vaut autant
+  /// ici, où l'utilisateur la lit bien plus souvent.
+  String _describeError(Object error) => describePersonalApiError(error);
+
   void _showSnack(String message, {SnackBarAction? action}) {
     // Un échec tardif, revenu après la fermeture de l'écran, n'a plus de
     // `context` où afficher quoi que ce soit : le message est abandonné
@@ -1392,6 +1674,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return true;
   }
 
+  /// Vrai tant que [generationEpoch] désigne l'opération en cours.
+  ///
+  /// C'est la règle de ce qui écrit dans une conversation **par son
+  /// identifiant** : une conversation quittée reste modifiable, et c'est même
+  /// tout l'intérêt, puisqu'une génération abandonnée doit y déposer ce
+  /// qu'elle a produit.
+  bool _isCurrentGeneration(int generationEpoch) =>
+      mounted && generationEpoch == _generationEpoch;
+
+  /// Vrai si [generationEpoch] est en cours **et** que [conversationId] est le
+  /// fil affiché.
+  ///
+  /// C'est la règle, plus stricte, de tout ce qui touche à `_messages` : une
+  /// génération abandonnée, ou un bouton pressé après avoir changé de fil, ne
+  /// doit jamais réécrire ce qui est ouvert maintenant.
+  ///
+  /// Les deux règles se ressemblent assez pour qu'on prenne l'une pour
+  /// l'autre. Les nommer est ce qui rend le choix visible à la lecture, là où
+  /// quatre copies écrites à la main le laissaient deviner.
+  bool _isCurrentThread(int generationEpoch, int? conversationId) =>
+      _isCurrentGeneration(generationEpoch) &&
+      conversationId == _activeConversationId;
+
   /// Conserve avec la conversation la version d'avant un remplacement.
   ///
   /// Enregistrée, donc reprenable après une navigation ou un redémarrage. La
@@ -1403,7 +1708,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     int generationEpoch,
     int? conversationId,
   ) {
-    if (!mounted || generationEpoch != _generationEpoch) {
+    if (!_isCurrentGeneration(generationEpoch)) {
       return;
     }
     final conversation = conversationId == null
@@ -1506,9 +1811,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     int generationEpoch,
     int? conversationId,
   ) {
-    if (!mounted ||
-        generationEpoch != _generationEpoch ||
-        conversationId != _activeConversationId) {
+    if (!_isCurrentThread(generationEpoch, conversationId)) {
       return;
     }
     setState(() {
@@ -1665,8 +1968,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       supported
           ? 'Recherche web activée : le modèle pourra consulter le web.'
           : 'Recherche web activée, mais le moteur en place ne sait pas '
-                'consulter le web. Configure une API personnelle OpenAI ou '
-                'Google.',
+                'consulter le web. Configure une API personnelle Anthropic, '
+                'Google ou OpenAI.',
     );
   }
 

@@ -30,6 +30,21 @@ class PersonalApiStreamException implements Exception {
   String toString() => code == null ? message : '$message ($code)';
 }
 
+/// Le fournisseur n'a pas répondu, ou s'est tu au milieu de sa réponse.
+///
+/// Sans délai, une connexion acceptée puis abandonnée laisse l'application
+/// attendre indéfiniment : le rond tourne, et rien ne dit que plus rien ne
+/// viendra. Un réseau mobile perd des connexions sans prévenir, et le
+/// fournisseur d'en face ne ferme pas toujours ce qu'il a ouvert.
+class PersonalApiTimeoutException implements Exception {
+  const PersonalApiTimeoutException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Erreur renvoyée par un fournisseur distant sur une réponse non 2xx.
 class PersonalApiHttpException implements Exception {
   const PersonalApiHttpException({
@@ -52,6 +67,34 @@ class PersonalApiHttpException implements Exception {
 /// `stop()`/`dispose()` sont mutualisés ici, car ce sont eux qui portaient
 /// jusque-là toute la duplication entre fournisseurs.
 abstract class HttpStreamingBackend implements LlmBackend {
+  /// Attente maximale de la réponse du fournisseur.
+  ///
+  /// Large : un prompt long se lit avant que le premier octet parte, et un
+  /// fournisseur chargé met sa requête en file. Ce délai n'est pas là pour
+  /// presser le fournisseur, mais pour que l'attente finisse un jour.
+  ///
+  /// Redéfinissable, pour que les tests n'aient pas à patienter une minute et
+  /// demie afin de vérifier une seconde.
+  Duration get responseTimeout => const Duration(seconds: 90);
+
+  /// Attente maximale entre deux évènements du flux.
+  ///
+  /// Recompté à chaque évènement, ce n'est pas une limite de durée totale :
+  /// une réponse peut prendre dix minutes tant qu'elle avance. C'est le
+  /// silence qui est borné, pas la longueur.
+  ///
+  /// Généreux aussi : un modèle qui réfléchit avant d'écrire peut rester muet
+  /// longtemps, et couper sa réflexion serait pire que d'attendre.
+  Duration get idleTimeout => const Duration(minutes: 3);
+
+  /// Attente maximale du corps d’une réponse en échec.
+  ///
+  /// Courte, et c’est volontaire : le code HTTP dit déjà que la requête a
+  /// échoué, ce corps n’en donne que le détail. Le faire attendre aussi
+  /// longtemps qu’une vraie réponse reviendrait à retenir l’utilisateur pour
+  /// un échec déjà constaté.
+  Duration get errorBodyTimeout => const Duration(seconds: 15);
+
   HttpStreamingBackend({
     required this.keyStore,
     required this.keyProviderId,
@@ -101,9 +144,7 @@ abstract class HttpStreamingBackend implements LlmBackend {
   String? extractIncomplete(Map<String, dynamic> event) => null;
 
   /// Raison pour laquelle la dernière réponse s'est arrêtée avant la fin.
-  String? get incompleteReason => _incompleteReason;
-
-  String? _incompleteReason;
+  String? get incompleteReason => _latest?.incompleteReason;
 
   /// Sources relevées pendant la dernière génération, sans doublon et dans
   /// leur ordre d'apparition.
@@ -111,9 +152,18 @@ abstract class HttpStreamingBackend implements LlmBackend {
   /// Le contrat des moteurs ne transporte que du texte. Plutôt que d'y mêler
   /// un second type d'évènement, ce qui toucherait chaque moteur et chaque
   /// appelant, les citations sont relevées de côté et lues à la fin.
-  List<Citation> get citations => List<Citation>.unmodifiable(_citations);
+  List<Citation> get citations =>
+      List<Citation>.unmodifiable(_latest?.citations ?? const <Citation>[]);
 
-  final List<Citation> _citations = <Citation>[];
+  /// Dernière génération lancée, celle que les deux lectures ci-dessus
+  /// décrivent.
+  ///
+  /// Ces relevés appartiennent à une génération, pas au moteur. Rangés sur
+  /// l'instance, ils étaient remis à zéro par la génération suivante : quand
+  /// on quitte un fil pendant qu'il répond, l'ancienne génération s'arrête
+  /// quelques instants après le départ de la nouvelle, et effaçait au passage
+  /// les sources de celle qui venait de commencer.
+  _HttpGeneration? _latest;
 
   /// Message d'erreur quand aucune clé API n'est configurée.
   String get missingApiKeyMessage =>
@@ -130,9 +180,7 @@ abstract class HttpStreamingBackend implements LlmBackend {
 
     final generation = _HttpGeneration();
     _activeGenerations.add(generation);
-    // Les sources appartiennent à la réponse en cours, pas à la précédente.
-    _citations.clear();
-    _incompleteReason = null;
+    _latest = generation;
 
     try {
       try {
@@ -153,33 +201,74 @@ abstract class HttpStreamingBackend implements LlmBackend {
           return;
         }
 
-        final response = await client.send(
-          buildRequest(apiKey: apiKey, messages: messages, settings: settings),
-        );
+        final response = await client
+            .send(
+              buildRequest(
+                apiKey: apiKey,
+                messages: messages,
+                settings: settings,
+              ),
+            )
+            .timeout(
+              responseTimeout,
+              onTimeout: () => throw PersonalApiTimeoutException(
+                '$displayName n’a pas répondu dans les '
+                '${responseTimeout.inSeconds} secondes.',
+              ),
+            );
         if (_shouldAbort(generation)) {
           return;
         }
 
         if (response.statusCode < 200 || response.statusCode >= 300) {
+          // Le délai ci-dessus s’arrête aux en-têtes. Un fournisseur qui
+          // annonce son échec puis se tait en écrivant le corps laisserait
+          // cette lecture attendre hors de tout délai : le rond tournerait
+          // encore, pour une requête déjà perdue. Expirer ici ne coûte que
+          // le détail de l’erreur, jamais son signalement.
+          final body = await response.stream.bytesToString().timeout(
+            errorBodyTimeout,
+            onTimeout: () => '',
+          );
           throw PersonalApiHttpException(
             statusCode: response.statusCode,
-            body: await response.stream.bytesToString(),
+            body: body,
           );
         }
 
-        final lines = response.stream
+        // `timeout` sur un flux se recompte à chaque évènement : c'est bien
+        // le silence qui déclenche, pas la durée de la réponse. L'erreur
+        // ajoutée sort de la boucle ci-dessous, et le `finally` ferme le
+        // client resté ouvert en face.
+        //
+        // Le chien de garde est posé après le tri des lignes, et non avant.
+        // Un battement de cœur, le `: ping` d'OpenRouter ou le commentaire
+        // qu'un proxy intercale pour tenir la connexion ouverte, est une ligne
+        // comme une autre : relancer le compte à chaque battement laisserait
+        // un fournisseur bloqué faire tourner le rond indéfiniment, ce que ce
+        // délai existe précisément pour empêcher. Seule une charge utile
+        // atteste d'un progrès, donc seule une charge utile le relance.
+        final payloads = response.stream
             .transform(utf8.decoder)
-            .transform(const LineSplitter());
+            .transform(const LineSplitter())
+            .map(sseDataPayload)
+            .where((payload) => payload != null)
+            .cast<String>()
+            .timeout(
+              idleTimeout,
+              onTimeout: (sink) => sink.addError(
+                PersonalApiTimeoutException(
+                  'La réponse de $displayName s’est interrompue : plus rien '
+                  'depuis ${idleTimeout.inMinutes} minutes.',
+                ),
+              ),
+            );
 
-        await for (final line in lines) {
+        await for (final payload in payloads) {
           if (_shouldAbort(generation)) {
             return;
           }
 
-          final payload = sseDataPayload(line);
-          if (payload == null) {
-            continue;
-          }
           if (payload == _sseDoneMarker) {
             break;
           }
@@ -197,11 +286,11 @@ abstract class HttpStreamingBackend implements LlmBackend {
           }
           final incomplete = extractIncomplete(decoded);
           if (incomplete != null) {
-            _incompleteReason = incomplete;
+            generation.incompleteReason = incomplete;
           }
 
           for (final citation in extractCitations(decoded)) {
-            addCitation(_citations, citation);
+            addCitation(generation.citations, citation);
           }
           yield* Stream<String>.fromIterable(extractDeltas(decoded));
         }
@@ -252,6 +341,12 @@ String? sseDataPayload(String line) {
 }
 
 class _HttpGeneration {
+  /// Sources relevées par cette génération, et par elle seule.
+  final List<Citation> citations = <Citation>[];
+
+  /// Raison pour laquelle cette génération s'est arrêtée avant la fin.
+  String? incompleteReason;
+
   http.Client? _client;
   bool _isCancelled = false;
 

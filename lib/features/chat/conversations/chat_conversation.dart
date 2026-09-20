@@ -33,6 +33,22 @@ class ChatConversation {
   /// historiques écrits avant cette notion.
   List<ChatMessage>? previousMessages;
 
+  /// Toutes les pièces jointes que porte la conversation.
+  ///
+  /// Les deux listes comptent : une version conservée cite les mêmes copies
+  /// de fichiers que le fil visible, et les oublier laissait sur le disque
+  /// des pièces que plus rien ne pouvait rouvrir ni effacer. Réunir ce
+  /// parcours ici est ce qui fait qu'une troisième liste, un jour, ne sera
+  /// pas oubliée à son tour.
+  Iterable<ChatAttachment> get attachments sync* {
+    for (final message in messages) {
+      yield* message.attachments;
+    }
+    for (final message in previousMessages ?? const <ChatMessage>[]) {
+      yield* message.attachments;
+    }
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'title': title,
@@ -69,6 +85,10 @@ class ChatConversation {
             'outcome': message.outcome.name,
           if (message.outcomeReason != null)
             'outcomeReason': message.outcomeReason,
+          // Absente d'une réponse distante, et des historiques écrits avant
+          // qu'elle soit mesurée.
+          if (message.generationSpeed != null)
+            'generationSpeed': message.generationSpeed,
         },
       )
       .toList(growable: false);
@@ -200,6 +220,7 @@ class ChatConversation {
         (value) => value.name == rawMessage['outcome'],
       );
       final outcomeReason = rawMessage['outcomeReason'];
+      final generationSpeed = rawMessage['generationSpeed'];
 
       messages.add(
         ChatMessage(
@@ -210,6 +231,9 @@ class ChatConversation {
           rating: rating.isEmpty ? MessageRating.none : rating.first,
           outcome: outcome.isEmpty ? GenerationOutcome.complete : outcome.first,
           outcomeReason: outcomeReason is String ? outcomeReason : null,
+          generationSpeed: generationSpeed is num
+              ? generationSpeed.toDouble()
+              : null,
         ),
       );
     }
