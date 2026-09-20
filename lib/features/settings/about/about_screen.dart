@@ -11,6 +11,7 @@ import 'package:foxllm/core/ui/external_link.dart';
 import 'package:foxllm/core/ui/fox_mark.dart';
 import 'package:foxllm/features/settings/about/legal_documents.dart';
 import 'package:foxllm/features/settings/about/license_screen.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -18,11 +19,12 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fox = context.fox;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'À propos',
+          l10n.settingsAbout,
           style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
@@ -45,7 +47,7 @@ class AboutScreen extends StatelessWidget {
           const SizedBox(height: 6),
           Center(
             child: Text(
-              'Version $foxLlmVersion',
+              l10n.aboutVersion(foxLlmVersion),
               style: TextStyle(color: fox.textSecondary, fontSize: 14),
             ),
           ),
@@ -62,20 +64,20 @@ class AboutScreen extends StatelessWidget {
               _AboutTile(
                 icon: Icons.description_outlined,
                 title: termsOfUseDocument.title,
-                subtitle: 'Ce que tu acceptes en utilisant FoxLLM',
+                subtitle: l10n.aboutTerms,
                 document: termsOfUseDocument,
               ),
               Divider(height: 1, color: fox.border),
               _AboutTile(
                 icon: Icons.privacy_tip_outlined,
                 title: privacyPolicyDocument.title,
-                subtitle: 'Ce que deviennent tes données',
+                subtitle: l10n.aboutPrivacy,
                 document: privacyPolicyDocument,
               ),
               Divider(height: 1, color: fox.border),
               _AboutTile(
                 icon: Icons.code,
-                title: 'Code source',
+                title: l10n.aboutSource,
                 subtitle: foxLlmSourceUrl.replaceFirst('https://', ''),
                 // L'AGPL demande que le code reste accessible à qui reçoit le
                 // programme : l'adresse est donnée ici, pas seulement dans le
@@ -97,14 +99,14 @@ class AboutScreen extends StatelessWidget {
               Divider(height: 1, color: fox.border),
               _AboutTile(
                 icon: Icons.inventory_2_outlined,
-                title: 'Licences tierces',
-                subtitle: 'Bibliothèques utilisées par FoxLLM',
+                title: l10n.aboutLicenses,
+                subtitle: l10n.aboutLicensesHint,
                 // Page fournie par Flutter : elle rassemble les licences que
                 // les dépendances imposent de faire figurer dans l'application.
                 onTap: () => showLicensePage(
                   context: context,
                   applicationName: 'FoxLLM',
-                  applicationVersion: 'Version $foxLlmVersion',
+                  applicationVersion: l10n.aboutVersion(foxLlmVersion),
                   applicationIcon: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: FoxMark(size: 52),

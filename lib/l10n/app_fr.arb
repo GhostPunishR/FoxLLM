@@ -209,5 +209,65 @@
         "type": "String"
       }
     }
+  },
+  "settingsTitle": "Paramètres",
+  "settingsProvidersSection": "Modèles et fournisseurs",
+  "settingsAppSection": "Application",
+  "settingsLocalModels": "Modèles locaux",
+  "settingsPersonalApi": "API personnelle",
+  "settingsPersonalization": "Personnalisation",
+  "settingsPersonalizationHint": "Dicter le ton et le comportement de l’IA",
+  "settingsPersonalizationActive": "Instructions actives",
+  "settingsAbout": "À propos",
+  "settingsAboutHint": "Conditions d’utilisation et confidentialité",
+  "localModelNone": "GGUF · aucun modèle chargé",
+  "localModelLoading": "GGUF · lecture du modèle…",
+  "localModelUnavailable": "GGUF · modèle indisponible",
+  "personalApiNotConfigured": "BYOK · non configurée",
+  "personalApiLoading": "BYOK · chargement…",
+  "personalApiUnavailable": "BYOK · configuration indisponible",
+  "aboutTerms": "Ce que tu acceptes en utilisant FoxLLM",
+  "aboutPrivacy": "Ce que deviennent tes données",
+  "aboutSource": "Code source",
+  "aboutLicenses": "Licences tierces",
+  "aboutLicensesHint": "Bibliothèques utilisées par FoxLLM",
+  "personalizationCleared": "Instructions effacées.",
+  "personalizationSaved": "Instructions enregistrées.",
+  "personalizationIntro": "Décris comment FoxLLM doit te répondre : ton, longueur, langue, rôle à tenir. Ces consignes accompagnent chaque message, dans toutes les conversations.",
+  "personalizationHint": "Exemple : réponds en français, de façon concise, et donne toujours un exemple de code commenté.",
+  "personalizationStart": "Pour démarrer",
+  "personalizationSave": "Enregistrer",
+  "personalizationWarning": "Sur un modèle local, des consignes très longues réduisent la place disponible pour la conversation : quelques phrases précises valent mieux qu’un texte détaillé.",
+  "localModelNamed": "GGUF · {name}",
+  "@localModelNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "personalApiActive": "Active · {model}",
+  "@personalApiActive": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "personalApiConfigured": "Configurée · {model}",
+  "@personalApiConfigured": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutVersion": "Version {version}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   }
 }
