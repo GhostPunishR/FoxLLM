@@ -22,6 +22,7 @@ import 'package:foxllm/features/chat/chat_backend_host.dart';
 import 'package:foxllm/features/chat/chat_modes.dart';
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_date.dart';
+import 'package:foxllm/features/chat/conversations/conversation_housekeeping.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
 import 'package:foxllm/features/chat/dictation.dart';
 import 'package:foxllm/features/chat/markdown/message_markdown.dart';
@@ -49,6 +50,24 @@ part 'chat_drawer.dart';
 /// fournisseur rapide en envoie plusieurs dizaines par seconde, dont personne
 /// ne peut lire la différence.
 const _streamPaintInterval = Duration(milliseconds: 50);
+
+/// Ce qu'un envoi a réuni avant de partir.
+///
+/// [history] est le fil tel qu'il sera affiché ; [requestMessages] ce qui part
+/// au modèle, consigne système et contenu des pièces jointes compris. Les deux
+/// diffèrent à dessein : la conversation enregistrée ne doit pas figer les
+/// instructions du jour.
+class _PreparedSend {
+  const _PreparedSend({
+    required this.history,
+    required this.requestMessages,
+    required this.modes,
+  });
+
+  final List<ChatMessage> history;
+  final List<ChatMessage> requestMessages;
+  final ChatModes modes;
+}
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -436,21 +455,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (attachments.isEmpty) {
       return;
     }
-    // Un fichier encore cité quelque part ne doit pas être effacé : ni par
-    // l'historique, ni par le fil affiché, ni par une version conservée, ni
-    // par le brouillon en cours, ni par la file d'attente.
-    final referenced = <String>{
-      for (final conversation in _conversations)
-        for (final attachment in conversation.attachments) attachment.path,
-      for (final message in _messages)
-        for (final attachment in message.attachments) attachment.path,
-      for (final attachment in _pendingAttachments) attachment.path,
-      for (final queued in _queued)
-        for (final attachment in queued.attachments) attachment.path,
-    };
-    final removable = attachments
-        .where((attachment) => !referenced.contains(attachment.path))
-        .toList(growable: false);
+    final removable = unreferencedAttachments(
+      candidates: attachments,
+      conversations: _conversations,
+      thread: _messages,
+      pending: _pendingAttachments,
+      queued: _queued.map((outgoing) => outgoing.attachments),
+    );
     if (removable.isEmpty) {
       return;
     }
@@ -656,9 +667,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     }
     // La lecture est asynchrone : le fil a pu changer entre-temps, et la
     // vitesse n'appartiendrait plus à ce qui est à l'écran.
-    if (!mounted ||
-        _generationEpoch != generationEpoch ||
-        _activeConversationId != conversationId ||
+    if (!_isCurrentThread(generationEpoch, conversationId) ||
         _messages.isEmpty ||
         _messages.last.role != ChatRole.assistant) {
       return;
@@ -962,45 +971,43 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// refuser l'envoi (modèle absent, mode incompatible, pièce jointe refusée,
   /// changement de fil) est vérifié avant la moindre mutation : une
   /// régénération refusée tronquait sinon la conversation pour rien.
-  Future<_SendOutcome> _send(_Outgoing outgoing) async {
+  /// Réunit tout ce qu'un envoi doit avoir avant de partir, ou rend `null`.
+  ///
+  /// Cette phase n'écrit rien dans le fil : elle ouvre le modèle s'il le
+  /// faut, compose l'historique, refuse ce qui ne peut pas aboutir, et lit le
+  /// contenu des pièces jointes. Chaque refus a déjà été expliqué à
+  /// l'utilisateur quand elle rend `null`.
+  ///
+  /// Elle dure : un modèle local met plusieurs secondes à s'ouvrir, une pièce
+  /// jointe à se lire. L'identité de l'envoi est donc revérifiée à chaque
+  /// reprise, car l'utilisateur a pu changer de fil entre-temps.
+  ///
+  /// Séparée de l'envoi lui-même parce qu'elle n'a rien de commun avec lui :
+  /// ici rien n'est encore engagé, et tout peut être abandonné sans laisser
+  /// de trace. Passé ce point, le fil est modifié et chaque sortie doit le
+  /// remettre d'aplomb.
+  Future<_PreparedSend?> _prepareSend(
+    _Outgoing outgoing, {
+    required LocalLlmBackend backend,
+    required int generationEpoch,
+    required int? conversationId,
+  }) async {
     final text = outgoing.text;
-    final backend = ref.read(chatBackendProvider);
-
-    // Identité de cet envoi, prise avant la moindre attente. Le chargement du
-    // modèle prend plusieurs secondes, pendant lesquelles l'utilisateur peut
-    // ouvrir un autre fil ou en créer un : l'envoi reprenait alors avec
-    // l'ancien texte et le nouvel historique.
-    final generationEpoch = ++_generationEpoch;
-    // Le fil visé est celui d'où l'envoi est parti, pas celui affiché au
-    // moment d'aboutir.
-    var conversationId = outgoing.conversationId;
-    // `null` désigne le fil qui reste à créer, jamais « n'importe lequel » :
-    // il n'est accepté que tant qu'aucun fil n'est ouvert. Les messages mis
-    // en attente pendant cette création sont rattachés plus bas, dès que le
-    // fil a une identité.
-    if (conversationId != _activeConversationId) {
-      return _SendOutcome.refused;
-    }
-    bool stillCurrent() =>
-        mounted &&
-        generationEpoch == _generationEpoch &&
-        conversationId == _activeConversationId;
-
     if (backend.loadedModelPath == null) {
       // Le modèle de la session précédente n'est ouvert qu'ici, pour ne pas
       // retarder l'affichage du chat au lancement.
       final restorable = _restorableModelPath;
       if (restorable == null) {
         _showModelRequired();
-        return _SendOutcome.refused;
+        return null;
       }
       if (!await _restoreModel(backend, restorable)) {
-        return _SendOutcome.refused;
+        return null;
       }
-      if (!stillCurrent()) {
+      if (!_isCurrentThread(generationEpoch, conversationId)) {
         // Fil abandonné pendant le chargement. Le brouillon de celui qui est
         // à l'écran maintenant appartient à l'utilisateur : on n'y touche pas.
-        return _SendOutcome.refused;
+        return null;
       }
     }
 
@@ -1029,7 +1036,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         'OpenAI. '
         'Désactive-la ou change de fournisseur.',
       );
-      return _SendOutcome.refused;
+      return null;
     }
 
     // Réflexion et personnalisation parlent au modèle de la même façon : une
@@ -1054,11 +1061,52 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ];
     } on UnsupportedAttachmentException catch (error) {
       _showSnack(error.message);
+      return null;
+    }
+    if (!_isCurrentThread(generationEpoch, conversationId)) {
+      return null;
+    }
+
+    return _PreparedSend(
+      history: history,
+      requestMessages: requestMessages,
+      modes: modes,
+    );
+  }
+
+  Future<_SendOutcome> _send(_Outgoing outgoing) async {
+    final text = outgoing.text;
+    final backend = ref.read(chatBackendProvider);
+
+    // Identité de cet envoi, prise avant la moindre attente. Le chargement du
+    // modèle prend plusieurs secondes, pendant lesquelles l'utilisateur peut
+    // ouvrir un autre fil ou en créer un : l'envoi reprenait alors avec
+    // l'ancien texte et le nouvel historique.
+    final generationEpoch = ++_generationEpoch;
+    // Le fil visé est celui d'où l'envoi est parti, pas celui affiché au
+    // moment d'aboutir.
+    var conversationId = outgoing.conversationId;
+    // `null` désigne le fil qui reste à créer, jamais « n'importe lequel » :
+    // il n'est accepté que tant qu'aucun fil n'est ouvert. Les messages mis
+    // en attente pendant cette création sont rattachés plus bas, dès que le
+    // fil a une identité.
+    if (conversationId != _activeConversationId) {
       return _SendOutcome.refused;
     }
-    if (!stillCurrent()) {
+    bool stillCurrent() => _isCurrentThread(generationEpoch, conversationId);
+
+    final prepared = await _prepareSend(
+      outgoing,
+      backend: backend,
+      generationEpoch: generationEpoch,
+      conversationId: conversationId,
+    );
+    if (prepared == null) {
       return _SendOutcome.refused;
     }
+    final history = prepared.history;
+    final requestMessages = prepared.requestMessages;
+    final modes = prepared.modes;
 
     // Validé : la lecture d'un message sur le point de disparaître s'arrête.
     if (outgoing.replaceFrom case final from?) {
@@ -1385,26 +1433,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   /// La liste est rangée de la plus récente à la plus ancienne : ce sont donc
   /// bien les plus anciennes qui partent, et jamais celle qui est ouverte.
   void _enforceConversationLimit() {
-    if (_conversations.length <= ConversationStore.maxConversations) {
-      return;
-    }
-
-    final dropped = <ChatConversation>[];
-    for (var index = _conversations.length - 1; index >= 0; index--) {
-      if (_conversations.length - dropped.length <=
-          ConversationStore.maxConversations) {
-        break;
-      }
-      final conversation = _conversations[index];
-      if (conversation.id == _activeConversationId) {
-        continue;
-      }
-      dropped.add(conversation);
-    }
-
+    final dropped = conversationsBeyondLimit(
+      conversations: _conversations,
+      activeConversationId: _activeConversationId,
+      limit: ConversationStore.maxConversations,
+    );
     if (dropped.isEmpty) {
       return;
     }
+
     _conversations.removeWhere(dropped.contains);
     unawaited(
       ref
@@ -1539,6 +1576,29 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     return true;
   }
 
+  /// Vrai tant que [generationEpoch] désigne l'opération en cours.
+  ///
+  /// C'est la règle de ce qui écrit dans une conversation **par son
+  /// identifiant** : une conversation quittée reste modifiable, et c'est même
+  /// tout l'intérêt, puisqu'une génération abandonnée doit y déposer ce
+  /// qu'elle a produit.
+  bool _isCurrentGeneration(int generationEpoch) =>
+      mounted && generationEpoch == _generationEpoch;
+
+  /// Vrai si [generationEpoch] est en cours **et** que [conversationId] est le
+  /// fil affiché.
+  ///
+  /// C'est la règle, plus stricte, de tout ce qui touche à `_messages` : une
+  /// génération abandonnée, ou un bouton pressé après avoir changé de fil, ne
+  /// doit jamais réécrire ce qui est ouvert maintenant.
+  ///
+  /// Les deux règles se ressemblent assez pour qu'on prenne l'une pour
+  /// l'autre. Les nommer est ce qui rend le choix visible à la lecture, là où
+  /// quatre copies écrites à la main le laissaient deviner.
+  bool _isCurrentThread(int generationEpoch, int? conversationId) =>
+      _isCurrentGeneration(generationEpoch) &&
+      conversationId == _activeConversationId;
+
   /// Conserve avec la conversation la version d'avant un remplacement.
   ///
   /// Enregistrée, donc reprenable après une navigation ou un redémarrage. La
@@ -1550,7 +1610,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     int generationEpoch,
     int? conversationId,
   ) {
-    if (!mounted || generationEpoch != _generationEpoch) {
+    if (!_isCurrentGeneration(generationEpoch)) {
       return;
     }
     final conversation = conversationId == null
@@ -1653,9 +1713,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     int generationEpoch,
     int? conversationId,
   ) {
-    if (!mounted ||
-        generationEpoch != _generationEpoch ||
-        conversationId != _activeConversationId) {
+    if (!_isCurrentThread(generationEpoch, conversationId)) {
       return;
     }
     setState(() {
