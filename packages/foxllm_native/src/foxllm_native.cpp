@@ -710,6 +710,28 @@ uint64_t foxllm_engine_model_size_bytes(void* engine) {
 #endif
 }
 
+// Nombre de jetons que le contexte a déjà lus et garde en cache.
+//
+// C'est la mesure exacte du remplissage : ni une estimation par le nombre de
+// caractères, ni une somme côté Dart, mais ce que le moteur a réellement
+// dans son cache KV après la dernière réponse, question comprise.
+//
+// Rendu à zéro tant qu'aucune génération n'a eu lieu : le cache est vide,
+// et c'est vrai.
+int32_t foxllm_engine_context_used(void* engine) {
+    auto* instance = as_engine(engine);
+    if (instance == nullptr) {
+        return 0;
+    }
+
+#ifdef FOXLLM_WITH_LLAMA_CPP
+    std::lock_guard<std::mutex> lock(instance->operation_mutex);
+    return static_cast<int32_t>(instance->cached_tokens.size());
+#else
+    return 0;
+#endif
+}
+
 int32_t foxllm_engine_model_context_size(void* engine) {
     auto* instance = as_engine(engine);
     if (instance == nullptr) {

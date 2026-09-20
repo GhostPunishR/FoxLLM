@@ -89,6 +89,7 @@ class ChatConversation {
           // qu'elle soit mesurée.
           if (message.generationSpeed != null)
             'generationSpeed': message.generationSpeed,
+          'contextFill': message.contextFill,
         },
       )
       .toList(growable: false);
@@ -221,6 +222,7 @@ class ChatConversation {
       );
       final outcomeReason = rawMessage['outcomeReason'];
       final generationSpeed = rawMessage['generationSpeed'];
+      final contextFill = rawMessage['contextFill'];
 
       messages.add(
         ChatMessage(
@@ -234,6 +236,7 @@ class ChatConversation {
           generationSpeed: generationSpeed is num
               ? generationSpeed.toDouble()
               : null,
+          contextFill: contextFill is num ? contextFill.toDouble() : null,
         ),
       );
     }

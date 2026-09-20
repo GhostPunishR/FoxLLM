@@ -37,5 +37,8 @@
   "ggufNoArchitecture": "This GGUF file does not declare its architecture: nothing says how to run it.",
   "ggufUnsupportedVersion": "This GGUF file is version {version}, which llama.cpp does not read.",
   "ggufNarrowTensor": "This GGUF file is malformed: tensor “{tensor}” has a single dimension without being f32. llama.cpp would load it silently, then stop dead on the first message.",
-  "modelImportFailed": "Import failed: {reason}"
+  "modelImportFailed": "Import failed: {reason}",
+  "generationSpeed": "{speed} tokens/s",
+  "contextFill": "context {percent}%",
+  "contextNearlyFull": "context {percent}%, nearly full"
 }

@@ -235,8 +235,13 @@ class _MessageList extends StatelessWidget {
                   bubble,
                 if (!isUser && message.outcome != GenerationOutcome.complete)
                   _OutcomeNote(message: message),
-                if (!isUser && message.generationSpeed != null)
-                  _SpeedNote(speed: message.generationSpeed!),
+                if (!isUser &&
+                    (message.generationSpeed != null ||
+                        message.contextFill != null))
+                  _SpeedNote(
+                    speed: message.generationSpeed,
+                    contextFill: message.contextFill,
+                  ),
                 if (showActions)
                   _AssistantActions(
                     message: message,
@@ -385,25 +390,64 @@ class _MessageEditor extends StatelessWidget {
 /// Discrète à dessein : c'est une information de mise au point, utile pour
 /// comparer deux modèles ou juger d'un réglage, pas une décoration. Elle
 /// n'apparaît que pour le moteur local, seul à la mesurer.
+/// Ce que la dernière réponse locale a coûté : sa vitesse, et la place
+/// qu'elle laisse.
+///
+/// Le remplissage répond à une question qu'on ne se posait qu'en butant
+/// dessus : jusqu'ici, rien n'annonçait que la conversation approchait de la
+/// fenêtre du modèle, et le refus arrivait sans prévenir.
 class _SpeedNote extends StatelessWidget {
-  const _SpeedNote({required this.speed});
+  const _SpeedNote({this.speed, this.contextFill});
 
-  final double speed;
+  final double? speed;
+  final double? contextFill;
+
+  /// Au-delà, la note le dit en toutes lettres plutôt qu'en pourcentage seul.
+  static const _warningThreshold = 0.85;
 
   @override
   Widget build(BuildContext context) {
     final fox = context.fox;
-    // Une décimale en dessous de dix, aucune au-dessus : à trente jetons par
-    // seconde, le dixième ne veut plus rien dire.
-    final written = speed < 10
-        ? speed.toStringAsFixed(1).replaceAll('.', ',')
-        : speed.round().toString();
+    final l10n = AppLocalizations.of(context);
+    final parts = <String>[];
+
+    final rate = speed;
+    if (rate != null) {
+      // Une décimale en dessous de dix, aucune au-dessus : à trente jetons par
+      // seconde, le dixième ne veut plus rien dire.
+      parts.add(
+        l10n.generationSpeed(
+          rate < 10
+              ? rate.toStringAsFixed(1).replaceAll('.', ',')
+              : rate.round().toString(),
+        ),
+      );
+    }
+
+    final fill = contextFill;
+    if (fill != null) {
+      final percent = (fill * 100).round().toString();
+      parts.add(
+        fill >= _warningThreshold
+            ? l10n.contextNearlyFull(percent)
+            : l10n.contextFill(percent),
+      );
+    }
+
+    if (parts.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 2),
       child: Text(
-        '$written jetons/s',
-        style: TextStyle(color: fox.textTertiary, fontSize: 11),
+        parts.join(' \u00b7 '),
+        style: TextStyle(
+          color: fill != null && fill >= _warningThreshold
+              ? fox.accent
+              : fox.textTertiary,
+          fontSize: 11,
+        ),
       ),
     );
   }

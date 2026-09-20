@@ -690,6 +690,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     setState(() {
       _messages[_messages.length - 1] = _messages.last.copyWith(
         generationSpeed: stats.tokensPerSecond,
+        contextFill: stats.contextFill,
       );
       _syncActiveConversation();
     });

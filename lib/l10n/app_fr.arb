@@ -127,5 +127,30 @@
         "type": "String"
       }
     }
+  },
+  "generationSpeed": "{speed} jetons/s",
+  "@generationSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "contextFill": "contexte {percent} %",
+  "@contextFill": {
+    "description": "Part du contexte du modèle déjà occupée.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "contextNearlyFull": "contexte {percent} %, bientôt plein",
+  "@contextNearlyFull": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
   }
 }

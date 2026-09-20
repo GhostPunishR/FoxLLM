@@ -47,6 +47,9 @@ external int _engineModelSizeBytes(Pointer<Void> engine);
 )
 external int _engineModelContextSize(Pointer<Void> engine);
 
+@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxllm_engine_context_used')
+external int _engineContextUsed(Pointer<Void> engine);
+
 @Native<
   Pointer<Utf8> Function(
     Pointer<Void>,
@@ -136,10 +139,30 @@ class FoxLlmGenerationStats {
   const FoxLlmGenerationStats({
     required this.generatedTokens,
     required this.elapsed,
+    this.contextUsed = 0,
+    this.contextCapacity = 0,
   });
 
   final int generatedTokens;
   final Duration elapsed;
+
+  /// Jetons occupés dans le contexte après cette réponse, question comprise.
+  ///
+  /// Mesuré sur le cache KV du moteur, et non estimé à partir du nombre de
+  /// caractères : c'est le seul compte qui corresponde à ce que le modèle
+  /// relève réellement, découpage du tokeniseur compris.
+  final int contextUsed;
+
+  /// Taille du contexte pour lequel ce modèle a été entraîné.
+  final int contextCapacity;
+
+  /// Part du contexte occupée, entre 0 et 1, ou `null` si elle est inconnue.
+  double? get contextFill {
+    if (contextCapacity <= 0 || contextUsed <= 0) {
+      return null;
+    }
+    return (contextUsed / contextCapacity).clamp(0.0, 1.0);
+  }
 
   double get tokensPerSecond {
     if (elapsed.inMicroseconds == 0) {
@@ -182,6 +205,14 @@ class FoxLlmNativeEngine {
       sizeBytes: _engineModelSizeBytes(_handle),
       contextSize: _engineModelContextSize(_handle),
     );
+  }
+
+  /// Jetons que le contexte a déjà lus et garde en cache.
+  ///
+  /// Zéro tant qu'aucune génération n'a eu lieu.
+  int get contextUsed {
+    _ensureAlive();
+    return _engineContextUsed(_handle);
   }
 
   String get lastError {
@@ -624,6 +655,8 @@ class FoxLlmNativeWorker {
         _lastGenerationStats = FoxLlmGenerationStats(
           generatedTokens: message['tokens']! as int,
           elapsed: Duration(microseconds: message['elapsedMicros']! as int),
+          contextUsed: (message['contextUsed'] as int?) ?? 0,
+          contextCapacity: (message['contextCapacity'] as int?) ?? 0,
         );
         _finishGeneration(requestId);
       case 'generationError':
@@ -800,11 +833,15 @@ void _foxLlmNativeWorkerMain(SendPort events) {
             },
           );
           stopwatch.stop();
+          // Relevé juste après la génération : le cache KV contient alors la
+          // conversation entière, question et réponse comprises.
           events.send(<String, Object?>{
             'type': 'generationDone',
             'id': requestId,
             'tokens': generatedTokens[0],
             'elapsedMicros': stopwatch.elapsedMicroseconds,
+            'contextUsed': engine.contextUsed,
+            'contextCapacity': engine.modelInfo?.contextSize ?? 0,
           });
         case 'dispose':
           engine.dispose();

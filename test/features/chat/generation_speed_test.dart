@@ -92,9 +92,43 @@ void main() {
       expect(find.textContaining('jetons/s'), findsNothing);
     });
   });
+
+  group('le remplissage du contexte s’affiche à côté', () {
+    testWidgets('en pourcentage, avec la vitesse', (tester) async {
+      await _pumpThread(tester, 8.42, contextFill: 0.42);
+      expect(find.text('8,4 jetons/s · contexte 42 %'), findsOneWidget);
+    });
+
+    testWidgets('et le dit en toutes lettres quand il approche', (
+      tester,
+    ) async {
+      // Le but de tout ceci : prévenir avant le refus, pas après.
+      await _pumpThread(tester, 8.42, contextFill: 0.92);
+      expect(
+        find.text('8,4 jetons/s · contexte 92 %, bientôt plein'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('seul, si la vitesse manque', (tester) async {
+      await _pumpThread(tester, null, contextFill: 0.30);
+      expect(find.text('contexte 30 %'), findsOneWidget);
+    });
+
+    testWidgets('rien pour une réponse distante', (tester) async {
+      // Le contexte d'un fournisseur ne se mesure pas d'ici : afficher
+      // « contexte 0 % » serait faux plutôt que muet.
+      await _pumpThread(tester, 8.42);
+      expect(find.textContaining('contexte'), findsNothing);
+    });
+  });
 }
 
-Future<void> _pumpThread(WidgetTester tester, double? speed) async {
+Future<void> _pumpThread(
+  WidgetTester tester,
+  double? speed, {
+  double? contextFill,
+}) async {
   await tester.binding.setSurfaceSize(const Size(420, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -106,6 +140,7 @@ Future<void> _pumpThread(WidgetTester tester, double? speed) async {
       messages: <ChatMessage>[
         const ChatMessage.user('Bonjour'),
         ChatMessage(
+          contextFill: contextFill,
           role: ChatRole.assistant,
           content: 'Bonjour, comment aider ?',
           generationSpeed: speed,
