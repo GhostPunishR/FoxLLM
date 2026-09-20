@@ -30,5 +30,12 @@
   "localEngineMissingCallback": "The local engine was called with nowhere to send its answer.",
   "localEngineBadTemperature": "Temperature must be zero or above.",
   "localEngineBadTopP": "Top-p must be above zero and at most one.",
-  "localEngineBadMaxTokens": "The maximum number of tokens must be above zero."
+  "localEngineBadMaxTokens": "The maximum number of tokens must be above zero.",
+  "ggufNotGguf": "This file is not a GGUF model: its first bytes do not carry the format signature.",
+  "ggufTruncated": "This GGUF file is truncated or damaged: its header stops before the end.",
+  "ggufNoTensors": "This GGUF file holds no tensors: there is no model in it.",
+  "ggufNoArchitecture": "This GGUF file does not declare its architecture: nothing says how to run it.",
+  "ggufUnsupportedVersion": "This GGUF file is version {version}, which llama.cpp does not read.",
+  "ggufNarrowTensor": "This GGUF file is malformed: tensor “{tensor}” has a single dimension without being f32. llama.cpp would load it silently, then stop dead on the first message.",
+  "modelImportFailed": "Import failed: {reason}"
 }

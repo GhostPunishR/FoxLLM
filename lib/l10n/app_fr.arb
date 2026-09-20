@@ -99,5 +99,33 @@
   "localEngineBadMaxTokens": "Le nombre maximal de jetons doit être supérieur à zéro.",
   "@localEngineBadMaxTokens": {
     "description": "Erreur du moteur local. Message d'origine : Max tokens must be greater than zero."
+  },
+  "ggufNotGguf": "Ce fichier n'est pas un modèle GGUF : ses premiers octets ne portent pas la signature du format.",
+  "ggufTruncated": "Ce fichier GGUF est tronqué ou abîmé : son en-tête s'interrompt avant la fin.",
+  "ggufNoTensors": "Ce fichier GGUF ne contient aucun tenseur : il n'y a pas de modèle dedans.",
+  "ggufNoArchitecture": "Ce fichier GGUF ne déclare pas son architecture : rien n'indique comment l'exécuter.",
+  "ggufUnsupportedVersion": "Ce fichier GGUF est en version {version}, que llama.cpp ne lit pas.",
+  "@ggufUnsupportedVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "ggufNarrowTensor": "Ce fichier GGUF est mal formé : le tenseur « {tensor} » n'a qu'une dimension sans être en f32. llama.cpp le chargerait sans rien dire, puis s'arrêterait net au premier message.",
+  "@ggufNarrowTensor": {
+    "placeholders": {
+      "tensor": {
+        "type": "String"
+      }
+    }
+  },
+  "modelImportFailed": "Import impossible : {reason}",
+  "@modelImportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

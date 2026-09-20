@@ -9,8 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
 import 'package:foxllm/core/storage/last_model_store.dart';
+import 'package:foxllm/features/local_models/gguf_inspection.dart';
+import 'package:foxllm/features/local_models/gguf_rejection_message.dart';
 import 'package:foxllm/features/local_models/local_model_file.dart';
 import 'package:foxllm/features/local_models/local_model_library.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/local_backend_provider.dart';
 
 class LocalModelsScreen extends ConsumerStatefulWidget {
@@ -121,8 +124,13 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
       if (!mounted) {
         return;
       }
+      final l10n = AppLocalizations.of(context);
       setState(() {
-        _error = 'Import impossible : $error';
+        _error = l10n.modelImportFailed(
+          error is GgufRejectedException
+              ? describeGgufRejection(error, l10n)
+              : '$error',
+        );
       });
     } finally {
       if (mounted) {

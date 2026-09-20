@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'package:foxllm/features/local_models/gguf_inspection.dart';
 import 'package:foxllm/features/local_models/local_model_file.dart';
 
 typedef LocalModelDirectoryProvider = Future<Directory> Function();
@@ -127,6 +128,19 @@ class LocalModelLibrary {
         throw StateError(
           'Import GGUF incomplet : $copiedBytes octets copiés sur '
           '$expectedSizeBytes attendus.',
+        );
+      }
+
+      // Examiné avant le renommage : un fichier refusé ne rejoint jamais la
+      // bibliothèque, donc n'est jamais proposé ni chargé. C'est le seul
+      // moment où le refuser coûte quelque chose de récupérable, puisque
+      // llama.cpp, lui, chargerait le fichier sans rien dire pour s'arrêter
+      // net au premier message.
+      final inspection = await inspectGgufFile(partial);
+      if (!inspection.isValid) {
+        throw GgufRejectedException(
+          inspection.defect!,
+          detail: inspection.detail,
         );
       }
 
