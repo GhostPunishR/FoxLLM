@@ -15,6 +15,10 @@
 
 #include "../src/foxllm_native.h"
 
+// Tout le compte rendu part sur la sortie d'erreur et non sur la sortie
+// standard. Ce n'est pas un détail : l'intégration continue ne capture que la
+// première, et un banc dont le verdict est invisible ne sert à rien le jour où
+// il échoue, puisque c'est justement là que ses lignes comptent.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -83,17 +87,17 @@ int failures = 0;
 
 void expect_same(const char* what, const std::string& cold, const std::string& warm) {
     const bool ok = cold == warm;
-    std::printf("%-58s %s\n", what, ok ? "identique" : "DIFFERENT");
+    std::fprintf(stderr, "%-58s %s\n", what, ok ? "identique" : "DIFFERENT");
     if (!ok) {
-        std::printf("    à froid : %s\n", cold.c_str());
-        std::printf("    à chaud : %s\n", warm.c_str());
+        std::fprintf(stderr, "    à froid : %s\n", cold.c_str());
+        std::fprintf(stderr, "    à chaud : %s\n", warm.c_str());
         failures++;
     }
 }
 
 void expect_different(const char* what, const std::string& a, const std::string& b) {
     const bool ok = a != b;
-    std::printf("%-58s %s\n", what, ok ? "différent" : "IDENTIQUE (suspect)");
+    std::fprintf(stderr, "%-58s %s\n", what, ok ? "différent" : "IDENTIQUE (suspect)");
     if (!ok) {
         failures++;
     }
@@ -109,11 +113,11 @@ int main(int argc, char** argv) {
     const char* path = argv[1];
     const int32_t kMax = 24;
 
-    std::printf("pont natif : %s\n", foxllm_native_version());
+    std::fprintf(stderr, "pont natif : %s\n", foxllm_native_version());
 
     void* probe = open_engine(path);
-    std::printf("modèle     : %s\n", foxllm_engine_model_description(probe));
-    std::printf("contexte   : %d jetons\n\n", foxllm_engine_model_context_size(probe));
+    std::fprintf(stderr, "modèle     : %s\n", foxllm_engine_model_description(probe));
+    std::fprintf(stderr, "contexte   : %d jetons\n\n", foxllm_engine_model_context_size(probe));
     foxllm_engine_destroy(probe);
 
     const std::vector<Turn> tour1 = {
@@ -202,7 +206,7 @@ int main(int argc, char** argv) {
         expect_different("témoin : « chat » et « hérisson » ne donnent pas le même", a, b);
     }
 
-    std::printf("\n%s\n", failures == 0 ? "Cache KV : tous les contrôles passent."
+    std::fprintf(stderr, "\n%s\n", failures == 0 ? "Cache KV : tous les contrôles passent."
                                         : "Cache KV : DES CONTROLES ECHOUENT.");
     return failures == 0 ? 0 : 1;
 }
