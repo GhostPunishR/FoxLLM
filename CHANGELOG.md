@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 520 cas, auxquels s’ajoutent les contrôles C++ du cache.
+441 à 524 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -181,6 +181,19 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
 - `pubspec.lock` est ignoré par git, ce qu'il n'était ni d'un côté ni de
   l'autre : chaque `flutter pub get` salissait l'arbre de travail ;
 - la version du paquet natif s'aligne sur celle que la bibliothèque annonce.
+
+### Diagnostic
+
+- **une version de débogage affiche désormais la première erreur**, et non la
+  dernière. Quand une construction échoue, Flutter remplace le sous-arbre
+  abîmé puis démonte ce qui l'entourait ; ce démontage échoue à son tour, et
+  c'est cette seconde erreur, sans rapport avec la cause, qui reste à l'écran.
+  On lit une conséquence pendant que la cause défile dans un journal qu'on n'a
+  pas. L'écran donne maintenant l'erreur d'origine et le début de sa pile
+  d'appels, de quoi nommer un fichier et une ligne depuis un téléphone, sans
+  câble ni outil. Il tient sans thème, sans police et sans image, puisqu'il
+  doit s'afficher quand tout le reste a échoué. Les versions de distribution
+  gardent l'écran discret de Flutter.
 
 ### Travaux internes
 
