@@ -89,7 +89,10 @@ class ChatConversation {
           // qu'elle soit mesurée.
           if (message.generationSpeed != null)
             'generationSpeed': message.generationSpeed,
-          'contextFill': message.contextFill,
+          // Absent pour la même raison que la vitesse : une réponse distante
+          // n'en a pas, et l'écrire à `null` grossirait le fichier sans rien
+          // dire de plus.
+          if (message.contextFill != null) 'contextFill': message.contextFill,
         },
       )
       .toList(growable: false);

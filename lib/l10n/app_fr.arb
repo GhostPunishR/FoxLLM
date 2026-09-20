@@ -152,5 +152,62 @@
         "type": "String"
       }
     }
+  },
+  "historyTitle": "Historique",
+  "historySubtitle": "Exporter ou réimporter vos conversations",
+  "historyIntro": "FoxLLM refuse la sauvegarde d'Android vers Google Drive : rien ne quitte l'appareil tout seul. La contrepartie est qu'un changement de téléphone emporte tout. Cet export est là pour ça.",
+  "historyExport": "Exporter l'historique",
+  "historyExportHint": "Un seul fichier, pièces jointes comprises.",
+  "historyImport": "Importer une archive",
+  "historyImportHint": "Les conversations importées s'ajoutent aux vôtres.",
+  "historyEmpty": "Aucune conversation à exporter.",
+  "historyArchiveUnreadable": "Ce fichier n'est pas lisible : ce n'est pas du JSON.",
+  "historyArchiveNotAnArchive": "Ce fichier n'est pas une archive FoxLLM.",
+  "historyArchiveEmpty": "Cette archive ne contient aucune conversation lisible.",
+  "historyArchiveTooRecent": "Cette archive a été écrite par une version plus récente de FoxLLM (format {version}).",
+  "@historyArchiveTooRecent": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "historyImported": "{conversations} conversations et {attachments} pièces jointes rétablies.",
+  "@historyImported": {
+    "placeholders": {
+      "conversations": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      }
+    }
+  },
+  "historyImportPartial": "{skipped} entrées illisibles ont été écartées, et {missing} pièces jointes manquaient.",
+  "@historyImportPartial": {
+    "placeholders": {
+      "skipped": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      }
+    }
+  },
+  "historyExportFailed": "Export impossible : {reason}",
+  "@historyExportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "historyImportFailed": "Import impossible : {reason}",
+  "@historyImportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
   }
 }

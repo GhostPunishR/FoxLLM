@@ -7,13 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/theme/fox_theme_labels.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
-import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/features/local_models/current_local_model.dart';
 import 'package:foxllm/features/local_models/local_models_screen.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/features/settings/history_screen.dart';
 import 'package:foxllm/features/settings/personal_api_screen.dart';
 import 'package:foxllm/features/settings/personalization_screen.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
 
@@ -107,6 +108,19 @@ class SettingsScreen extends ConsumerWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (context) => const AppearanceScreen(),
+                    ),
+                  );
+                },
+              ),
+              Divider(height: 1, color: fox.border),
+              _SettingsTile(
+                icon: Icons.history_rounded,
+                title: AppLocalizations.of(context).historyTitle,
+                subtitle: AppLocalizations.of(context).historySubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const HistoryScreen(),
                     ),
                   );
                 },

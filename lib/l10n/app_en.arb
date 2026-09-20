@@ -40,5 +40,21 @@
   "modelImportFailed": "Import failed: {reason}",
   "generationSpeed": "{speed} tokens/s",
   "contextFill": "context {percent}%",
-  "contextNearlyFull": "context {percent}%, nearly full"
+  "contextNearlyFull": "context {percent}%, nearly full",
+  "historyTitle": "History",
+  "historySubtitle": "Export or bring back your conversations",
+  "historyIntro": "FoxLLM refuses Android's backup to Google Drive: nothing leaves the device on its own. The trade-off is that changing phones takes everything with it. This export is what answers that.",
+  "historyExport": "Export history",
+  "historyExportHint": "A single file, attachments included.",
+  "historyImport": "Import an archive",
+  "historyImportHint": "Imported conversations are added to yours.",
+  "historyEmpty": "No conversation to export.",
+  "historyArchiveUnreadable": "This file cannot be read: it is not JSON.",
+  "historyArchiveNotAnArchive": "This file is not a FoxLLM archive.",
+  "historyArchiveEmpty": "This archive holds no readable conversation.",
+  "historyArchiveTooRecent": "This archive was written by a newer version of FoxLLM (format {version}).",
+  "historyImported": "{conversations} conversations and {attachments} attachments restored.",
+  "historyImportPartial": "{skipped} unreadable entries were left out, and {missing} attachments were missing.",
+  "historyExportFailed": "Export failed: {reason}",
+  "historyImportFailed": "Import failed: {reason}"
 }
