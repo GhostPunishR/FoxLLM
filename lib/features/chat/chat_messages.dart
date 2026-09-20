@@ -40,30 +40,46 @@ class _WelcomeState extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return Padding(
-          padding: EdgeInsets.only(top: constraints.maxHeight * 0.39),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                const FoxMark(size: 46),
-                const SizedBox(height: 22),
-                SizedBox(
-                  width: 300,
-                  child: Text(
-                    "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: context.fox.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      height: 1.28,
-                      letterSpacing: -0.25,
+        // Le bloc descend au tiers de l'écran quand la place le permet.
+        // Agrandi, le même texte prend plusieurs lignes de plus : l'espace
+        // au-dessus lui cède du terrain, au lieu de le pousser dehors.
+        final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
+        final top = constraints.maxHeight * 0.39 / scale;
+
+        return SingleChildScrollView(
+          // Et si cela ne suffit pas, à très gros caractères sur un écran
+          // court, le bloc défile plutôt que d'afficher la bande rayée de
+          // débordement par-dessus l'accueil.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Padding(
+              padding: EdgeInsets.only(top: top),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const FoxMark(size: 46),
+                    const SizedBox(height: 22),
+                    SizedBox(
+                      // La largeur suit l'écran quand il est plus étroit que
+                      // la mesure choisie : une valeur fixe y déborderait.
+                      width: math.min(300, constraints.maxWidth - 32),
+                      child: Text(
+                        "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: context.fox.textPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          height: 1.28,
+                          letterSpacing: -0.25,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -212,6 +228,8 @@ class _MessageList extends StatelessWidget {
                   bubble,
                 if (!isUser && message.outcome != GenerationOutcome.complete)
                   _OutcomeNote(message: message),
+                if (!isUser && message.generationSpeed != null)
+                  _SpeedNote(speed: message.generationSpeed!),
                 if (showActions)
                   _AssistantActions(
                     message: message,
@@ -350,6 +368,35 @@ class _MessageEditor extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Vitesse d'écriture d'une réponse produite sur l'appareil.
+///
+/// Discrète à dessein : c'est une information de mise au point, utile pour
+/// comparer deux modèles ou juger d'un réglage, pas une décoration. Elle
+/// n'apparaît que pour le moteur local, seul à la mesurer.
+class _SpeedNote extends StatelessWidget {
+  const _SpeedNote({required this.speed});
+
+  final double speed;
+
+  @override
+  Widget build(BuildContext context) {
+    final fox = context.fox;
+    // Une décimale en dessous de dix, aucune au-dessus : à trente jetons par
+    // seconde, le dixième ne veut plus rien dire.
+    final written = speed < 10
+        ? speed.toStringAsFixed(1).replaceAll('.', ',')
+        : speed.round().toString();
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, top: 2),
+      child: Text(
+        '$written jetons/s',
+        style: TextStyle(color: fox.textTertiary, fontSize: 11),
       ),
     );
   }

@@ -106,6 +106,96 @@ void main() {
     });
   });
 
+  group('la recherche web', () {
+    test('l’outil n’est déclaré que si le mode est actif', () {
+      final without = jsonDecode(
+        _request(<ChatMessage>[const ChatMessage.user('Bonjour')]).body,
+      );
+      expect(
+        (without as Map<String, dynamic>).containsKey('tools'),
+        isFalse,
+        reason:
+            'un outil déclaré sans raison autorise une recherche non voulue',
+      );
+
+      final body =
+          jsonDecode(
+                _request(<ChatMessage>[
+                  const ChatMessage.user('Quoi de neuf ?'),
+                ], settings: const GenerationSettings(webSearch: true)).body,
+              )
+              as Map<String, dynamic>;
+      final tools = body['tools'] as List<dynamic>;
+      final tool = tools.single as Map<String, dynamic>;
+      // Anthropic date ses outils : une valeur inconnue fait refuser toute la
+      // requête, pas seulement la recherche.
+      expect(tool['type'], anthropicWebSearchTool);
+      expect(tool['name'], 'web_search');
+    });
+
+    test('les pages consultées deviennent des sources', () async {
+      final backend = _backend(<String>[
+        'data: {"type":"content_block_start","index":0,"content_block":'
+            '{"type":"web_search_tool_result","content":['
+            '{"type":"web_search_result","url":"https://exemple.test/a",'
+            '"title":"Page A"},'
+            '{"type":"web_search_result","url":"https://exemple.test/b",'
+            '"title":"Page B"}]}}',
+        'data: {"type":"content_block_delta","index":1,'
+            '"delta":{"type":"text_delta","text":"Voici."}}',
+      ]);
+
+      expect(
+        await backend
+            .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+            .join(),
+        'Voici.',
+      );
+      expect(backend.citations.map((c) => c.url), <String>[
+        'https://exemple.test/a',
+        'https://exemple.test/b',
+      ]);
+      expect(backend.citations.first.title, 'Page A');
+    });
+
+    test('une citation au fil du texte compte aussi', () async {
+      // Anthropic cite deux fois : les pages lues d'abord, puis les passages
+      // qui les appuient. Une réponse peut citer moins de pages qu'elle n'en a
+      // lues, et les deux intéressent le lecteur.
+      final backend = _backend(<String>[
+        'data: {"type":"content_block_delta","index":0,'
+            '"delta":{"type":"citations_delta","citation":'
+            '{"type":"web_search_result_location",'
+            '"url":"https://exemple.test/c","title":"Page C"}}}',
+        'data: {"type":"content_block_delta","index":0,'
+            '"delta":{"type":"text_delta","text":"Réponse."}}',
+      ]);
+
+      expect(
+        await backend
+            .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+            .join(),
+        'Réponse.',
+      );
+      expect(backend.citations.single.url, 'https://exemple.test/c');
+    });
+
+    test('une source sans adresse est écartée', () async {
+      final backend = _backend(<String>[
+        'data: {"type":"content_block_start","index":0,"content_block":'
+            '{"type":"web_search_tool_result","content":['
+            '{"type":"web_search_result_error","error_code":"unavailable"}]}}',
+        'data: {"type":"content_block_delta","index":1,'
+            '"delta":{"type":"text_delta","text":"Sans source."}}',
+      ]);
+
+      await backend
+          .generate(messages: <ChatMessage>[const ChatMessage.user('?')])
+          .drain<void>();
+      expect(backend.citations, isEmpty);
+    });
+  });
+
   group('le flux', () {
     test('ne garde que les fragments de texte', () async {
       final backend = _backend(<String>[
@@ -203,7 +293,10 @@ const _provider = ProviderConfig(
   model: 'claude-example',
 );
 
-http.Request _request(List<ChatMessage> messages) {
+http.Request _request(
+  List<ChatMessage> messages, {
+  GenerationSettings settings = const GenerationSettings(),
+}) {
   final backend = AnthropicBackend(
     provider: _provider,
     keyStore: _FakeApiKeyStore(),
@@ -212,7 +305,7 @@ http.Request _request(List<ChatMessage> messages) {
   return backend.buildRequest(
     apiKey: 'secret',
     messages: messages,
-    settings: const GenerationSettings(),
+    settings: settings,
   );
 }
 

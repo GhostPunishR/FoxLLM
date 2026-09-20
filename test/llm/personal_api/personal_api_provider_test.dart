@@ -144,16 +144,17 @@ void main() {
       );
     });
 
-    test('seuls OpenAI et Google annoncent la recherche web', () {
+    test('seuls les trois moteurs outillés annoncent la recherche', () {
       final searching = personalApiProviders
           .where((provider) => provider.supportsWebSearch)
           .map((provider) => provider.id)
           .toList();
 
-      // Anthropic a bien un outil de recherche, mais FoxLLM ne le déclare pas
-      // encore dans ses requêtes : l'annoncer promettrait des sources qui ne
-      // viendraient jamais.
-      expect(searching, <String>['gemini', 'openai']);
+      // Les trois qui ont un outil de recherche intégré, et que FoxLLM
+      // déclare bien dans ses requêtes. Un fournisseur qui se contente
+      // d'imiter `chat/completions` n'en a aucun : le lui annoncer
+      // promettrait des sources qui ne viendraient jamais.
+      expect(searching, <String>['anthropic', 'gemini', 'openai']);
     });
   });
 

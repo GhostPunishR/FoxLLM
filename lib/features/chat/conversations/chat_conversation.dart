@@ -85,6 +85,10 @@ class ChatConversation {
             'outcome': message.outcome.name,
           if (message.outcomeReason != null)
             'outcomeReason': message.outcomeReason,
+          // Absente d'une réponse distante, et des historiques écrits avant
+          // qu'elle soit mesurée.
+          if (message.generationSpeed != null)
+            'generationSpeed': message.generationSpeed,
         },
       )
       .toList(growable: false);
@@ -216,6 +220,7 @@ class ChatConversation {
         (value) => value.name == rawMessage['outcome'],
       );
       final outcomeReason = rawMessage['outcomeReason'];
+      final generationSpeed = rawMessage['generationSpeed'];
 
       messages.add(
         ChatMessage(
@@ -226,6 +231,9 @@ class ChatConversation {
           rating: rating.isEmpty ? MessageRating.none : rating.first,
           outcome: outcome.isEmpty ? GenerationOutcome.complete : outcome.first,
           outcomeReason: outcomeReason is String ? outcomeReason : null,
+          generationSpeed: generationSpeed is num
+              ? generationSpeed.toDouble()
+              : null,
         ),
       );
     }

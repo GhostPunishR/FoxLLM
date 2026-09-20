@@ -45,6 +45,7 @@ class ChatMessage {
     this.rating = MessageRating.none,
     this.outcome = GenerationOutcome.complete,
     this.outcomeReason,
+    this.generationSpeed,
   });
 
   const ChatMessage.system(String content)
@@ -71,6 +72,17 @@ class ChatMessage {
   /// Sources consultées par le modèle, quand il a cherché sur le web.
   final List<Citation> citations;
 
+  /// Vitesse d'écriture de la réponse, en jetons par seconde.
+  ///
+  /// Seul le moteur local la mesure : lui seul sait combien de jetons il a
+  /// produits et en combien de temps. Une réponse venue d'une API distante
+  /// laisse ce champ vide, faute d'un compte que le fournisseur ne donne pas
+  /// au fil de l'eau.
+  ///
+  /// Enregistrée avec le message : c'est ce qui permet de comparer deux
+  /// modèles, ou de voir l'effet d'un réglage, sans avoir à tout refaire.
+  final double? generationSpeed;
+
   /// Avis local de l'utilisateur, conservé avec la conversation.
   final MessageRating rating;
 
@@ -95,6 +107,7 @@ class ChatMessage {
     MessageRating? rating,
     GenerationOutcome? outcome,
     String? outcomeReason,
+    double? generationSpeed,
   }) => ChatMessage(
     role: role,
     content: content ?? this.content,
@@ -104,6 +117,7 @@ class ChatMessage {
     rating: rating ?? this.rating,
     outcome: outcome ?? this.outcome,
     outcomeReason: outcomeReason ?? this.outcomeReason,
+    generationSpeed: generationSpeed ?? this.generationSpeed,
   );
 
   Map<String, Object> toApiJson() {

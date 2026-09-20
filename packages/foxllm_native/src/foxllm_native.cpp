@@ -386,27 +386,50 @@ bool generate_internal(
         // rend ce passage rare.
         release_context(instance);
 
-        llama_context_params context_params = llama_context_default_params();
-        context_params.n_ctx = context_size_for(
-            existing,
-            needed,
-            trained_context > 0 ? static_cast<uint32_t>(trained_context) : 0);
-        context_params.n_batch =
-            std::min<uint32_t>(context_params.n_ctx, kDecodeBatchSize);
-        context_params.no_perf = true;
+        // Deux tentatives : cache quantifié d'abord, cache ordinaire ensuite.
+        //
+        // En `q8_0`, le cache tient dans la moitié de la mémoire d'un cache en
+        // `f16` : à mémoire égale, c'est deux fois plus de conversation qu'un
+        // téléphone peut garder, et la perte de qualité est négligeable à huit
+        // bits.
+        //
+        // Mais llama.cpp marque ces deux réglages comme expérimentaux, et le
+        // cache V quantifié demande l'attention flash, que tous les appareils
+        // n'offrent pas. Sans repli, un téléphone qui la refuse se retrouverait
+        // sans moteur local du tout : le gain ne vaut pas ce risque, la
+        // seconde tentative le supprime.
+        for (int attempt = 0; attempt < 2 && instance->context == nullptr;
+             ++attempt) {
+            llama_context_params context_params =
+                llama_context_default_params();
+            context_params.n_ctx = context_size_for(
+                existing,
+                needed,
+                trained_context > 0 ? static_cast<uint32_t>(trained_context)
+                                    : 0);
+            context_params.n_batch =
+                std::min<uint32_t>(context_params.n_ctx, kDecodeBatchSize);
+            context_params.no_perf = true;
 
-        // La lecture du prompt et l'écriture de la réponse ne sollicitent pas
-        // la machine de la même façon : la première est du calcul matriciel
-        // qui profite des cœurs, la seconde relit tous les poids par jeton et
-        // bute sur la bande passante mémoire. llama.cpp leur donne néanmoins
-        // le même compte sur mobile, faute qu'ajouter des threads au décodage
-        // y gagne quoi que ce soit.
-        const int32_t threads = math_thread_count();
-        context_params.n_threads = threads;
-        context_params.n_threads_batch = threads;
+            // La lecture du prompt et l'écriture de la réponse ne sollicitent
+            // pas la machine de la même façon : la première est du calcul
+            // matriciel qui profite des cœurs, la seconde relit tous les poids
+            // par jeton et bute sur la bande passante mémoire. llama.cpp leur
+            // donne néanmoins le même compte sur mobile, faute qu'ajouter des
+            // threads au décodage y gagne quoi que ce soit.
+            const int32_t threads = math_thread_count();
+            context_params.n_threads = threads;
+            context_params.n_threads_batch = threads;
 
-        instance->context =
-            llama_init_from_model(instance->model, context_params);
+            if (attempt == 0) {
+                context_params.type_k = GGML_TYPE_Q8_0;
+                context_params.type_v = GGML_TYPE_Q8_0;
+            }
+
+            instance->context =
+                llama_init_from_model(instance->model, context_params);
+        }
+
         if (instance->context == nullptr) {
             instance->last_error =
                 "llama.cpp could not create an inference context.";

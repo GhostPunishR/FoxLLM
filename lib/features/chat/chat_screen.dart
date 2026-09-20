@@ -632,6 +632,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     });
   }
 
+  /// Note la vitesse d'écriture d'une réponse produite sur l'appareil.
+  ///
+  /// Seul le moteur local la mesure, et `PersonalApiChatBackend` renvoie
+  /// toujours vers le fournisseur distant : c'est donc l'absence de celui-ci
+  /// qui dit qu'on vient de générer ici. Sans ce contrôle, une réponse
+  /// distante hériterait de la vitesse de la dernière génération locale,
+  /// mesurée pour un tout autre modèle.
+  Future<void> _attachGenerationSpeed(
+    LocalLlmBackend backend,
+    int generationEpoch,
+    int? conversationId,
+  ) async {
+    if (backend is PersonalApiChatBackend) {
+      return;
+    }
+
+    final stats = await backend.lastGenerationStats;
+    if (stats == null ||
+        stats.generatedTokens <= 0 ||
+        stats.tokensPerSecond <= 0) {
+      return;
+    }
+    // La lecture est asynchrone : le fil a pu changer entre-temps, et la
+    // vitesse n'appartiendrait plus à ce qui est à l'écran.
+    if (!mounted ||
+        _generationEpoch != generationEpoch ||
+        _activeConversationId != conversationId ||
+        _messages.isEmpty ||
+        _messages.last.role != ChatRole.assistant) {
+      return;
+    }
+
+    setState(() {
+      _messages[_messages.length - 1] = _messages.last.copyWith(
+        generationSpeed: stats.tokensPerSecond,
+      );
+      _syncActiveConversation();
+    });
+  }
+
   /// Liste les pages consultées par le modèle pour cette réponse.
   void _showSources(ChatMessage message) {
     final fox = context.fox;
@@ -985,7 +1025,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (modes.webSearch &&
         !(backend is PersonalApiChatBackend && backend.supportsWebSearch)) {
       _showSnack(
-        'La recherche web demande une API personnelle OpenAI ou Google. '
+        'La recherche web demande une API personnelle Anthropic, Google ou '
+        'OpenAI. '
         'Désactive-la ou change de fournisseur.',
       );
       return _SendOutcome.refused;
@@ -1158,6 +1199,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       if (stillCurrent()) {
         if (response.isNotEmpty) {
           _attachCitations(backend);
+          unawaited(
+            _attachGenerationSpeed(backend, generationEpoch, conversationId),
+          );
         }
         // Lue même sans un mot reçu : un flux qui s'annonce écourté avant le
         // premier fragment reste écourté, et le traiter comme une réussite
@@ -1768,8 +1812,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       supported
           ? 'Recherche web activée : le modèle pourra consulter le web.'
           : 'Recherche web activée, mais le moteur en place ne sait pas '
-                'consulter le web. Configure une API personnelle OpenAI ou '
-                'Google.',
+                'consulter le web. Configure une API personnelle Anthropic, '
+                'Google ou OpenAI.',
     );
   }
 

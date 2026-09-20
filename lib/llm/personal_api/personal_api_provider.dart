@@ -47,12 +47,11 @@ class PersonalApiProvider {
   ///
   /// Nommés un par un, et non par défaut : proposer le mode Recherche à un
   /// moteur qui ne l'a pas laisserait croire à une réponse sourcée qui ne le
-  /// serait pas. Anthropic a bien un outil de recherche, mais FoxLLM ne le
-  /// demande pas encore : tant qu'il n'est pas déclaré dans la requête, le
-  /// mode n'aurait aucun effet.
+  /// serait pas.
   bool get supportsWebSearch =>
       protocol == PersonalApiProtocol.openAiResponses ||
-      protocol == PersonalApiProtocol.gemini;
+      protocol == PersonalApiProtocol.gemini ||
+      protocol == PersonalApiProtocol.anthropic;
 
   String resolveBaseUrl(String customBaseUrl) {
     if (custom) {
@@ -67,6 +66,13 @@ class PersonalApiProvider {
 /// Figée : c'est ce qui garantit que le format des réponses ne change pas sous
 /// l'application. La faire évoluer demande de relire le format des évènements.
 const anthropicApiVersion = '2023-06-01';
+
+/// Outil de recherche web d'Anthropic, désigné par sa date de version.
+///
+/// Anthropic date ses outils plutôt que de les versionner : changer cette
+/// valeur change d'outil, et une valeur inconnue fait refuser la requête
+/// entière. Elle est donc nommée ici, et non écrite au milieu d'une requête.
+const anthropicWebSearchTool = 'web_search_20250305';
 
 const anthropicPersonalApiProvider = PersonalApiProvider(
   id: 'anthropic',

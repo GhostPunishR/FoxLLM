@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 481 cas, auxquels s’ajoutent les contrôles C++ du cache.
+441 à 503 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -96,6 +96,39 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
   pour qu'une question d'une ligne ne paie pas la mémoire d'un long fil ;
 - le prompt se lit par lots de 512 jetons au lieu d'un seul lot de sa taille,
   ce qui borne les tampons de calcul et permet à un long fil de passer.
+
+### Ajouts
+
+- **la vitesse d'écriture s'affiche sous une réponse locale**, en jetons par
+  seconde. Le pont natif la mesurait déjà et la jetait. C'est la façon de voir
+  l'effet du cache KV, de comparer deux modèles ou de juger d'un réglage, sans
+  rien avoir à refaire. Discrète à dessein, et enregistrée avec le message.
+  Une réponse distante n'en porte aucune : un fournisseur ne donne pas ce
+  compte, et l'inventer serait pire que de se taire ;
+- **la recherche web fonctionne chez Anthropic.** L'outil était laissé de côté
+  faute d'être déclaré dans les requêtes ; il l'est maintenant, et les sources
+  reviennent par les deux chemins qu'Anthropic emploie : les pages consultées
+  dès que la recherche aboutit, puis les citations au fil des phrases qu'elles
+  appuient. Trois fournisseurs savent donc consulter le web, contre deux.
+
+### Modèles locaux, suite
+
+- **le cache KV tient dans la moitié de la mémoire.** En `q8_0` plutôt qu'en
+  `f16`, c'est deux fois plus de conversation gardée à mémoire égale, pour une
+  perte de qualité négligeable à huit bits. llama.cpp marque ces réglages
+  comme expérimentaux et le cache V quantifié demande l'attention flash : un
+  repli sur le cache ordinaire est prévu, pour qu'un téléphone qui la refuse
+  garde son moteur local plutôt que de le perdre.
+
+### Accessibilité, suite
+
+- **l'accueil du chat tient à deux fois la taille de texte.** Le bloc de
+  bienvenue était posé à 39 % de la hauteur avec une largeur fixe : agrandi,
+  il débordait de 194 points et affichait la bande rayée par-dessus l'écran.
+  L'espace au-dessus lui cède maintenant du terrain à mesure que le texte
+  grandit, sa largeur suit l'écran, et il défile si cela ne suffit pas. Douze
+  contrôles vérifient les quatre écrans principaux à une fois et demie, et
+  deux fois, la taille ordinaire.
 
 ### Blocs de code
 
