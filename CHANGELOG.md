@@ -2,6 +2,72 @@
 
 Toutes les évolutions importantes de FoxLLM sont documentées dans ce fichier.
 
+## [0.1.6] - 2026-09-20
+
+Une passe sur ce qu'un audit du dépôt avait relevé après la version
+précédente. L'application parle désormais deux langues, refuse un modèle
+malformé au lieu de tomber avec lui, annonce le remplissage de son contexte
+avant qu'il déborde, et sait exporter son historique.
+
+### Ajouts
+
+- **l'interface se traduit.** Elle suit la langue de l'appareil par défaut, et
+  se force depuis Paramètres → Apparence, à côté de la déclinaison. Le
+  français et l'anglais sont servis. Les documents légaux restent en français,
+  seule version faisant foi : traduire des conditions auxquelles des
+  utilisateurs sont engagés est une décision juridique, pas une tâche de
+  chaîne d'interface, et l'écran de langue le signale ;
+- **le remplissage du contexte s'affiche** à côté de la vitesse, sous une
+  réponse locale : « 8,4 jetons/s · contexte 42 % ». Au-delà de 85 %, la note
+  le dit en toutes lettres. Rien n'indiquait jusqu'ici qu'une conversation
+  approchait de la fenêtre du modèle, et le refus arrivait sans prévenir. La
+  mesure vient du cache KV, donc du compte réel du moteur, et non d'une
+  estimation tirée du nombre de caractères ;
+- **l'historique s'exporte et se réimporte**, pièces jointes comprises, en un
+  seul fichier. C'est la contrepartie du refus de la sauvegarde d'Android vers
+  Google Drive : rien ne quitte l'appareil tout seul, donc un changement de
+  téléphone emportait tout. Les conversations importées s'ajoutent au lieu de
+  remplacer, et ce qui n'a pas pu être relu est compté plutôt que tu ;
+- **la distribution est minifiée**, avec les règles de conservation de ce que
+  R8 ne doit pas retirer. À vérifier sur un appareil avant publication : une
+  règle manquante ne casse pas la compilation, elle casse l'application une
+  fois installée.
+
+### Corrections
+
+- **les menus du système s'affichaient en anglais.** Un appui long dans le
+  champ de message ouvrait « Cut », « Copy » et « Paste » au milieu d'une
+  application entièrement française. Ces mots viennent de Flutter, qui ne
+  dispose que de ses textes anglais tant que l'application ne déclare aucune
+  délégation de traduction : rien dans le code ne les écrivait, donc aucune
+  relecture ne pouvait les trouver ;
+- **les refus du moteur local s'affichaient en anglais.** « Génération
+  impossible : Prompt exceeds the model context window. » C'est le même défaut
+  que la version précédente avait corrigé pour le réseau, manqué sur le chemin
+  local, alors que c'est le refus le plus fréquent avec un modèle local. Les
+  dix-huit messages du pont natif sont traduits, et un contrôle relit le C++
+  pour refuser qu'un message nouveau y apparaisse sans traduction ;
+- **un modèle GGUF malformé arrêtait l'application.** Un poids de
+  normalisation en `f16` au lieu de `f32` passe le chargement de llama.cpp,
+  qui s'arrête ensuite net au premier message sur un `ggml_abort` qui ne se
+  rattrape pas. L'en-tête est désormais examiné avant que le fichier rejoigne
+  la bibliothèque : un modèle refusé n'est jamais proposé, donc jamais chargé ;
+- **l'historique était analysé et réécrit sur le fil de l'interface.** Mesuré
+  sur cent conversations : 41 ms à lire et 30 ms à écrire pour 12 Mio, là où
+  une image dure 16,7 ms. Trois images perdues au lancement, deux à chaque
+  message envoyé.
+
+### Travaux internes
+
+- **`SerialLock` est couvert directement.** Trente-deux lignes qui sérialisent
+  la synthèse vocale et la dictée sur un moteur du système qui n'a qu'un seul
+  état. Une régression dedans se serait manifestée comme un défaut de la
+  dictée, loin de sa cause. Le contrôle qui compte le plus vérifie qu'une
+  action qui échoue ne bloque pas la file : sans cela, une seule erreur de
+  synthèse rendrait la lecture à voix haute muette jusqu'au lancement suivant.
+
+La suite de tests passe de 533 à 588 cas.
+
 ## [0.1.5] - 2026-09-19
 
 Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
