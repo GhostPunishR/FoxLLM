@@ -8,7 +8,7 @@ Deux fournisseurs d'API de plus, une relecture des documents légaux, et les
 correctifs d'un audit du dépôt. Le réseau ne peut plus attendre indéfiniment,
 les erreurs de fournisseur se lisent en français dans le chat, et les copies
 de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
-441 à 524 cas, auxquels s’ajoutent les contrôles C++ du cache.
+441 à 531 cas, auxquels s’ajoutent les contrôles C++ du cache.
 
 ### Ajouts
 
@@ -181,6 +181,22 @@ de pièces jointes ne s'accumulent plus sans fin. La suite de tests passe de
 - `pubspec.lock` est ignoré par git, ce qu'il n'était ni d'un côté ni de
   l'autre : chaque `flutter pub get` salissait l'arbre de travail ;
 - la version du paquet natif s'aligne sur celle que la bibliothèque annonce.
+
+### Correction d'une régression
+
+- **l'application ne démarrait plus sur certains appareils.** Le correctif de
+  mise à l'échelle du texte calculait la largeur du bloc d'accueil par une
+  soustraction, sans la borner. Or la première image d'un lancement arrive
+  avant que la fenêtre ait ses dimensions, donc avec une largeur nulle : la
+  soustraction donnait une largeur négative, qu'un `SizedBox` refuse, et toute
+  l'application tombait au démarrage. Le mode immersif allonge encore cet
+  instant, le temps que les barres système cèdent la place.
+- **aucun test ne pouvait l'attraper** : un banc de test pose toujours une
+  taille d'écran, et ne voit donc jamais cette première image sans dimensions.
+  Sept contrôles couvrent désormais les tailles qu'un appareil produit
+  vraiment : la fenêtre encore vide, le plus petit écran Android courant, un
+  écran partagé en hauteur, et l'enchaînement d'un lancement, du rien vers
+  l'écran.
 
 ### Diagnostic
 

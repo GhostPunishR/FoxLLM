@@ -64,7 +64,14 @@ class _WelcomeState extends StatelessWidget {
                     SizedBox(
                       // La largeur suit l'écran quand il est plus étroit que
                       // la mesure choisie : une valeur fixe y déborderait.
-                      width: math.min(300, constraints.maxWidth - 32),
+                      //
+                      // Bornée à zéro, et ce n'est pas une précaution de
+                      // principe : la première image d'un lancement arrive
+                      // avant les vraies dimensions de la fenêtre, donc avec
+                      // une largeur nulle. La soustraction donnait alors une
+                      // largeur négative, qu'un `SizedBox` refuse, et toute
+                      // l'application tombait au démarrage.
+                      width: (constraints.maxWidth - 32).clamp(0.0, 300.0),
                       child: Text(
                         "Salut ! Qu'aimeriez-vous\ndiscuter aujourd'hui ?",
                         textAlign: TextAlign.center,
