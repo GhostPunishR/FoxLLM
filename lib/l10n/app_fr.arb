@@ -322,6 +322,10 @@
   "outcomeShortened": "Réponse écourtée.",
   "reasonLengthLimit": "la limite de longueur a été atteinte",
   "reasonContentFilter": "le fournisseur a filtré la suite",
+  "reasonContextLimit": "la conversation remplit la fenêtre du modèle",
+  "@reasonContextLimit": {
+    "description": "Motif d'arrêt : le contexte du modèle est plein, relever la limite de longueur n'y changerait rien."
+  },
   "modelsPickTitle": "Choisir un modèle GGUF",
   "modelsUnloadFirst": "Décharge le modèle avant de le supprimer.",
   "modelsDeleteTitle": "Supprimer le modèle ?",

@@ -25,6 +25,13 @@ struct Engine {
     std::string last_error;
     std::atomic<bool> stop_requested{false};
 
+    // Pourquoi la dernière génération s'est arrêtée, parmi les `FOXLLM_STOP_*`.
+    //
+    // Une réponse coupée au plafond de jetons s'arrête au milieu d'un mot, et
+    // rien dans le texte rendu ne la distingue d'une réponse achevée. Le seul
+    // endroit qui connaisse la différence est la boucle qui s'arrête.
+    int32_t last_stop_reason = FOXLLM_STOP_END_OF_TEXT;
+
 #ifdef FOXLLM_WITH_LLAMA_CPP
     llama_model* model = nullptr;
     std::string model_description;
@@ -167,6 +174,21 @@ constexpr uint32_t kDecodeBatchSize = 512;
         target = std::max(target, std::min(needed, trained));
     }
     return target;
+}
+
+// Lequel des deux plafonds a arrêté la réponse.
+//
+// Le moteur ramène le plafond demandé à ce que la fenêtre du modèle laisse
+// libre. Si le compte a baissé, c'est la fenêtre qui a décidé, et relever la
+// limite demandée n'y changerait rien : il faut alléger la conversation. Les
+// deux arrêts se ressemblent à l'écran et n'appellent pas le même geste,
+// d'où ce partage.
+//
+// Pure et hors du bloc llama.cpp, donc vérifiable sans modèle ni appareil.
+[[maybe_unused]] int32_t limit_stop_reason(
+    int32_t requested_tokens, int32_t predict_tokens) {
+    return predict_tokens < requested_tokens ? FOXLLM_STOP_CONTEXT_LIMIT
+                                             : FOXLLM_STOP_TOKEN_LIMIT;
 }
 
 // Taille de lot à demander pour lire un prompt de [required] jetons.
@@ -339,6 +361,7 @@ bool generate_internal(
     }
 
     std::lock_guard<std::mutex> lock(instance->operation_mutex);
+    instance->last_stop_reason = FOXLLM_STOP_END_OF_TEXT;
 
     if (instance->model == nullptr) {
         instance->last_error = "No GGUF model is loaded.";
@@ -382,6 +405,10 @@ bool generate_internal(
         }
         predict_tokens = std::min(predict_tokens, available);
     }
+
+    // Lequel des deux plafonds s'appliquera ne se lit plus une fois la boucle
+    // finie : il est retenu ici, tant que les deux comptes sont sous la main.
+    const int32_t limit_reason = limit_stop_reason(max_tokens, predict_tokens);
 
     // Les modèles encodeur-décodeur relisent tout leur prompt par l'encodeur :
     // il n'y a rien à garder d'un tour sur l'autre. Le contexte repart donc à
@@ -546,14 +573,17 @@ bool generate_internal(
     }
 
     int32_t generated = 0;
+    instance->last_stop_reason = limit_reason;
     while (generated < predict_tokens) {
         if (instance->stop_requested.load()) {
+            instance->last_stop_reason = FOXLLM_STOP_CANCELLED;
             break;
         }
 
         const llama_token sampled =
             llama_sampler_sample(sampler.get(), instance->context, -1);
         if (llama_vocab_is_eog(vocab, sampled)) {
+            instance->last_stop_reason = FOXLLM_STOP_END_OF_TEXT;
             break;
         }
 
@@ -730,6 +760,20 @@ int32_t foxllm_engine_context_used(void* engine) {
 #else
     return 0;
 #endif
+}
+
+int32_t foxllm_engine_last_stop_reason(void* engine) {
+    auto* instance = as_engine(engine);
+    if (instance == nullptr) {
+        return FOXLLM_STOP_END_OF_TEXT;
+    }
+
+#ifdef FOXLLM_WITH_LLAMA_CPP
+    // Sous le même verrou que l'écriture, comme `context_used` : la valeur se
+    // lit une fois la génération finie, le verrou est alors libre.
+    std::lock_guard<std::mutex> lock(instance->operation_mutex);
+#endif
+    return instance->last_stop_reason;
 }
 
 int32_t foxllm_engine_model_context_size(void* engine) {

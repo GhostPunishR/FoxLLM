@@ -753,6 +753,7 @@ class _OutcomeNote extends StatelessWidget {
   static String? _reason(String key, AppLocalizations l10n) => switch (key) {
     'max_output_tokens' || 'max_tokens' || 'length' => l10n.reasonLengthLimit,
     'content_filter' => l10n.reasonContentFilter,
+    'context_length' => l10n.reasonContextLimit,
     _ => null,
   };
 

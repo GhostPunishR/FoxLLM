@@ -297,6 +297,11 @@ class _FakeKeyStore extends ApiKeyStore {
 }
 
 class _RecordingBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   final List<List<ChatMessage>> calls = <List<ChatMessage>>[];
   final List<GenerationSettings> settings = <GenerationSettings>[];
 

@@ -505,6 +505,11 @@ class _RecordingStore implements ConversationStore {
 
 /// Moteur de test : réponses tenues ouvertes, ou échec immédiat.
 class _Backend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   _Backend({
     this.loadedModelPath = '/models/test.gguf',
     this.hold = false,

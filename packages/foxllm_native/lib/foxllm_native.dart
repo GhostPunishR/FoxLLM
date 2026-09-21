@@ -50,6 +50,9 @@ external int _engineModelContextSize(Pointer<Void> engine);
 @Native<Int32 Function(Pointer<Void>)>(symbol: 'foxllm_engine_context_used')
 external int _engineContextUsed(Pointer<Void> engine);
 
+@Native<Int32 Function(Pointer<Void>)>(symbol: 'foxllm_engine_last_stop_reason')
+external int _engineLastStopReason(Pointer<Void> engine);
+
 @Native<
   Pointer<Utf8> Function(
     Pointer<Void>,
@@ -135,16 +138,55 @@ class FoxLlmModelInfo {
   final int contextSize;
 }
 
+/// Pourquoi une génération s'est arrêtée.
+///
+/// L'ordre suit les constantes `FOXLLM_STOP_*` de l'en-tête C : c'est un
+/// indice qui traverse la frontière, pas un nom.
+enum FoxLlmStopReason {
+  /// Le modèle a émis sa marque de fin : la réponse est entière.
+  endOfText,
+
+  /// Le plafond de jetons demandé par l'appelant a été atteint.
+  tokenLimit,
+
+  /// La fenêtre de contexte du modèle ne laissait pas la place d'aller plus
+  /// loin : la conversation est trop longue, relever le plafond n'y ferait
+  /// rien.
+  contextLimit,
+
+  /// L'utilisateur a demandé l'arrêt.
+  cancelled;
+
+  /// Vrai quand la réponse a été coupée sans que le modèle ait fini.
+  bool get isTruncated =>
+      this == FoxLlmStopReason.tokenLimit ||
+      this == FoxLlmStopReason.contextLimit;
+
+  /// Lit l'indice rendu par le moteur, sans faire confiance à sa valeur.
+  ///
+  /// Un indice hors bornes ne doit pas faire tomber l'application : une
+  /// réponse dite entière est le pire des cas, et c'est déjà ce que faisait
+  /// l'application avant que le motif existe.
+  static FoxLlmStopReason fromIndex(int index) =>
+      index >= 0 && index < FoxLlmStopReason.values.length
+      ? FoxLlmStopReason.values[index]
+      : FoxLlmStopReason.endOfText;
+}
+
 class FoxLlmGenerationStats {
   const FoxLlmGenerationStats({
     required this.generatedTokens,
     required this.elapsed,
     this.contextUsed = 0,
     this.contextCapacity = 0,
+    this.stopReason = FoxLlmStopReason.endOfText,
   });
 
   final int generatedTokens;
   final Duration elapsed;
+
+  /// Pourquoi la génération s'est arrêtée.
+  final FoxLlmStopReason stopReason;
 
   /// Jetons occupés dans le contexte après cette réponse, question comprise.
   ///
@@ -210,6 +252,11 @@ class FoxLlmNativeEngine {
   /// Jetons que le contexte a déjà lus et garde en cache.
   ///
   /// Zéro tant qu'aucune génération n'a eu lieu.
+  FoxLlmStopReason get lastStopReason {
+    _ensureAlive();
+    return FoxLlmStopReason.fromIndex(_engineLastStopReason(_handle));
+  }
+
   int get contextUsed {
     _ensureAlive();
     return _engineContextUsed(_handle);
@@ -657,6 +704,9 @@ class FoxLlmNativeWorker {
           elapsed: Duration(microseconds: message['elapsedMicros']! as int),
           contextUsed: (message['contextUsed'] as int?) ?? 0,
           contextCapacity: (message['contextCapacity'] as int?) ?? 0,
+          stopReason: FoxLlmStopReason.fromIndex(
+            (message['stopReason'] as int?) ?? 0,
+          ),
         );
         _finishGeneration(requestId);
       case 'generationError':
@@ -842,6 +892,7 @@ void _foxLlmNativeWorkerMain(SendPort events) {
             'elapsedMicros': stopwatch.elapsedMicroseconds,
             'contextUsed': engine.contextUsed,
             'contextCapacity': engine.modelInfo?.contextSize ?? 0,
+            'stopReason': engine.lastStopReason.index,
           });
         case 'dispose':
           engine.dispose();

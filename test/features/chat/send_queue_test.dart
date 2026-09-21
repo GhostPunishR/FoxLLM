@@ -366,6 +366,11 @@ class _GateStore implements ConversationStore {
 /// Moteur dont les réponses restent ouvertes et dont l'ouverture du modèle
 /// n'aboutit que sur commande.
 class _QueueBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   String? _path = '/models/test.gguf';
   Completer<void>? _loadGate;
 

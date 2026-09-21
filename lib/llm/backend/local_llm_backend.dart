@@ -12,8 +12,9 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 ///
 /// Un flux accepté puis écourté n'est ni une réussite ni une erreur : le chat
 /// a besoin de le savoir pour ne pas présenter un texte partiel comme une
-/// réponse entière. Les moteurs locaux n'ont rien de tel à rapporter, d'où un
-/// contrat séparé plutôt qu'une méthode de plus pour tout le monde.
+/// réponse entière. Un contrat séparé plutôt qu'une méthode de plus pour tout
+/// le monde : un moteur qui ne sait pas distinguer les deux ne doit pas avoir
+/// à prétendre le contraire.
 abstract interface class IncompleteAwareBackend {
   /// Motif pour lequel la dernière réponse a été écourtée, ou `null`.
   ///
@@ -22,12 +23,41 @@ abstract interface class IncompleteAwareBackend {
   String? get incompleteReason;
 }
 
-class LocalLlmBackend implements LlmBackend {
+class LocalLlmBackend implements LlmBackend, IncompleteAwareBackend {
   LocalLlmBackend({Future<FoxLlmNativeWorker>? worker})
     : _worker = worker ?? FoxLlmNativeWorker.start();
 
   final Future<FoxLlmNativeWorker> _worker;
   String? _loadedModelPath;
+  String? _incompleteReason;
+
+  /// Clés d'arrêt, choisies pour celles que le chat sait déjà expliquer.
+  ///
+  /// `length` est la clé que les API distantes emploient pour un plafond de
+  /// jetons : le moteur local s'arrête pour la même raison, et il n'y a
+  /// aucune raison que l'explication affichée diffère.
+  static const _tokenLimitReason = 'length';
+
+  /// La fenêtre du modèle, elle, appelle un autre remède : relever le plafond
+  /// n'y changerait rien, il faut alléger la conversation.
+  static const _contextLimitReason = 'context_length';
+
+  @override
+  String? get incompleteReason => _incompleteReason;
+
+  /// Traduit le motif rendu par le moteur en clé d'affichage.
+  ///
+  /// Un arrêt demandé n'est pas une réponse écourtée : le chat le tient déjà
+  /// pour ce qu'il est, et le redire ici le ferait passer pour une limite
+  /// atteinte.
+  static String? _reasonFrom(FoxLlmGenerationStats? stats) =>
+      switch (stats?.stopReason) {
+        FoxLlmStopReason.tokenLimit => _tokenLimitReason,
+        FoxLlmStopReason.contextLimit => _contextLimitReason,
+        FoxLlmStopReason.endOfText ||
+        FoxLlmStopReason.cancelled ||
+        null => null,
+      };
 
   @override
   String get id => 'local';
@@ -70,6 +100,10 @@ class LocalLlmBackend implements LlmBackend {
     final prompt = await _buildPrompt(worker, messages);
     final endOfTurn = EndOfTurnFilter();
 
+    // Ce qui suit appartient à cette génération : le motif de la précédente
+    // ne doit pas pouvoir être lu pour celle-ci.
+    _incompleteReason = null;
+
     final stream = worker.generate(
       prompt: prompt,
       temperature: settings.temperature,
@@ -85,6 +119,9 @@ class LocalLlmBackend implements LlmBackend {
       if (endOfTurn.isFinished) {
         // Quitter la boucle annule l'abonnement, ce qui arrête le moteur :
         // inutile de continuer à produire un dialogue que personne ne verra.
+        //
+        // Le modèle a posé sa marque de fin : la réponse est entière, et le
+        // motif reste nul quoi qu'ait relevé le moteur ensuite.
         return;
       }
     }
@@ -93,6 +130,11 @@ class LocalLlmBackend implements LlmBackend {
     if (rest.isNotEmpty) {
       yield rest;
     }
+
+    // Le relevé est posé avant que le flux se ferme : il porte donc bien sur
+    // la génération qui vient de finir. Une génération tombée en erreur n'en
+    // produit pas, et n'arrive pas jusqu'ici.
+    _incompleteReason = _reasonFrom(worker.lastGenerationStats);
   }
 
   @override

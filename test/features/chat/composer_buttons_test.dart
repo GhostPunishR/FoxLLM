@@ -277,6 +277,11 @@ Future<void> _pumpChat(WidgetTester tester, _QueueBackend backend) async {
 /// C'est ce qui permet d'écrire pendant qu'une réponse est en cours, puis de
 /// vérifier ce qui part une fois la voie libre.
 class _QueueBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   final List<List<ChatMessage>> generateCalls = <List<ChatMessage>>[];
   final List<StreamController<String>> _streams = <StreamController<String>>[];
   int stopCalls = 0;
