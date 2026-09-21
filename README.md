@@ -38,8 +38,9 @@ réseau n'est utilisée : rien ne quitte l'appareil.
 du téléphone directement chez le fournisseur, sans relais. La clé est chiffrée
 par le stockage sécurisé du système, ou gardée en mémoire pour la seule session.
 
-Fournisseurs intégrés : OpenAI (API Responses), Google Gemini, Groq, Mistral AI,
-OpenRouter, xAI, et toute API OpenAI-compatible saisie à la main.
+Fournisseurs intégrés : Anthropic, DeepSeek, Google Gemini, Groq, Mistral AI,
+OpenAI (API Responses), OpenRouter, xAI, et toute API OpenAI-compatible saisie
+à la main.
 
 ## Fonctions
 
@@ -52,6 +53,12 @@ OpenRouter, xAI, et toute API OpenAI-compatible saisie à la main.
 - modes Réflexion et Recherche activables, avec l'outil web intégré d'OpenAI ou
   de Gemini
 - consigne de personnalisation appliquée au moteur local comme à l'API
+- interface en français et en anglais, suivant la langue de l'appareil
+- export et import de l'historique en un seul fichier, pièces jointes comprises
+- vitesse et remplissage du contexte sous chaque réponse locale ; une réponse
+  écourtée le signale au lieu de s'arrêter sans rien dire
+- fichier GGUF examiné avant son import, pour écarter un modèle qui ferait
+  tomber le moteur au premier message
 - deux déclinaisons, claire et sombre, jusqu'à la fenêtre de lancement Android
 
 ## Installer
@@ -70,6 +77,7 @@ natif : le mode API personnelle reste disponible, pas le moteur local.
 | Native Dart Analyze | analyse du package FFI | [![Native Dart Analyze](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/native-analyze.yml) |
 | C++ Compile | compilation du moteur en `-Wall -Wextra -Werror` | [![C++ Compile](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/cpp.yml) |
 | FFI Smoke | cycle de vie du moteur natif de bout en bout | [![FFI Smoke](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/ffi-smoke.yml) |
+| llama.cpp Integration | le cache KV confronté à un vrai modèle | [![llama.cpp Integration](https://github.com/GhostPunishR/FoxLLM/actions/workflows/llama-integration.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/llama-integration.yml) |
 | Android Build | APK arm64, moteur et symboles embarqués | [![Android Build](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml/badge.svg)](https://github.com/GhostPunishR/FoxLLM/actions/workflows/android-build.yml) |
 
 ## Licence
