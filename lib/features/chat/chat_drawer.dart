@@ -184,7 +184,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                   for (final age in ConversationAge.values)
                     if (grouped[age] case final section?) ...<Widget>[
                       const SizedBox(height: 6),
-                      _DrawerSectionHeader(label: age.label),
+                      _DrawerSectionHeader(label: age.label(l10n)),
                       for (final conversation in section)
                         _conversationTile(conversation, now),
                     ],

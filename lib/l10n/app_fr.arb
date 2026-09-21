@@ -663,5 +663,68 @@
         "type": "String"
       }
     }
-  }
+  },
+  "ageToday": "Aujourd’hui",
+  "ageYesterday": "Hier",
+  "ageWeek": "7 derniers jours",
+  "ageMonth": "30 derniers jours",
+  "ageOlder": "Plus tôt",
+  "historyUnreadable": "Le fichier d’historique est illisible.",
+  "historyMalformed": "Le fichier d’historique n’a pas la forme attendue.",
+  "historyPartial": "Une partie de l’historique est inexploitable.",
+  "reasoningInstruction": "Réfléchis étape par étape avant de répondre : décompose le problème, examine les cas limites, puis énonce ta conclusion.",
+  "historySessionUnsaved": "{reason} Les conversations de cette session ne seront pas enregistrées.",
+  "@historySessionUnsaved": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentTooLarge": "Pièce jointe trop volumineuse ({limit} Mo maximum).",
+  "@attachmentTooLarge": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentNoImages": "Le moteur choisi ne lit pas les images. Configure une API personnelle avec un modèle multimodal pour envoyer « {name} ».",
+  "@attachmentNoImages": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentNotText": "« {name} » n’est pas un fichier texte : aucun moteur ne sait le lire aujourd’hui.",
+  "@attachmentNotText": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentPrefix": "Fichier joint : {name}",
+  "@attachmentPrefix": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelImportIncomplete": "Import GGUF incomplet : {copied} octets copiés sur {expected} attendus.",
+  "@modelImportIncomplete": {
+    "placeholders": {
+      "copied": {
+        "type": "String"
+      },
+      "expected": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidGgufName": "Nom de fichier GGUF invalide.",
+  "licenseUnreadable": "Le texte de la licence n’a pas pu être lu. Il reste consultable dans le fichier LICENSE du dépôt FoxLLM.",
+  "licenseNotice": "FoxLLM est distribué sous licence GNU Affero General Public License, version 3, à l’exclusion de toute version ultérieure. Le texte officiel ci-dessous fait foi."
 }

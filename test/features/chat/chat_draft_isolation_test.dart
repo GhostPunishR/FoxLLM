@@ -525,7 +525,10 @@ class _GatedPicker implements AttachmentPicker {
   }
 
   @override
-  Future<PickedAttachment?> pick(AttachmentSource source) => _gate.future;
+  Future<PickedAttachment?> pick(
+    AttachmentSource source, {
+    String dialogTitle = '',
+  }) => _gate.future;
 }
 
 /// Magasin dont l'écriture n'aboutit que sur commande : c'est pendant cette

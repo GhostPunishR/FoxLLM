@@ -275,11 +275,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Le message vient de l'exception, jamais de sa cause technique :
         // celle de `jsonDecode` cite un extrait du fichier, donc des
         // morceaux de conversation.
-        _showSnack(
-          () =>
-              '${error.message} Les conversations de cette session ne seront pas '
-              'enregistrées.',
-        );
+        _showSnack(() => _l10n.historySessionUnsaved(error.describe(_l10n)));
       }
       if (conversations.isEmpty) {
         _openHistoryGate();
@@ -1061,7 +1057,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // seule consigne système, pour ne pas lui en empiler deux.
     final systemLines = <String>[
       if (instructions.isNotEmpty) instructions,
-      if (modes.reasoning) reasoningInstruction,
+      // Cette consigne part au modèle : elle suit la langue choisie, sinon
+      // il raisonnerait en français pour un utilisateur anglophone.
+      if (modes.reasoning) _l10n.reasoningInstruction,
     ];
 
     // Le fil garde des références aux pièces jointes ; la requête, elle, a
@@ -1075,10 +1073,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           history,
           store: ref.read(attachmentStoreProvider),
           supportsImages: backend is PersonalApiChatBackend,
+          l10n: _l10n,
         ),
       ];
     } on UnsupportedAttachmentException catch (error) {
-      _showSnack(() => error.message);
+      _showSnack(() => error.describe(_l10n));
       return null;
     }
     if (!_isCurrentThread(generationEpoch, conversationId)) {
@@ -2103,9 +2102,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     final PickedAttachment? picked;
     try {
-      picked = await picker.pick(source);
+      picked = await picker.pick(source, dialogTitle: _l10n.chatAttachFile);
     } on AttachmentException catch (error) {
-      _showSnack(() => error.message);
+      _showSnack(() => error.describe(_l10n));
       return;
     } catch (_) {
       _showSnack(() => _l10n.chatAttachmentUnreadable);

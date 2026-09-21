@@ -4,14 +4,43 @@
 import 'dart:convert';
 
 import 'package:foxllm/features/chat/attachments/attachment_store.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/model/chat_attachment.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 
 /// Le moteur choisi ne sait pas lire une pièce jointe du message.
-class UnsupportedAttachmentException implements Exception {
-  const UnsupportedAttachmentException(this.message);
+/// Les deux raisons pour lesquelles une pièce jointe ne peut pas partir.
+enum UnsupportedAttachmentKind {
+  /// Le moteur en place ne lit pas les images.
+  noImageSupport,
 
+  /// Le fichier n'est pas du texte lisible.
+  notText,
+}
+
+class UnsupportedAttachmentException implements Exception {
+  const UnsupportedAttachmentException(this.message, {this.kind, this.name});
+
+  /// Le message en français, gardé pour la trace et comme dernier recours.
   final String message;
+
+  /// Pourquoi la pièce jointe est refusée, pour le redire dans la langue
+  /// de l'interface.
+  final UnsupportedAttachmentKind? kind;
+
+  final String? name;
+
+  String describe(AppLocalizations l10n) {
+    final reason = kind;
+    final file = name;
+    if (reason == null || file == null) {
+      return message;
+    }
+    return switch (reason) {
+      UnsupportedAttachmentKind.noImageSupport => l10n.attachmentNoImages(file),
+      UnsupportedAttachmentKind.notText => l10n.attachmentNotText(file),
+    };
+  }
 
   @override
   String toString() => message;
@@ -27,6 +56,7 @@ Future<List<ChatMessage>> resolveAttachments(
   List<ChatMessage> messages, {
   required AttachmentStore store,
   required bool supportsImages,
+  AppLocalizations? l10n,
 }) async {
   final resolved = <ChatMessage>[];
 
@@ -52,6 +82,8 @@ Future<List<ChatMessage>> resolveAttachments(
             'Le moteur choisi ne lit pas les images. Configure une API '
             'personnelle avec un modèle multimodal pour envoyer « '
             '${attachment.name} ».',
+            kind: UnsupportedAttachmentKind.noImageSupport,
+            name: attachment.name,
           );
         }
         images.add(InlineImage(mimeType: attachment.mimeType, bytes: bytes));
@@ -65,13 +97,19 @@ Future<List<ChatMessage>> resolveAttachments(
         throw UnsupportedAttachmentException(
           '« ${attachment.name} » n’est pas un fichier texte : aucun moteur '
           'ne sait le lire aujourd’hui.',
+          kind: UnsupportedAttachmentKind.notText,
+          name: attachment.name,
         );
       }
       if (buffer.isNotEmpty) {
         buffer.write('\n\n');
       }
       buffer
-        ..write('Fichier joint : ${attachment.name}\n```\n')
+        // Ce préfixe part au modèle avec le contenu du fichier : il suit la
+        // langue de l'interface, comme les consignes.
+        ..write(
+          '${l10n?.attachmentPrefix(attachment.name) ?? 'Fichier joint : ${attachment.name}'}\n```\n',
+        )
         ..write(text.trimRight())
         ..write('\n```');
     }

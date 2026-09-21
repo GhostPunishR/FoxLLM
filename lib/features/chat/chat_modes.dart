@@ -32,14 +32,6 @@ class ChatModes {
   String toString() => 'ChatModes(réflexion: $reasoning, web: $webSearch)';
 }
 
-/// Consigne ajoutée aux instructions quand la réflexion est active.
-///
-/// Elle vaut pour tous les moteurs : aucun paramètre commun ne demande à un
-/// modèle de raisonner, alors qu'une consigne claire y parvient partout.
-const String reasoningInstruction =
-    'Réfléchis étape par étape avant de répondre : décompose le problème, '
-    'examine les cas limites, puis énonce ta conclusion.';
-
 /// Marge de génération quand la réflexion est active.
 ///
 /// Un raisonnement exposé tient rarement dans la limite ordinaire : sans cette

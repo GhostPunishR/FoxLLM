@@ -498,7 +498,10 @@ class _FakePicker implements AttachmentPicker {
   final AttachmentException? error;
 
   @override
-  Future<PickedAttachment?> pick(AttachmentSource source) async {
+  Future<PickedAttachment?> pick(
+    AttachmentSource source, {
+    String dialogTitle = '',
+  }) async {
     final failure = error;
     if (failure != null) {
       throw failure;

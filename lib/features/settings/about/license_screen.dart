@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:foxllm/core/app_info.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 
 /// Texte intégral de la licence, lu depuis le fichier `LICENSE` du dépôt.
 ///
@@ -46,9 +47,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return _Message(
-              text:
-                  'Le texte de la licence n’a pas pu être lu. Il reste '
-                  'consultable dans le fichier LICENSE du dépôt FoxLLM.',
+              text: AppLocalizations.of(context).licenseUnreadable,
             );
           }
           final license = snapshot.data;
@@ -85,10 +84,7 @@ class _LicenseScreenState extends State<LicenseScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'FoxLLM est distribué sous licence GNU Affero General '
-                        'Public License, version 3, à l’exclusion de toute '
-                        'version ultérieure. Le texte officiel ci-dessous fait '
-                        'foi.',
+                        AppLocalizations.of(context).licenseNotice,
                         style: TextStyle(
                           color: fox.textSecondary,
                           fontSize: 14,

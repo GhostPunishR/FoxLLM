@@ -12,6 +12,7 @@ import 'package:foxllm/features/chat/chat_modes.dart';
 import 'package:foxllm/features/chat/chat_screen.dart';
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
 import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
@@ -162,7 +163,10 @@ void main() {
 
       final sent = backend.calls.single;
       expect(sent.first.role, ChatRole.system);
-      expect(sent.first.content, reasoningInstruction);
+      expect(
+        sent.first.content,
+        lookupAppLocalizations(const Locale('fr')).reasoningInstruction,
+      );
       expect(backend.settings.single.maxTokens, reasoningMaxTokens);
     });
 

@@ -32,7 +32,8 @@ enum BackendFailure {
   ),
   httpsRequired(
     'Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.',
-  );
+  ),
+  invalidGgufName('Nom de fichier GGUF invalide.');
 
   const BackendFailure(this.message);
 
@@ -65,6 +66,7 @@ enum BackendFailure {
     BackendFailure.emptyGgufFile => l10n.backendEmptyGgufFile,
     BackendFailure.refuseDeleteOutside => l10n.backendRefuseDeleteOutside,
     BackendFailure.httpsRequired => l10n.backendHttpsRequired,
+    BackendFailure.invalidGgufName => l10n.invalidGgufName,
   };
 }
 

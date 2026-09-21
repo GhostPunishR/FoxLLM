@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 
 typedef ConversationDirectoryProvider = Future<Directory> Function();
 
@@ -53,6 +54,13 @@ class ConversationLoadException implements Exception {
   final Object? cause;
 
   /// Message destiné à l'utilisateur, sans un mot du contenu du fichier.
+  String describe(AppLocalizations l10n) => switch (failure) {
+    ConversationLoadFailure.unreadable => l10n.historyUnreadable,
+    ConversationLoadFailure.malformed => l10n.historyMalformed,
+    ConversationLoadFailure.partial => l10n.historyPartial,
+  };
+
+  /// Le même en français, pour la trace et pour `toString`.
   String get message => switch (failure) {
     ConversationLoadFailure.unreadable =>
       'Le fichier d’historique est illisible.',
