@@ -7,12 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/core/app_info.dart';
 import 'package:foxllm/features/settings/about/legal_documents.dart';
 
-/// Pages du site publiées depuis `docs/` par GitHub Pages.
-const _pages = <String>[
-  'docs/index.html',
-  'docs/conditions.html',
-  'docs/confidentialite.html',
-];
+/// Le site publié depuis `docs/` par GitHub Pages.
+///
+/// Une seule page : les textes légaux y sont des sections, et non plus des
+/// fichiers à part. Ce qui les liait au texte de l'application n'a pas changé
+/// pour autant, seul l'endroit où le chercher a bougé.
+const _sitePage = 'docs/index.html';
+const _pages = <String>[_sitePage];
 
 /// Reprend l'échappement appliqué à la génération des pages légales.
 String _escapeHtml(String value) {
@@ -67,35 +68,50 @@ void main() {
     // Le site sert aussi d'adresse publique pour la politique de
     // confidentialité : les deux versions doivent dire la même chose, mot pour
     // mot, sinon l'une des deux devient fausse sans prévenir.
-    final pairs = <String, LegalDocument>{
-      'docs/conditions.html': termsOfUseDocument,
-      'docs/confidentialite.html': privacyPolicyDocument,
-    };
+    final page = File(_sitePage).readAsStringSync();
 
-    for (final entry in pairs.entries) {
-      final page = File(entry.key).readAsStringSync();
-      final document = entry.value;
-
+    for (final document in <LegalDocument>[
+      termsOfUseDocument,
+      privacyPolicyDocument,
+    ]) {
       expect(page, contains(_escapeHtml(document.title)));
       expect(page, contains(_escapeHtml(document.updatedAt)));
 
       for (final section in document.sections) {
+        // `h3` et non `h2` : le titre du document tient le `h2` de sa bande,
+        // et la page n'a qu'un seul `h1`, celui de son en-tête.
         expect(
           page,
-          contains('<h2>${_escapeHtml(section.title)}</h2>'),
-          reason: '${entry.key} : section « ${section.title} » absente',
+          contains('<h3>${_escapeHtml(section.title)}</h3>'),
+          reason:
+              '${document.title} : section « ${section.title} » absente '
+              'du site',
         );
         for (final paragraph in section.paragraphs) {
           expect(
             page,
             contains('<p>${_escapeHtml(paragraph)}</p>'),
             reason:
-                '${entry.key} : paragraphe manquant sous '
+                '${document.title} : paragraphe manquant sous '
                 '« ${section.title} »',
           );
         }
       }
     }
+  });
+
+  test('le site tient en une seule page', () {
+    // Les textes légaux avaient leur fichier ; ils sont devenus des sections.
+    // Un fichier revenu à côté rouvrirait la question de savoir lequel fait
+    // foi, et les liens internes partiraient à nouveau dans deux directions.
+    final strays = Directory('docs')
+        .listSync()
+        .whereType<File>()
+        .map((file) => file.uri.pathSegments.last)
+        .where((name) => name.endsWith('.html') && name != 'index.html')
+        .toList();
+
+    expect(strays, isEmpty, reason: 'pages en trop dans docs/ : $strays');
   });
 
   test('le site affiche la version et la licence courantes', () {
