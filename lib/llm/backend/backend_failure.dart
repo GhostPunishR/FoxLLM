@@ -29,6 +29,9 @@ enum BackendFailure {
   emptyGgufFile('Le modèle GGUF sélectionné est vide.'),
   refuseDeleteOutside(
     'Refus de supprimer un fichier hors de la bibliothèque FoxLLM.',
+  ),
+  httpsRequired(
+    'Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.',
   );
 
   const BackendFailure(this.message);
@@ -61,6 +64,7 @@ enum BackendFailure {
     BackendFailure.notAGgufFile => l10n.backendNotAGgufFile,
     BackendFailure.emptyGgufFile => l10n.backendEmptyGgufFile,
     BackendFailure.refuseDeleteOutside => l10n.backendRefuseDeleteOutside,
+    BackendFailure.httpsRequired => l10n.backendHttpsRequired,
   };
 }
 

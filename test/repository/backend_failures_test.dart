@@ -26,6 +26,7 @@ void main() {
     'lib/llm/backend/anthropic_backend.dart',
     'lib/llm/backend/openai_responses_backend.dart',
     'lib/features/local_models/local_model_library.dart',
+    'lib/llm/personal_api/personal_api_settings_provider.dart',
   ];
 
   test('les fichiers surveillés existent tous', () {

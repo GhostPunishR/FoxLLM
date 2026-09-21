@@ -37,12 +37,42 @@ class PersonalApiStreamException implements Exception {
 /// viendra. Un réseau mobile perd des connexions sans prévenir, et le
 /// fournisseur d'en face ne ferme pas toujours ce qu'il a ouvert.
 class PersonalApiTimeoutException implements Exception {
-  const PersonalApiTimeoutException(this.message);
+  const PersonalApiTimeoutException(
+    this.message, {
+    this.kind,
+    this.provider,
+    this.amount,
+  });
 
+  /// Le message en français, tel qu'il a toujours été écrit.
+  ///
+  /// Conservé comme dernier recours et pour la trace : il reste lisible dans
+  /// un journal, là où un code d'erreur nu ne dirait rien.
   final String message;
+
+  /// De quelle attente il s'agit, pour la dire dans la langue de l'interface.
+  ///
+  /// Nulle sur les exceptions construites ailleurs, qui se rabattent alors
+  /// sur [message].
+  final PersonalApiTimeoutKind? kind;
+
+  final String? provider;
+
+  /// Le délai dépassé, déjà écrit : minutes pour un flux, secondes pour une
+  /// ouverture de réponse.
+  final String? amount;
 
   @override
   String toString() => message;
+}
+
+/// Les deux attentes que le réseau peut faire dépasser.
+enum PersonalApiTimeoutKind {
+  /// Le fournisseur n'a rien répondu du tout.
+  noResponse,
+
+  /// Le flux s'est ouvert puis s'est taille en chemin.
+  streamStalled,
 }
 
 /// Erreur renvoyée par un fournisseur distant sur une réponse non 2xx.
@@ -214,6 +244,9 @@ abstract class HttpStreamingBackend implements LlmBackend {
               onTimeout: () => throw PersonalApiTimeoutException(
                 '$displayName n’a pas répondu dans les '
                 '${responseTimeout.inSeconds} secondes.',
+                kind: PersonalApiTimeoutKind.noResponse,
+                provider: displayName,
+                amount: '${responseTimeout.inSeconds}',
               ),
             );
         if (_shouldAbort(generation)) {
@@ -260,6 +293,9 @@ abstract class HttpStreamingBackend implements LlmBackend {
                 PersonalApiTimeoutException(
                   'La réponse de $displayName s’est interrompue : plus rien '
                   'depuis ${idleTimeout.inMinutes} minutes.',
+                  kind: PersonalApiTimeoutKind.streamStalled,
+                  provider: displayName,
+                  amount: '${idleTimeout.inMinutes}',
                 ),
               ),
             );

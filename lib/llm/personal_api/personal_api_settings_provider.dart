@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:foxllm/core/storage/api_key_store.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/personal_api/personal_api_provider.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
@@ -169,11 +170,12 @@ class PersonalApiSettingsController extends AsyncNotifier<PersonalApiSettings> {
     return next;
   }
 
-  Future<void> testConnection() async {
+  Future<void> testConnection({AppLocalizations? l10n}) async {
     final current = state.requireValue;
     await testPersonalApiConnection(
       settings: current,
       keyStore: ref.read(apiKeyStoreProvider),
+      l10n: l10n,
     );
   }
 }

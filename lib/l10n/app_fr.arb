@@ -628,5 +628,40 @@
         "type": "String"
       }
     }
+  },
+  "backendHttpsRequired": "Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.",
+  "apiTestPrompt": "Réponds uniquement par OK.",
+  "apiSavedFor": "{provider} · {model} enregistré.",
+  "@apiSavedFor": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "backendStreamStalled": "La réponse de {provider} s’est interrompue : plus rien depuis {minutes} minutes.",
+  "@backendStreamStalled": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "backendNoResponse": "{provider} n’a pas répondu dans les {seconds} secondes.",
+  "@backendNoResponse": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "String"
+      }
+    }
   }
 }

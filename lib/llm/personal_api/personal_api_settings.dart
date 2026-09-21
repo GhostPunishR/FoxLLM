@@ -11,6 +11,8 @@ import 'package:foxllm/llm/backend/anthropic_backend.dart';
 import 'package:foxllm/llm/backend/backend_failure.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
+import 'package:foxllm/llm/backend/llm_http.dart'
+    show PersonalApiTimeoutException, PersonalApiTimeoutKind;
 import 'package:foxllm/llm/backend/local_engine_error.dart';
 import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
 import 'package:foxllm/llm/backend/openai_responses_backend.dart';
@@ -241,6 +243,7 @@ bool _isPrivateOrLoopbackHost(String host) {
 Future<void> testPersonalApiConnection({
   required PersonalApiSettings settings,
   required ApiKeyStore keyStore,
+  AppLocalizations? l10n,
 }) async {
   if (!settings.isConfigured) {
     throw StateError('Configure le fournisseur, le modèle et la clé API.');
@@ -254,8 +257,12 @@ Future<void> testPersonalApiConnection({
   try {
     var receivedContent = false;
     await for (final chunk in backend.generate(
-      messages: const <ChatMessage>[
-        ChatMessage.user('Réponds uniquement par OK.'),
+      messages: <ChatMessage>[
+        // L'invite part au modèle : elle suit la langue de l'interface, sinon
+        // un utilisateur anglophone verrait son fournisseur répondre à une
+        // consigne française. Nulle quand l'appelant n'a pas de contexte, ce
+        // qui n'arrive qu'aux bancs.
+        ChatMessage.user(l10n?.apiTestPrompt ?? 'Réponds uniquement par OK.'),
       ],
       settings: const GenerationSettings(temperature: 0, topP: 1, maxTokens: 8),
     )) {
@@ -277,6 +284,26 @@ Future<void> testPersonalApiConnection({
 String describePersonalApiError(Object error, AppLocalizations l10n) {
   if (error is PersonalApiHttpException) {
     return _describeHttpError(error.statusCode, error.body, l10n);
+  }
+  if (error is PersonalApiTimeoutException) {
+    // Les exceptions construites ailleurs n'ont pas ces champs : leur message
+    // français reste alors le seul texte disponible.
+    final kind = error.kind;
+    final provider = error.provider;
+    final amount = error.amount;
+    if (kind != null && provider != null && amount != null) {
+      return switch (kind) {
+        PersonalApiTimeoutKind.noResponse => l10n.backendNoResponse(
+          provider,
+          amount,
+        ),
+        PersonalApiTimeoutKind.streamStalled => l10n.backendStreamStalled(
+          provider,
+          amount,
+        ),
+      };
+    }
+    return error.message;
   }
   if (error is StateError) {
     // Le pont natif lève un `StateError` portant le message anglais du C++.

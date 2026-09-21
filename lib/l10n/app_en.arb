@@ -238,5 +238,10 @@
   "backendNotAGgufFile": "The file you picked must be a .gguf model.",
   "backendEmptyGgufFile": "The GGUF model you picked is empty.",
   "backendRefuseDeleteOutside": "Refusing to delete a file outside FoxLLM's library.",
-  "backendMissingApiKey": "No API key is configured for {provider}."
+  "backendMissingApiKey": "No API key is configured for {provider}.",
+  "backendHttpsRequired": "Use HTTPS, or HTTP only on localhost or a private network.",
+  "apiTestPrompt": "Answer with OK and nothing else.",
+  "apiSavedFor": "{provider} · {model} saved.",
+  "backendStreamStalled": "The answer from {provider} stopped: nothing for {minutes} minutes.",
+  "backendNoResponse": "{provider} did not answer within {seconds} seconds."
 }

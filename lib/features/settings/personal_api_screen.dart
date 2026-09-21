@@ -225,7 +225,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       });
       if (showSuccess) {
         _showSnack(
-          '${settings.provider.displayName} · ${settings.model} enregistré.',
+          l10n.apiSavedFor(settings.provider.displayName, settings.model),
         );
       }
       return settings;
@@ -256,7 +256,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
     setState(() => _testing = true);
     try {
-      await ref.read(personalApiSettingsProvider.notifier).testConnection();
+      await ref
+          .read(personalApiSettingsProvider.notifier)
+          .testConnection(l10n: l10n);
       if (mounted) {
         _showSnack(l10n.apiConnected(saved.provider.displayName, saved.model));
       }
@@ -372,7 +374,13 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                             .map(
                               (provider) => DropdownMenuItem<String>(
                                 value: provider.id,
-                                child: Text(provider.displayName),
+                                child: Text(
+                                  // Seul « Personnalisé » se traduit : les
+                                  // autres sont des noms propres.
+                                  provider.id == customPersonalApiProvider.id
+                                      ? l10n.providerCustom
+                                      : provider.displayName,
+                                ),
                               ),
                             )
                             .toList(growable: false),
