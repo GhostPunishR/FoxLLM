@@ -646,6 +646,11 @@ class _RecordingStore implements ConversationStore {
 /// Moteur de test : ses réponses restent ouvertes jusqu'à ce que le test en
 /// décide.
 class _Backend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   final List<StreamController<String>> _streams = <StreamController<String>>[];
   final List<List<ChatMessage>> generateCalls = <List<ChatMessage>>[];
 

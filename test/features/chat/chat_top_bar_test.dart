@@ -176,6 +176,11 @@ class _EmptyStore implements ConversationStore {
 }
 
 class _ShortAnswerBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   @override
   String get id => 'short';
 
@@ -217,6 +222,11 @@ class _ShortAnswerBackend implements LocalLlmBackend {
 }
 
 class _LongAnswerBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   @override
   String get id => 'long';
 

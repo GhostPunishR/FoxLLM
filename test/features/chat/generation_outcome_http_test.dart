@@ -275,6 +275,11 @@ class _RecordingStore implements ConversationStore {
 /// Moteur local inerte : l'adaptateur lui délègue ce qui ne concerne pas la
 /// génération, mais rien ne passe par lui ici.
 class _IdleLocalBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   @override
   String get id => 'local';
 

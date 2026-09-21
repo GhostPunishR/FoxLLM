@@ -110,6 +110,26 @@ void batch_never_exceeds_the_context() {
     assert(batch_size_for(true, 256, 4000) == 256);
 }
 
+void limit_reason_blames_the_request_when_nothing_was_clamped() {
+    // Le plafond demandé a été appliqué tel quel : c'est lui qui a arrêté la
+    // réponse, et le relever la laisserait aller plus loin.
+    assert(limit_stop_reason(512, 512) == FOXLLM_STOP_TOKEN_LIMIT);
+    assert(limit_stop_reason(2048, 2048) == FOXLLM_STOP_TOKEN_LIMIT);
+}
+
+void limit_reason_blames_the_window_when_the_count_was_clamped() {
+    // La fenêtre du modèle ne laissait que cette place : relever le plafond
+    // demandé n'y changerait rien, c'est la conversation qu'il faut alléger.
+    assert(limit_stop_reason(2048, 300) == FOXLLM_STOP_CONTEXT_LIMIT);
+    assert(limit_stop_reason(2048, 2047) == FOXLLM_STOP_CONTEXT_LIMIT);
+}
+
+void limit_reason_never_blames_the_window_for_extra_room() {
+    // Le moteur ne relève jamais le plafond demandé. Si cela arrivait, ce
+    // serait un défaut ailleurs, et l'accuser de la fenêtre le masquerait.
+    assert(limit_stop_reason(512, 4096) == FOXLLM_STOP_TOKEN_LIMIT);
+}
+
 }  // namespace
 
 int main() {
@@ -126,6 +146,9 @@ int main() {
     batch_follows_the_prompt_for_an_encoder();
     batch_keeps_the_floor_for_a_short_encoder_prompt();
     batch_never_exceeds_the_context();
+    limit_reason_blames_the_request_when_nothing_was_clamped();
+    limit_reason_blames_the_window_when_the_count_was_clamped();
+    limit_reason_never_blames_the_window_for_extra_room();
     std::printf("FoxLLM KV cache decisions: all checks passed.\n");
     return 0;
 }

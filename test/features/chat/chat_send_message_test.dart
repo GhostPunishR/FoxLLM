@@ -256,6 +256,11 @@ Future<void> _send(WidgetTester tester, String text) async {
 /// Backend de test : `LocalLlmBackend` est le contrat que l'écran de chat lit
 /// dans Riverpod, y compris quand une API personnelle est active.
 class _FakeChatBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   _FakeChatBackend({
     this.chunks = const <String>[],
     this.stream,

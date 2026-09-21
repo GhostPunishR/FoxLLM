@@ -1459,12 +1459,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   /// Motif d'une réponse écourtée rapporté par le moteur, ou `null`.
   ///
-  /// Filtré par le type, et non par le nom du fournisseur : le chat n'a pas à
-  /// connaître celui qui parle.
-  String? _incompleteReasonOf(LocalLlmBackend backend) => switch (backend) {
-    final IncompleteAwareBackend aware => aware.incompleteReason,
-    _ => null,
-  };
+  /// Le test de type a disparu : tous les moteurs du chat savent désormais
+  /// répondre, le moteur local compris. C'est l'analyse qui l'a signalé, en
+  /// rendant l'autre branche inatteignable.
+  String? _incompleteReasonOf(LocalLlmBackend backend) =>
+      backend.incompleteReason;
 
   /// Marque la dernière réponse du fil, à l'écran comme à l'enregistrement.
   void _markLastAssistantOutcome(GenerationOutcome outcome, String? reason) {

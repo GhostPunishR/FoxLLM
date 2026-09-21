@@ -78,6 +78,11 @@ void main() {
 }
 
 class _IdleBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   @override
   String get id => 'idle';
 

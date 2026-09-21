@@ -332,6 +332,11 @@ class _RecordingStore implements ConversationStore {
 }
 
 class _ScriptedBackend implements LocalLlmBackend {
+  /// Le moteur local dit désormais pourquoi il s’est arrêté ; ce double
+  /// n’a rien à écourter.
+  @override
+  String? get incompleteReason => null;
+
   _ScriptedBackend(this.chunks, {this.stream});
 
   List<String> chunks;

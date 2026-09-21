@@ -127,6 +127,7 @@
   "outcomeShortened": "Answer cut short.",
   "reasonLengthLimit": "the length limit was reached",
   "reasonContentFilter": "the provider filtered the rest",
+  "reasonContextLimit": "the conversation fills the model's window",
   "modelsPickTitle": "Choose a GGUF model",
   "modelsUnloadFirst": "Unload the model before deleting it.",
   "modelsDeleteTitle": "Delete this model?",
