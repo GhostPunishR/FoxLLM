@@ -412,5 +412,71 @@
         "type": "String"
       }
     }
-  }
+  },
+  "chatHistoryUnreadable": "Lecture de l’historique impossible. Les conversations de cette session ne seront pas enregistrées.",
+  "chatAnswerCopied": "Réponse copiée.",
+  "chatShareUnavailable": "Partage impossible depuis cet appareil.",
+  "chatWaitForAnswer": "Attends la fin de la réponse en cours.",
+  "chatSourceUnopenable": "Impossible d’ouvrir cette source.",
+  "chatWebSearchNeedsProvider": "La recherche web demande une API personnelle Anthropic, Google ou OpenAI. Désactive-la ou change de fournisseur.",
+  "chatLoadModelFirst": "Charge un modèle GGUF avant de discuter.",
+  "chatThinkingOn": "Réflexion activée : le modèle exposera son raisonnement.",
+  "chatThinkingOff": "Réflexion désactivée.",
+  "chatWebSearchOff": "Recherche web désactivée.",
+  "chatWebSearchOn": "Recherche web activée : le modèle pourra consulter le web.",
+  "chatWebSearchOnUnsupported": "Recherche web activée, mais le moteur en place ne sait pas consulter le web. Configure une API personnelle Anthropic, Google ou OpenAI.",
+  "chatDictationDenied": "La dictée a besoin du micro. Autorise-le dans les réglages Android de FoxLLM.",
+  "chatDictationUnavailable": "Aucune reconnaissance vocale disponible sur cet appareil.",
+  "chatHoldMicrophone": "Maintiens le bouton du micro pour dicter.",
+  "chatAttachFile": "Joindre un fichier",
+  "chatAttachFileHint": "Document ou code de l’appareil",
+  "chatAttachGallery": "Choisir une image de la galerie",
+  "chatAttachPhoto": "Prendre une photo",
+  "chatAttachmentUnreadable": "Impossible de lire cette pièce jointe.",
+  "chatAttachmentUnsaved": "Impossible d’enregistrer cette pièce jointe.",
+  "chatPreviousAnswerKept": "Réponse précédente conservée.",
+  "chatPreviousVersionKept": "Version précédente conservée.",
+  "chatConversationUnsaved": "Conversation non enregistrée : {reason}",
+  "@chatConversationUnsaved": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGenerationFailed": "Génération impossible : {reason}",
+  "@chatGenerationFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGenerationFailedKept": "Génération impossible : {reason}. Réponse précédente conservée.",
+  "@chatGenerationFailedKept": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGenerationInterruptedKept": "Génération interrompue : {reason}. Version précédente conservée.",
+  "@chatGenerationInterruptedKept": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelLoadFailed": "Chargement du modèle impossible : {reason}",
+  "@chatModelLoadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatOpenModels": "Modèles",
+  "chatAttachPhotos": "Photos",
+  "chatAttachCamera": "Caméra"
 }

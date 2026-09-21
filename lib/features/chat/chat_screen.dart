@@ -92,6 +92,15 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen>
     with WidgetsBindingObserver {
+  /// Les traductions, lues au moment où le texte est demandé.
+  ///
+  /// Un accesseur plutôt qu'une variable locale en tête de méthode : plusieurs
+  /// d'entre elles sont appelées depuis `initState`, où consulter un widget
+  /// hérité est interdit. Leurs messages, eux, ne s'affichent qu'après une
+  /// attente, donc bien après le montage : les lire là, et non plus tôt, est
+  /// la seule façon de les avoir dans les deux cas.
+  AppLocalizations get _l10n => AppLocalizations.of(context);
+
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
@@ -230,7 +239,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (!mounted) {
       return;
     }
-    _showSnack('Conversation non enregistrée : $error');
+    _showSnack(() => _l10n.chatConversationUnsaved('$error'));
   }
 
   /// Recharge l'historique et déclare le dernier modèle utilisé.
@@ -267,8 +276,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // celle de `jsonDecode` cite un extrait du fichier, donc des
         // morceaux de conversation.
         _showSnack(
-          '${error.message} Les conversations de cette session ne seront pas '
-          'enregistrées.',
+          () =>
+              '${error.message} Les conversations de cette session ne seront pas '
+              'enregistrées.',
         );
       }
       if (conversations.isEmpty) {
@@ -281,10 +291,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // chemin ou un extrait de fichier.
       _persister.abandon();
       if (mounted) {
-        _showSnack(
-          'Lecture de l’historique impossible. Les conversations de cette '
-          'session ne seront pas enregistrées.',
-        );
+        _showSnack(() => _l10n.chatHistoryUnreadable);
       }
       _openHistoryGate();
       return;
@@ -537,7 +544,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
   void _copyMessage(ChatMessage message) {
     Clipboard.setData(ClipboardData(text: message.content));
-    _showSnack('Réponse copiée.');
+    _showSnack(() => _l10n.chatAnswerCopied);
   }
 
   Future<void> _shareMessage(ChatMessage message) async {
@@ -547,7 +554,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     try {
       await SharePlus.instance.share(ShareParams(text: message.content));
     } catch (_) {
-      _showSnack('Partage impossible depuis cet appareil.');
+      _showSnack(() => _l10n.chatShareUnavailable);
     }
   }
 
@@ -611,7 +618,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     List<ChatAttachment> attachments,
   ) async {
     if (_isGenerating || _sending) {
-      _showSnack('Attends la fin de la réponse en cours.');
+      _showSnack(() => _l10n.chatWaitForAnswer);
       return;
     }
     // Rien n'est retiré ici. La coupe voyage avec l'envoi et n'a lieu qu'une
@@ -763,7 +770,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     // une adresse citée par un modèle reste du texte non vérifié.
     if (uri == null || !await openExternalLink(uri)) {
       if (mounted) {
-        _showSnack('Impossible d’ouvrir cette source.');
+        _showSnack(() => _l10n.chatSourceUnopenable);
       }
     }
   }
@@ -1046,11 +1053,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     final modes = ref.read(chatModesProvider);
     if (modes.webSearch &&
         !(backend is PersonalApiChatBackend && backend.supportsWebSearch)) {
-      _showSnack(
-        'La recherche web demande une API personnelle Anthropic, Google ou '
-        'OpenAI. '
-        'Désactive-la ou change de fournisseur.',
-      );
+      _showSnack(() => _l10n.chatWebSearchNeedsProvider);
       return null;
     }
 
@@ -1075,7 +1078,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         ),
       ];
     } on UnsupportedAttachmentException catch (error) {
-      _showSnack(error.message);
+      _showSnack(() => error.message);
       return null;
     }
     if (!_isCurrentThread(generationEpoch, conversationId)) {
@@ -1164,16 +1167,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         // Rien n'est arrivé : seule la bulle restée vide s'en va.
         _removeEmptyAssistantPlaceholder();
       }
-      _showSnack('Génération impossible : ${_describeError(error)}');
+      _showSnack(() => _l10n.chatGenerationFailed(_describeError(error)));
     } else if (response.isEmpty) {
       // Rien n'est arrivé du moteur : le remplacement n'a pas eu lieu. Le fil
       // revient tel qu'il était, réponse effacée comprise, plutôt que de
       // rester amputé de tout ce qui suivait la question.
       _restoreThread(replaced, generationEpoch, conversationId);
-      _showSnack(
-        'Génération impossible : ${_describeError(error)}. '
-        'Réponse précédente conservée.',
-      );
+      _showSnack(() => _l10n.chatGenerationFailedKept(_describeError(error)));
     } else {
       // Du texte est arrivé avant la coupure : il reste affiché, et la
       // version qu'il a remplacée est conservée avec la conversation. Les
@@ -1181,8 +1181,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       // action de bandeau disparaissait au bout de quelques secondes.
       _keepPreviousVersion(replaced, generationEpoch, conversationId);
       _showSnack(
-        'Génération interrompue : ${_describeError(error)}. '
-        'Version précédente conservée.',
+        () => _l10n.chatGenerationInterruptedKept(_describeError(error)),
       );
     }
     return settled;
@@ -1495,7 +1494,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
           // Un modèle devenu illisible ne doit pas être retenté à chaque envoi.
           _restorableModelPath = null;
         });
-        _showSnack('Chargement du modèle impossible : $error');
+        _showSnack(() => _l10n.chatModelLoadFailed('$error'));
       }
       return false;
     }
@@ -1621,8 +1620,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: const Text('Charge un modèle GGUF avant de discuter.'),
-          action: SnackBarAction(label: 'Modèles', onPressed: _openLocalModels),
+          content: Text(_l10n.chatLoadModelFirst),
+          action: SnackBarAction(
+            label: _l10n.chatOpenModels,
+            onPressed: _openLocalModels,
+          ),
         ),
       );
   }
@@ -1636,7 +1638,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
   String _describeError(Object error) =>
       describePersonalApiError(error, AppLocalizations.of(context));
 
-  void _showSnack(String message, {SnackBarAction? action}) {
+  /// Affiche un bandeau, ou rien si l'écran a disparu entre-temps.
+  ///
+  /// Le message arrive sous forme de fermeture, et non de chaîne déjà
+  /// construite : le lire demande les traductions, donc le `context`, qu'un
+  /// écran démonté n'a plus. Le construire avant la garde ci-dessous lèverait
+  /// une exception par-dessus l'erreur qu'il cherchait à signaler, ce qu'un
+  /// banc de ce dépôt vérifie depuis longtemps.
+  void _showSnack(String Function() message, {SnackBarAction? action}) {
     // Un échec tardif, revenu après la fermeture de l'écran, n'a plus de
     // `context` où afficher quoi que ce soit : le message est abandonné
     // plutôt que de lever une exception par-dessus l'erreur d'origine.
@@ -1647,7 +1656,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(message()),
           action: action,
           // Le temps de lire l'erreur et d'atteindre le bouton.
           duration: action == null
@@ -1949,9 +1958,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
     _showSnack(
-      ref.read(chatModesProvider).reasoning
-          ? 'Réflexion activée : le modèle exposera son raisonnement.'
-          : 'Réflexion désactivée.',
+      () => ref.read(chatModesProvider).reasoning
+          ? _l10n.chatThinkingOn
+          : _l10n.chatThinkingOff,
     );
   }
 
@@ -1961,18 +1970,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
       return;
     }
     if (!ref.read(chatModesProvider).webSearch) {
-      _showSnack('Recherche web désactivée.');
+      _showSnack(() => _l10n.chatWebSearchOff);
       return;
     }
     final backend = ref.read(chatBackendProvider);
     final supported =
         backend is PersonalApiChatBackend && backend.supportsWebSearch;
     _showSnack(
-      supported
-          ? 'Recherche web activée : le modèle pourra consulter le web.'
-          : 'Recherche web activée, mais le moteur en place ne sait pas '
-                'consulter le web. Configure une API personnelle Anthropic, '
-                'Google ou OpenAI.',
+      () =>
+          supported ? _l10n.chatWebSearchOn : _l10n.chatWebSearchOnUnsupported,
     );
   }
 
@@ -2000,10 +2006,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
 
     setState(() => _isDictating = false);
     _showSnack(
-      status == DictationStatus.denied
-          ? 'La dictée a besoin du micro. Autorise-le dans les réglages '
-                'Android de FoxLLM.'
-          : 'Aucune reconnaissance vocale disponible sur cet appareil.',
+      () => status == DictationStatus.denied
+          ? _l10n.chatDictationDenied
+          : _l10n.chatDictationUnavailable,
     );
   }
 
@@ -2036,7 +2041,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     if (_isDictating) {
       return;
     }
-    _showSnack('Maintiens le bouton du micro pour dicter.');
+    _showSnack(() => _l10n.chatHoldMicrophone);
   }
 
   void _showAddMenu() {
@@ -2052,8 +2057,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             children: <Widget>[
               ListTile(
                 leading: const Icon(Icons.attach_file),
-                title: const Text('Joindre un fichier'),
-                subtitle: const Text('Document ou code de l’appareil'),
+                title: Text(_l10n.chatAttachFile),
+                subtitle: Text(_l10n.chatAttachFileHint),
                 onTap: () {
                   Navigator.of(context).pop();
                   unawaited(_attach(AttachmentSource.file));
@@ -2061,8 +2066,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Photos'),
-                subtitle: const Text('Choisir une image de la galerie'),
+                title: Text(_l10n.chatAttachPhotos),
+                subtitle: Text(_l10n.chatAttachGallery),
                 onTap: () {
                   Navigator.of(context).pop();
                   unawaited(_attach(AttachmentSource.gallery));
@@ -2070,8 +2075,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
               ),
               ListTile(
                 leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('Caméra'),
-                subtitle: const Text('Prendre une photo'),
+                title: Text(_l10n.chatAttachCamera),
+                subtitle: Text(_l10n.chatAttachPhoto),
                 onTap: () {
                   Navigator.of(context).pop();
                   unawaited(_attach(AttachmentSource.camera));
@@ -2100,10 +2105,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     try {
       picked = await picker.pick(source);
     } on AttachmentException catch (error) {
-      _showSnack(error.message);
+      _showSnack(() => error.message);
       return;
     } catch (_) {
-      _showSnack('Impossible de lire cette pièce jointe.');
+      _showSnack(() => _l10n.chatAttachmentUnreadable);
       return;
     }
     if (picked == null || !mounted || draftEpoch != _draftEpoch) {
@@ -2118,7 +2123,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         bytes: picked.bytes,
       );
     } catch (_) {
-      _showSnack('Impossible d’enregistrer cette pièce jointe.');
+      _showSnack(() => _l10n.chatAttachmentUnsaved);
       return;
     }
     if (!mounted || draftEpoch != _draftEpoch) {
