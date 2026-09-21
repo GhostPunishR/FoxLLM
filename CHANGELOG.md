@@ -36,6 +36,16 @@ avant qu'il déborde, et sait exporter son historique.
 
 ### Corrections
 
+- **une réponse locale s'arrêtait au milieu d'une ligne, sans rien dire.** Le
+  moteur local plafonnait à 512 jetons, ce qu'une réponse contenant du code
+  dépasse presque toujours : elle s'interrompait net, et rien ne la
+  distinguait d'une réponse achevée. Le contexte affiché à 2 % le montrait
+  bien, ce n'était pas la fenêtre du modèle qui était pleine. Le plafond passe
+  à 2048 jetons, et le double en réflexion ; surtout, le moteur natif dit
+  désormais pourquoi il s'est arrêté, et une réponse coupée porte la mention
+  que le chat affichait déjà pour les fournisseurs distants. Les deux plafonds
+  sont distingués : la limite demandée se relève, la fenêtre du modèle demande
+  d'alléger la conversation ;
 - **l'API personnelle s'ouvrait sur OpenAI.** Le fournisseur proposé avant
   tout choix est une recommandation, pas un détail de mise en forme : c'est
   celui qu'essaiera qui n'en connaît aucun. C'est désormais Anthropic, aux
@@ -72,7 +82,7 @@ avant qu'il déborde, et sait exporter son historique.
   action qui échoue ne bloque pas la file : sans cela, une seule erreur de
   synthèse rendrait la lecture à voix haute muette jusqu'au lancement suivant.
 
-La suite de tests passe de 533 à 614 cas.
+La suite de tests passe de 533 à 623 cas.
 
 ## [0.1.5] - 2026-09-19
 

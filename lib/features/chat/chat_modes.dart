@@ -4,6 +4,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'package:foxllm/llm/model/generation_settings.dart';
+
 /// Modes du composer : réflexion et recherche web.
 class ChatModes {
   const ChatModes({this.reasoning = false, this.webSearch = false});
@@ -35,8 +37,9 @@ class ChatModes {
 /// Marge de génération quand la réflexion est active.
 ///
 /// Un raisonnement exposé tient rarement dans la limite ordinaire : sans cette
-/// marge, la réponse serait coupée avant la conclusion.
-const int reasoningMaxTokens = 1536;
+/// marge, la réponse serait coupée avant la conclusion. Le raisonnement
+/// s'ajoute à la réponse au lieu de la remplacer, d'où le double.
+const int reasoningMaxTokens = 2 * defaultMaxTokens;
 
 /// Conserve les modes choisis entre deux lancements.
 class ChatModesStore {
