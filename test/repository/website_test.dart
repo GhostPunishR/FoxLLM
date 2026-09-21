@@ -9,9 +9,10 @@ import 'package:foxllm/features/settings/about/legal_documents.dart';
 
 /// Le site publié depuis `docs/` par GitHub Pages.
 ///
-/// Une seule page : les textes légaux y sont des sections, et non plus des
-/// fichiers à part. Ce qui les liait au texte de l'application n'a pas changé
-/// pour autant, seul l'endroit où le chercher a bougé.
+/// Un seul fichier : les textes légaux y sont des sections plutôt que des
+/// pages, la feuille de style et le script y sont écrits à même la page. Ce
+/// qui liait ces textes à ceux de l'application n'a pas changé pour autant,
+/// seul l'endroit où les chercher a bougé.
 const _sitePage = 'docs/index.html';
 const _pages = <String>[_sitePage];
 
@@ -26,14 +27,11 @@ String _escapeHtml(String value) {
 }
 
 void main() {
-  test('les pages du site existent avec leurs ressources', () {
-    for (final page in <String>[
-      ..._pages,
-      'docs/site.css',
-      'docs/theme.js',
-      'docs/fox_logo.png',
-    ]) {
-      expect(File(page).existsSync(), isTrue, reason: '$page manquant');
+  test('le site existe avec son logo', () {
+    // Le logo reste un fichier : c'est une image, pas du code, et l'aperçu
+    // des réseaux sociaux a besoin d'une adresse qu'il puisse aller chercher.
+    for (final asset in <String>[..._pages, 'docs/fox_logo.png']) {
+      expect(File(asset).existsSync(), isTrue, reason: '$asset manquant');
     }
   });
 
@@ -100,18 +98,32 @@ void main() {
     }
   });
 
-  test('le site tient en une seule page', () {
-    // Les textes légaux avaient leur fichier ; ils sont devenus des sections.
-    // Un fichier revenu à côté rouvrirait la question de savoir lequel fait
-    // foi, et les liens internes partiraient à nouveau dans deux directions.
+  test('le site tient en un seul fichier', () {
+    // Les textes légaux avaient leur page, la mise en forme et la bascule de
+    // thème leur fichier. Tout est dans la page. Un fichier revenu à côté
+    // rouvrirait la question de savoir lequel fait foi, et une ressource
+    // manquante casserait le site sans que rien ne tombe ici.
+    const kept = <String>{'index.html', 'fox_logo.png'};
     final strays = Directory('docs')
         .listSync()
         .whereType<File>()
         .map((file) => file.uri.pathSegments.last)
-        .where((name) => name.endsWith('.html') && name != 'index.html')
+        .where((name) => !kept.contains(name))
         .toList();
 
-    expect(strays, isEmpty, reason: 'pages en trop dans docs/ : $strays');
+    expect(strays, isEmpty, reason: 'fichiers en trop dans docs/ : $strays');
+
+    final page = File(_sitePage).readAsStringSync();
+    expect(
+      page,
+      contains('<style>'),
+      reason: 'la mise en forme a quitté la page',
+    );
+    expect(
+      page,
+      contains("root.setAttribute('data-theme', next)"),
+      reason: 'la bascule de thème a quitté la page',
+    );
   });
 
   test('le site affiche la version et la licence courantes', () {
