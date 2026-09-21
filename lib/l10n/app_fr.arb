@@ -478,5 +478,94 @@
   },
   "chatOpenModels": "Modèles",
   "chatAttachPhotos": "Photos",
-  "chatAttachCamera": "Caméra"
+  "chatAttachCamera": "Caméra",
+  "apiBaseUrlRequired": "Indique une Base URL.",
+  "apiHttpsRequired": "Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.",
+  "apiKeyRequired": "Entre la clé API du fournisseur.",
+  "apiPickModel": "Choisis un modèle, ou saisis son identifiant manuellement.",
+  "apiKeyDeleted": "Clé API supprimée.",
+  "apiSubtitle": "Ton fournisseur, ta clé, ton modèle",
+  "apiIntro": "FoxLLM contacte directement le fournisseur depuis ton téléphone. Pour les fournisseurs connus, la Base URL est configurée automatiquement et les modèles accessibles sont récupérés avec ta clé.",
+  "apiProvider": "Fournisseur",
+  "apiKeyAlreadySaved": "Clé déjà enregistrée · laisse vide pour la conserver",
+  "apiFetchModels": "Récupérer les modèles disponibles",
+  "apiFetchFirst": "Récupère d’abord les modèles",
+  "apiChooseModel": "Choisis un modèle",
+  "apiBackToList": "Revenir à la liste des modèles",
+  "apiTypeIdentifier": "Saisir un identifiant manuellement",
+  "apiRemember": "Mémoriser sur cet appareil",
+  "apiRememberHint": "Désactivé = clé gardée seulement pendant cette session.",
+  "apiUseInChat": "Utiliser dans le chat",
+  "apiSave": "Enregistrer",
+  "apiTest": "Tester la connexion",
+  "apiTestHint": "Le test envoie une très courte requête au modèle sélectionné et peut consommer quelques tokens.",
+  "apiDeleteKey": "Supprimer la clé API",
+  "markdownLinkFailed": "Lien impossible à ouvrir.",
+  "apiSettingsLoadFailed": "Impossible de charger les réglages API : {reason}",
+  "@apiSettingsLoadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiModelsFetchFailed": "Impossible de récupérer les modèles : {reason}",
+  "@apiModelsFetchFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiSaveFailed": "Enregistrement impossible : {reason}",
+  "@apiSaveFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiConnected": "Connexion réussie à {provider} avec {model}.",
+  "@apiConnected": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "apiConnectionFailed": "Échec de connexion : {reason}",
+  "@apiConnectionFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiDeleteFailed": "Suppression impossible : {reason}",
+  "@apiDeleteFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiKeyFor": "Clé API {provider}",
+  "@apiKeyFor": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "apiUseInChatHint": "Quand activé, le chat utilise {provider} au lieu du modèle GGUF local.",
+  "@apiUseInChatHint": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  }
 }
