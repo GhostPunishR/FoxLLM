@@ -307,5 +307,110 @@
         "type": "String"
       }
     }
+  },
+  "chatLoadingModel": "Chargement du modèle local…",
+  "messageSelectText": "Sélectionner le texte",
+  "messageEdit": "Modifier le message",
+  "messageGoodAnswer": "Bonne réponse",
+  "messageBadAnswer": "Mauvaise réponse",
+  "messageStopReading": "Arrêter la lecture",
+  "messageReadAloud": "Lire à voix haute",
+  "messageRegenerate": "Régénérer la réponse",
+  "outcomeCancelled": "Réponse arrêtée.",
+  "outcomeFailed": "Réponse interrompue par une erreur.",
+  "outcomeNothingReceived": "Aucun texte reçu, la réponse s’est arrêtée avant de commencer.",
+  "outcomeShortened": "Réponse écourtée.",
+  "reasonLengthLimit": "la limite de longueur a été atteinte",
+  "reasonContentFilter": "le fournisseur a filtré la suite",
+  "modelsPickTitle": "Choisir un modèle GGUF",
+  "modelsUnloadFirst": "Décharge le modèle avant de le supprimer.",
+  "modelsDeleteTitle": "Supprimer le modèle ?",
+  "modelsDelete": "Supprimer",
+  "modelsCancel": "Annuler",
+  "modelsUnload": "Décharger",
+  "modelsImport": "Importer un GGUF",
+  "modelsLibrary": "Bibliothèque locale",
+  "modelsLibraryIntro": "Les fichiers sélectionnés sont copiés dans le stockage privé de FoxLLM. Le modèle chargé reste disponible hors connexion.",
+  "modelsImporting": "Import du modèle…",
+  "modelsEmpty": "Aucun modèle GGUF importé. Utilise « Importer un GGUF » pour ajouter ton premier modèle.",
+  "outcomeNothingReceivedBecause": "Aucun texte reçu : {reason}.",
+  "@outcomeNothingReceivedBecause": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "outcomeShortenedBecause": "Réponse écourtée : {reason}.",
+  "@outcomeShortenedBecause": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "outcomeShortenedRaw": "Réponse écourtée ({reason}).",
+  "@outcomeShortenedRaw": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentGone": "« {name} » n’est plus sur l’appareil.",
+  "@attachmentGone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsLibraryFailed": "Impossible de lire la bibliothèque de modèles : {reason}",
+  "@modelsLibraryFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsLoadFailed": "Chargement impossible : {reason}",
+  "@modelsLoadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsUnloadFailed": "Déchargement impossible : {reason}",
+  "@modelsUnloadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsDeleteFailed": "Suppression impossible : {reason}",
+  "@modelsDeleteFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsDeleteBody": "{name}\n\nLe fichier GGUF importé dans FoxLLM sera supprimé du téléphone.",
+  "@modelsDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsImportProgress": "Import {percent} %",
+  "@modelsImportProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
   }
 }

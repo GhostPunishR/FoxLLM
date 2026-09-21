@@ -42,6 +42,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
   }
 
   Future<void> _refresh() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final models = await _library.listModels();
       if (!mounted) {
@@ -58,7 +59,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
       }
       setState(() {
         _loading = false;
-        _error = 'Impossible de lire la bibliothèque de modèles : $error';
+        _error = l10n.modelsLibraryFailed('$error');
       });
     }
   }
@@ -83,12 +84,13 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
   }
 
   Future<void> _importModel() async {
+    final l10n = AppLocalizations.of(context);
     if (_importing) {
       return;
     }
 
     final picked = await FilePicker.pickFile(
-      dialogTitle: 'Choisir un modèle GGUF',
+      dialogTitle: l10n.modelsPickTitle,
       type: FileType.custom,
       allowedExtensions: const <String>['gguf'],
     );
@@ -143,6 +145,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
   }
 
   Future<void> _loadModel(LocalModelFile model) async {
+    final l10n = AppLocalizations.of(context);
     if (_busyModelPath != null) {
       return;
     }
@@ -168,7 +171,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
         return;
       }
       setState(() {
-        _error = 'Chargement impossible : $error';
+        _error = l10n.modelsLoadFailed('$error');
       });
     } finally {
       if (mounted) {
@@ -180,6 +183,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
   }
 
   Future<void> _unloadModel(LocalModelFile model) async {
+    final l10n = AppLocalizations.of(context);
     if (_busyModelPath != null) {
       return;
     }
@@ -203,7 +207,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
         return;
       }
       setState(() {
-        _error = 'Déchargement impossible : $error';
+        _error = l10n.modelsUnloadFailed('$error');
       });
     } finally {
       if (mounted) {
@@ -215,10 +219,11 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
   }
 
   Future<void> _deleteModel(LocalModelFile model) async {
+    final l10n = AppLocalizations.of(context);
     final backend = ref.read(localLlmBackendProvider);
     if (backend.loadedModelPath == model.path) {
       setState(() {
-        _error = 'Décharge le modèle avant de le supprimer.';
+        _error = l10n.modelsUnloadFirst;
       });
       return;
     }
@@ -226,18 +231,16 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer le modèle ?'),
-        content: Text(
-          '${model.fileName}\n\nLe fichier GGUF importé dans FoxLLM sera supprimé du téléphone.',
-        ),
+        title: Text(l10n.modelsDeleteTitle),
+        content: Text(l10n.modelsDeleteBody(model.fileName)),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+            child: Text(l10n.modelsCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: Text(l10n.modelsDelete),
           ),
         ],
       ),
@@ -258,7 +261,7 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
         return;
       }
       setState(() {
-        _error = 'Suppression impossible : $error';
+        _error = l10n.modelsDeleteFailed('$error');
       });
     } finally {
       if (mounted) {
@@ -271,15 +274,16 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final backend = ref.read(localLlmBackendProvider);
     final loadedPath = backend.loadedModelPath;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Modèles locaux')),
+      appBar: AppBar(title: Text(l10n.settingsLocalModels)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importing ? null : _importModel,
         icon: const Icon(Icons.add),
-        label: const Text('Importer un GGUF'),
+        label: Text(l10n.modelsImport),
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
@@ -288,21 +292,21 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
           children: <Widget>[
             Text(
-              'Bibliothèque locale',
+              l10n.modelsLibrary,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Les fichiers sélectionnés sont copiés dans le stockage privé de FoxLLM. Le modèle chargé reste disponible hors connexion.',
-            ),
+            Text(l10n.modelsLibraryIntro),
             if (_importing) ...<Widget>[
               const SizedBox(height: 16),
               LinearProgressIndicator(value: _importProgress),
               const SizedBox(height: 8),
               Text(
                 _importProgress == null
-                    ? 'Import du modèle…'
-                    : 'Import ${(_importProgress! * 100).round()} %',
+                    ? l10n.modelsImporting
+                    : l10n.modelsImportProgress(
+                        '${(_importProgress! * 100).round()}',
+                      ),
               ),
             ],
             if (_error != null) ...<Widget>[
@@ -318,12 +322,10 @@ class _LocalModelsScreenState extends ConsumerState<LocalModelsScreen> {
             if (_loading)
               const Center(child: CircularProgressIndicator())
             else if (_models.isEmpty)
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Text(
-                    'Aucun modèle GGUF importé. Utilise « Importer un GGUF » pour ajouter ton premier modèle.',
-                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Text(l10n.modelsEmpty),
                 ),
               )
             else
@@ -367,6 +369,7 @@ class _ModelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -411,12 +414,12 @@ class _ModelCard extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(isLoaded ? Icons.eject : Icons.play_arrow),
-                  label: Text(isLoaded ? 'Décharger' : 'Charger'),
+                  label: Text(isLoaded ? l10n.modelsUnload : 'Charger'),
                 ),
                 TextButton.icon(
                   onPressed: isBusy || isLoaded ? null : onDelete,
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Supprimer'),
+                  label: Text(l10n.modelsDelete),
                 ),
               ],
             ),
