@@ -607,5 +607,26 @@
         "type": "String"
       }
     }
+  },
+  "backendConfigureProvider": "Configure le fournisseur, le modèle et la clé API.",
+  "backendProviderNoTextContent": "Le fournisseur a répondu sans contenu texte.",
+  "backendKeyBeforeModels": "Entre une clé API avant de récupérer les modèles.",
+  "backendConfigureCustomBaseUrl": "Configure la base URL du fournisseur personnalisé.",
+  "backendInvalidModelsResponse": "Réponse de modèles invalide.",
+  "backendMissingModelsList": "Liste de modèles absente de la réponse.",
+  "backendNoChatModels": "Aucun modèle de chat disponible avec cette clé API.",
+  "backendProviderInterrupted": "Le fournisseur a interrompu la réponse.",
+  "backendProviderReportedError": "Le fournisseur a signalé une erreur.",
+  "backendResponseFailed": "La réponse a échoué.",
+  "backendNotAGgufFile": "Le fichier sélectionné doit être un modèle .gguf.",
+  "backendEmptyGgufFile": "Le modèle GGUF sélectionné est vide.",
+  "backendRefuseDeleteOutside": "Refus de supprimer un fichier hors de la bibliothèque FoxLLM.",
+  "backendMissingApiKey": "Aucune clé API configurée pour {provider}.",
+  "@backendMissingApiKey": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
   }
 }

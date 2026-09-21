@@ -224,5 +224,19 @@
   "providerCustom": "Custom",
   "httpRateLimitedWith": "The provider's rate limit or quota was reached: {message}",
   "httpStatusWith": "HTTP {status}: {message}",
-  "httpStatusOnly": "The provider answered with HTTP error {status}."
+  "httpStatusOnly": "The provider answered with HTTP error {status}.",
+  "backendConfigureProvider": "Set the provider, the model and the API key.",
+  "backendProviderNoTextContent": "The provider answered with no text content.",
+  "backendKeyBeforeModels": "Enter an API key before fetching the models.",
+  "backendConfigureCustomBaseUrl": "Set the base URL of the custom provider.",
+  "backendInvalidModelsResponse": "The models response is invalid.",
+  "backendMissingModelsList": "The response holds no model list.",
+  "backendNoChatModels": "No chat model is available with this API key.",
+  "backendProviderInterrupted": "The provider cut the answer short.",
+  "backendProviderReportedError": "The provider reported an error.",
+  "backendResponseFailed": "The answer failed.",
+  "backendNotAGgufFile": "The file you picked must be a .gguf model.",
+  "backendEmptyGgufFile": "The GGUF model you picked is empty.",
+  "backendRefuseDeleteOutside": "Refusing to delete a file outside FoxLLM's library.",
+  "backendMissingApiKey": "No API key is configured for {provider}."
 }

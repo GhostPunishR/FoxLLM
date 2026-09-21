@@ -8,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/anthropic_backend.dart';
+import 'package:foxllm/llm/backend/backend_failure.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
 import 'package:foxllm/llm/backend/local_engine_error.dart';
@@ -282,14 +283,25 @@ String describePersonalApiError(Object error, AppLocalizations l10n) {
     // Sans cette reconnaissance, « Prompt exceeds the model context window. »
     // s'affichait tel quel dans le bandeau du chat, et c'est pourtant le refus
     // le plus fréquent avec un modèle local.
-    final failure = LocalEngineFailure.match(error.message.toString());
-    if (failure != null) {
-      return failure.describe(l10n);
+    final message = error.message.toString();
+    final engine = LocalEngineFailure.match(message);
+    if (engine != null) {
+      return engine.describe(l10n);
     }
-    return error.message.toString();
+    // Même principe côté fournisseurs : ces refus naissent hors de tout
+    // widget, donc sans traductions à portée.
+    final backend = BackendFailure.match(message);
+    if (backend != null) {
+      return backend.describe(l10n);
+    }
+    final missingKey = missingApiKeyProvider(message);
+    if (missingKey != null) {
+      return l10n.backendMissingApiKey(missingKey);
+    }
+    return message;
   }
   if (error is FormatException) {
-    return error.message;
+    return BackendFailure.match(error.message)?.describe(l10n) ?? error.message;
   }
   return error.toString();
 }
