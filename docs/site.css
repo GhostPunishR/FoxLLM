@@ -544,6 +544,15 @@ p {
   border: 1px solid var(--rule-strong);
 }
 
+/* Un geste que l'utilisateur déclenche lui-même : l'application ne le retient
+   pas, et ne l'envoie nulle part de sa propre initiative. Le trait discontinu
+   dit cette troisième situation sans emprunter la couleur des deux autres. */
+.verdict--asked {
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px dashed var(--rule-strong);
+}
+
 @media (max-width: 620px) {
   .ledger__row {
     grid-template-columns: minmax(0, 1fr);
@@ -632,18 +641,16 @@ code {
   max-width: var(--spine);
 }
 
-/* Un document se lit, il ne se vend pas : le titre y est plus sobre que
-   celui de la page d'accueil. */
-.legal h1 {
-  font-size: clamp(2rem, 5vw, 2.6rem);
-  margin-bottom: 12px;
-}
-
+/* Les documents légaux sont devenus des sections de la page d'accueil. Leur
+   titre est celui de la bande, comme partout ailleurs ; seules leurs propres
+   sections vivent ici, descendues d'un cran pour que la page garde un seul
+   `h1`. Le bloc n'emporte pas de marge automatique : il s'aligne à gauche
+   avec le reste de la bande, au lieu de se centrer tout seul. */
 .legal section {
   margin-top: 34px;
 }
 
-.legal h2 {
+.legal h3 {
   font-size: 1.25rem;
   margin-bottom: 10px;
 }
@@ -660,6 +667,9 @@ code {
   font-family: var(--mono);
   font-size: 0.78rem;
   color: var(--ink-faint);
+  /* Le titre de bande n'a pas de marge basse : la date la porte elle-même,
+     sinon elle se colle au titre qu'elle date. */
+  margin-top: 12px;
 }
 
 /* ---- pied -------------------------------------------------------------- */
