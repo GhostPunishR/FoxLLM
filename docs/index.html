@@ -195,16 +195,18 @@
               <h3>Modèles GGUF importés</h3>
               <p>
                 Import par flux dans le stockage privé, avec progression et
-                reprise propre en cas d'échec. Description, taille et fenêtre de
-                contexte du modèle sont affichées, et l'arrêt d'une génération
-                est immédiat.
+                reprise propre en cas d'échec. L'en-tête du fichier est examiné
+                avant qu'il rejoigne la bibliothèque, pour écarter un modèle
+                malformé qui ferait tomber le moteur au premier message.
+                Description, taille et fenêtre de contexte sont affichées, et
+                l'arrêt d'une génération est immédiat.
               </p>
             </article>
             <article class="feature">
               <span class="feature__tag">BYOK</span>
               <h3>Ta clé, ton fournisseur</h3>
               <p>
-                Sept destinations, dont toute API OpenAI-compatible que tu
+                Huit destinations, plus toute API OpenAI-compatible que tu
                 renseignes à la main. La clé est chiffrée par le stockage
                 sécurisé du système, ou gardée en mémoire pour la seule session.
               </p>
@@ -260,6 +262,36 @@
                 Le fil reste là au lancement suivant, avec recherche et
                 regroupement par période dans le menu latéral. Renommer ou
                 supprimer une conversation s'y fait directement.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Langues</span>
+              <h3>Français et anglais</h3>
+              <p>
+                L'interface suit la langue de l'appareil, et se force depuis
+                Paramètres → <em>Application</em> → <em>Langue</em>. Les
+                documents légaux restent en français, seule version faisant
+                foi.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Sauvegarde</span>
+              <h3>Export et import de l'historique</h3>
+              <p>
+                Les conversations et leurs pièces jointes partent dans un seul
+                fichier, et reviennent en s'ajoutant à ce qui est déjà là.
+                C'est la contrepartie du refus de la sauvegarde automatique
+                d'Android : rien ne quitte l'appareil sans que tu le demandes.
+              </p>
+            </article>
+            <article class="feature">
+              <span class="feature__tag">Relevé</span>
+              <h3>Ce que la réponse a coûté</h3>
+              <p>
+                Sous chaque réponse locale, la vitesse en jetons par seconde et
+                la part du contexte occupée, mesurée sur le cache du moteur.
+                Une réponse écourtée le dit, au lieu de s'arrêter au milieu
+                d'une ligne sans rien signaler.
               </p>
             </article>
             <article class="feature">
@@ -335,7 +367,9 @@
                 Format, analyse Dart, tests Flutter, compilation C++, smoke test
                 FFI et construction de l'APK tournent en intégration continue,
                 qui vérifie aussi que le moteur et ses symboles de streaming
-                sont bien dans le paquet.
+                sont bien dans le paquet. Un dernier contrôle construit
+                <code>llama.cpp</code> et un modèle témoin pour confronter le
+                cache KV à une vraie inférence.
               </p>
             </article>
           </div>
