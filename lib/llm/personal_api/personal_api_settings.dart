@@ -275,7 +275,7 @@ Future<void> testPersonalApiConnection({
 
 String describePersonalApiError(Object error, AppLocalizations l10n) {
   if (error is PersonalApiHttpException) {
-    return _describeHttpError(error.statusCode, error.body);
+    return _describeHttpError(error.statusCode, error.body, l10n);
   }
   if (error is StateError) {
     // Le pont natif lève un `StateError` portant le message anglais du C++.
@@ -294,7 +294,7 @@ String describePersonalApiError(Object error, AppLocalizations l10n) {
   return error.toString();
 }
 
-String _describeHttpError(int statusCode, String body) {
+String _describeHttpError(int statusCode, String body, AppLocalizations l10n) {
   String? code;
   String? message;
   try {
@@ -315,24 +315,24 @@ String _describeHttpError(int statusCode, String body) {
   switch (code) {
     case 'credit_balance_exhausted':
     case 'insufficient_quota':
-      return 'Aucun crédit API disponible pour le compte lié à cette clé.';
+      return l10n.httpNoCredit;
     case 'invalid_api_key':
-      return 'La clé API est invalide ou a été révoquée.';
+      return l10n.httpInvalidKey;
   }
 
   if (statusCode == 401 || statusCode == 403) {
-    return 'Clé API refusée par le fournisseur.';
+    return l10n.httpKeyRefused;
   }
   if (statusCode == 429) {
     return message?.isNotEmpty == true
-        ? 'Limite ou quota du fournisseur atteint : $message'
-        : 'Limite ou quota du fournisseur atteint.';
+        ? l10n.httpRateLimitedWith(message!)
+        : l10n.httpRateLimited;
   }
   if (message?.isNotEmpty == true) {
-    return 'HTTP $statusCode : $message';
+    return l10n.httpStatusWith('$statusCode', message!);
   }
   if (body.trim().isNotEmpty && body.length <= 240) {
-    return 'HTTP $statusCode : ${body.trim()}';
+    return l10n.httpStatusWith('$statusCode', body.trim());
   }
-  return 'Le fournisseur a répondu avec l’erreur HTTP $statusCode.';
+  return l10n.httpStatusOnly('$statusCode');
 }

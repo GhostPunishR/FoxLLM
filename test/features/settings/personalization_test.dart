@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/features/settings/personalization_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 
 import '../../support/localized_app.dart';
@@ -129,7 +130,11 @@ void main() {
       final store = _MemoryStore();
       await _pump(tester, const PersonalizationScreen(), store);
 
-      final preset = personalizationPresets.first;
+      // Les modèles se traduisent : ils se lisent donc dans les
+      // traductions, comme l'écran les lit.
+      final preset = personalizationPresets(
+        lookupAppLocalizations(const Locale('fr')),
+      ).first;
       await tester.tap(find.text(preset.label));
       await tester.pumpAndSettle();
 

@@ -208,5 +208,21 @@
   "apiConnectionFailed": "Connection failed: {reason}",
   "apiDeleteFailed": "Deletion failed: {reason}",
   "apiKeyFor": "{provider} API key",
-  "apiUseInChatHint": "When on, the chat uses {provider} instead of the local GGUF model."
+  "apiUseInChatHint": "When on, the chat uses {provider} instead of the local GGUF model.",
+  "presetShortLabel": "Short answers",
+  "presetShortInstructions": "Answer briefly and directly. Get to the point, with no needless introduction or conclusion.",
+  "presetTeacherLabel": "Patient teacher",
+  "presetTeacherInstructions": "Explain as if to a beginner: plain words, one concrete example per idea, and end with a question to check I followed.",
+  "presetExpertLabel": "Technical expert",
+  "presetExpertInstructions": "Answer like a seasoned engineer: be precise, flag the pitfalls and edge cases, and give complete code where it helps.",
+  "presetFriendlyLabel": "Friendly tone",
+  "presetFriendlyInstructions": "Take a warm, encouraging tone, keep it informal, and keep the answers lively.",
+  "httpNoCredit": "No API credit left on the account behind this key.",
+  "httpInvalidKey": "The API key is invalid or has been revoked.",
+  "httpKeyRefused": "API key refused by the provider.",
+  "httpRateLimited": "The provider's rate limit or quota was reached.",
+  "providerCustom": "Custom",
+  "httpRateLimitedWith": "The provider's rate limit or quota was reached: {message}",
+  "httpStatusWith": "HTTP {status}: {message}",
+  "httpStatusOnly": "The provider answered with HTTP error {status}."
 }

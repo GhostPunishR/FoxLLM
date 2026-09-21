@@ -567,5 +567,45 @@
         "type": "String"
       }
     }
+  },
+  "presetShortLabel": "Réponses courtes",
+  "presetShortInstructions": "Réponds de façon brève et directe. Va à l’essentiel, sans introduction ni conclusion superflue.",
+  "presetTeacherLabel": "Pédagogue",
+  "presetTeacherInstructions": "Explique comme à un débutant : vocabulaire simple, un exemple concret par notion, et termine par une question pour vérifier que j’ai compris.",
+  "presetExpertLabel": "Expert technique",
+  "presetExpertInstructions": "Réponds comme un ingénieur expérimenté : sois précis, signale les pièges et les cas limites, et donne du code complet quand c’est utile.",
+  "presetFriendlyLabel": "Ton amical",
+  "presetFriendlyInstructions": "Adopte un ton chaleureux et encourageant, tutoie-moi, et garde des réponses vivantes.",
+  "httpNoCredit": "Aucun crédit API disponible pour le compte lié à cette clé.",
+  "httpInvalidKey": "La clé API est invalide ou a été révoquée.",
+  "httpKeyRefused": "Clé API refusée par le fournisseur.",
+  "httpRateLimited": "Limite ou quota du fournisseur atteint.",
+  "providerCustom": "Personnalisé",
+  "httpRateLimitedWith": "Limite ou quota du fournisseur atteint : {message}",
+  "@httpRateLimitedWith": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "httpStatusWith": "HTTP {status} : {message}",
+  "@httpStatusWith": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "httpStatusOnly": "Le fournisseur a répondu avec l’erreur HTTP {status}.",
+  "@httpStatusOnly": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
   }
 }
