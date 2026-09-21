@@ -269,5 +269,43 @@
         "type": "String"
       }
     }
+  },
+  "drawerSearch": "Rechercher dans les chats",
+  "drawerNewChat": "Nouveau chat",
+  "drawerNoConversation": "Aucune conversation",
+  "drawerConversationActions": "Actions de la conversation",
+  "drawerDelete": "Supprimer",
+  "drawerDeleteTitle": "Supprimer la conversation ?",
+  "drawerRename": "Renommer la conversation",
+  "drawerRenameField": "Nom de la conversation",
+  "composerListening": "Parle, je t’écoute…",
+  "composerQueueHint": "Mettre un message en attente…",
+  "composerAsk": "Demander à FoxLLM",
+  "composerThinking": "Réflexion",
+  "composerSearch": "Rechercher",
+  "composerQueue": "Mettre en attente",
+  "composerPreviousKept": "Version précédente conservée",
+  "composerPreviousKeptAfter": "Version précédente conservée, reprise après la réponse",
+  "composerRestore": "Rétablir",
+  "composerForgetPrevious": "Oublier la version précédente",
+  "composerRetry": "Réessayer",
+  "composerRemoveFromQueue": "Retirer de la file",
+  "composerHoldToDictate": "Maintenir pour dicter",
+  "composerDictating": "Dictée en cours",
+  "drawerDeleteBody": "« {title} » sera définitivement supprimée de l’appareil.",
+  "@drawerDeleteBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "composerRemoveAttachment": "Retirer {name}",
+  "@composerRemoveAttachment": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   }
 }

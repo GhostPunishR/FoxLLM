@@ -91,6 +91,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     final width = math.min(MediaQuery.sizeOf(context).width * 0.86, 360.0);
     final conversations = _filteredConversations;
@@ -130,7 +131,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                   keyboardAppearance: Theme.of(context).brightness,
                   style: TextStyle(color: fox.textPrimary, fontSize: 16),
                   decoration: InputDecoration(
-                    hintText: 'Rechercher dans les chats',
+                    hintText: l10n.drawerSearch,
                     hintStyle: TextStyle(
                       color: fox.textSecondary,
                       fontSize: 16,
@@ -159,7 +160,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                   _DrawerSectionHeader(
                     label: 'Chats',
                     trailing: IconButton(
-                      tooltip: 'Nouveau chat',
+                      tooltip: l10n.drawerNewChat,
                       visualDensity: VisualDensity.compact,
                       onPressed: widget.onNewChat,
                       icon: Icon(
@@ -173,7 +174,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
                       child: Text(
-                        'Aucune conversation',
+                        l10n.drawerNoConversation,
                         style: TextStyle(
                           color: fox.textSecondary,
                           fontSize: 16,
@@ -214,7 +215,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                         const SizedBox(width: 13),
                         Expanded(
                           child: Text(
-                            'Paramètres',
+                            l10n.settingsTitle,
                             style: TextStyle(
                               color: fox.textPrimary,
                               fontSize: 17,
@@ -241,6 +242,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 
   Widget _conversationTile(ChatConversation conversation, DateTime now) {
     final fox = context.fox;
+    final l10n = AppLocalizations.of(context);
     final selected = conversation.id == widget.activeConversationId;
     return Padding(
       padding: const EdgeInsets.only(bottom: 2),
@@ -274,7 +276,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                   style: TextStyle(color: fox.textTertiary, fontSize: 13),
                 ),
                 IconButton(
-                  tooltip: 'Actions de la conversation',
+                  tooltip: l10n.drawerConversationActions,
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _showConversationActions(conversation),
                   icon: Icon(
@@ -293,6 +295,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
 
   /// Renommer ou supprimer, depuis le bouton « … » ou un appui long.
   Future<void> _showConversationActions(ChatConversation conversation) async {
+    final l10n = AppLocalizations.of(context);
     final action = await showModalBottomSheet<_ConversationAction>(
       context: context,
       showDragHandle: true,
@@ -312,7 +315,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
                 color: Theme.of(context).colorScheme.error,
               ),
               title: Text(
-                'Supprimer',
+                l10n.drawerDelete,
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               onTap: () =>
@@ -347,16 +350,14 @@ class _FoxDrawerState extends State<_FoxDrawer> {
   }
 
   Future<void> _confirmDelete(ChatConversation conversation) async {
+    final l10n = AppLocalizations.of(context);
     // L'historique étant conservé sur l'appareil, une suppression accidentelle
     // ne se rattrape pas en fermant l'application.
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer la conversation ?'),
-        content: Text(
-          '« ${conversation.title} » sera définitivement supprimée de '
-          'l’appareil.',
-        ),
+        title: Text(l10n.drawerDeleteTitle),
+        content: Text(l10n.drawerDeleteBody(conversation.title)),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -368,7 +369,7 @@ class _FoxDrawerState extends State<_FoxDrawer> {
               foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Supprimer'),
+            child: Text(l10n.drawerDelete),
           ),
         ],
       ),
@@ -411,14 +412,15 @@ class _RenameDialogState extends State<_RenameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
-      title: const Text('Renommer la conversation'),
+      title: Text(l10n.drawerRename),
       content: TextField(
         controller: _controller,
         autofocus: true,
         maxLength: 60,
         textInputAction: TextInputAction.done,
-        decoration: const InputDecoration(hintText: 'Nom de la conversation'),
+        decoration: InputDecoration(hintText: l10n.drawerRenameField),
         onSubmitted: (_) => _submit(),
       ),
       actions: <Widget>[

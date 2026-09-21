@@ -9,6 +9,8 @@ import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
+import 'package:foxllm/core/l10n/fox_language.dart';
+import 'package:foxllm/core/l10n/language_provider.dart';
 import 'package:foxllm/main.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
@@ -21,7 +23,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [localLlmBackendProvider.overrideWithValue(_IdleBackend())],
+        overrides: [
+          localLlmBackendProvider.overrideWithValue(_IdleBackend()),
+          foxLanguageProvider.overrideWith(_FrenchLanguage.new),
+        ],
         child: const FoxLlmApp(),
       ),
     );
@@ -111,4 +116,15 @@ class _IdleBackend implements LocalLlmBackend {
 
   @override
   Future<void> dispose() async {}
+}
+
+/// Fige la langue sur le français.
+///
+/// Ce banc monte la vraie application, qui suit la langue de l'appareil : sans
+/// cela il chercherait « Demander à FoxLLM » sur une machine d'intégration
+/// continue anglophone, qui affiche « Ask FoxLLM ». La langue du banc doit
+/// venir du banc, jamais de la machine qui l'exécute.
+class _FrenchLanguage extends FoxLanguageController {
+  @override
+  FoxLanguage build() => FoxLanguage.french;
 }

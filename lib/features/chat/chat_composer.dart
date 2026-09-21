@@ -49,6 +49,7 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 18),
@@ -89,10 +90,10 @@ class _Composer extends StatelessWidget {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: isDictating
-                        ? 'Parle, je t’écoute…'
+                        ? l10n.composerListening
                         : isGenerating
-                        ? 'Mettre un message en attente…'
-                        : 'Demander à FoxLLM',
+                        ? l10n.composerQueueHint
+                        : l10n.composerAsk,
                     hintStyle: TextStyle(
                       color: fox.textSecondary,
                       fontSize: 17,
@@ -116,14 +117,14 @@ class _Composer extends StatelessWidget {
                             children: <Widget>[
                               _ToolChip(
                                 icon: Icons.psychology_alt_outlined,
-                                label: 'Réflexion',
+                                label: l10n.composerThinking,
                                 isActive: modes.reasoning,
                                 onPressed: onReflection,
                               ),
                               const SizedBox(width: 8),
                               _ToolChip(
                                 icon: Icons.language,
-                                label: 'Rechercher',
+                                label: l10n.composerSearch,
                                 isActive: modes.webSearch,
                                 onPressed: onSearch,
                               ),
@@ -170,7 +171,7 @@ class _Composer extends StatelessWidget {
                         if (hasDraft) {
                           return _RoundComposerButton(
                             tooltip: isGenerating
-                                ? 'Mettre en attente'
+                                ? l10n.composerQueue
                                 : 'Envoyer',
                             icon: Icons.arrow_upward_rounded,
                             filled: true,
@@ -300,6 +301,7 @@ class _PreviousVersionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -318,21 +320,20 @@ class _PreviousVersionBanner extends StatelessWidget {
                 Expanded(
                   child: Text(
                     enabled
-                        ? 'Version précédente conservée'
-                        : 'Version précédente conservée, reprise après la '
-                              'réponse',
+                        ? l10n.composerPreviousKept
+                        : l10n.composerPreviousKeptAfter,
                     style: TextStyle(color: fox.textSecondary, fontSize: 12),
                   ),
                 ),
                 TextButton(
                   onPressed: enabled ? onRestore : null,
-                  child: const Text('Rétablir'),
+                  child: Text(l10n.composerRestore),
                 ),
                 IconButton(
                   onPressed: enabled ? onForget : null,
                   iconSize: 16,
                   visualDensity: VisualDensity.compact,
-                  tooltip: 'Oublier la version précédente',
+                  tooltip: l10n.composerForgetPrevious,
                   icon: Icon(Icons.close_rounded, color: fox.textSecondary),
                 ),
               ],
@@ -367,6 +368,7 @@ class _QueuedStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -389,7 +391,7 @@ class _QueuedStrip extends StatelessWidget {
                 if (canRetry)
                   TextButton(
                     onPressed: onRetry,
-                    child: const Text('Réessayer'),
+                    child: Text(l10n.composerRetry),
                   ),
               ],
             ),
@@ -426,6 +428,7 @@ class _QueuedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     final label = message.text.isEmpty
         ? '${message.attachments.length} pièce(s) jointe(s)'
@@ -459,7 +462,7 @@ class _QueuedChip extends StatelessWidget {
             onPressed: onRemove,
             iconSize: 16,
             visualDensity: VisualDensity.compact,
-            tooltip: 'Retirer de la file',
+            tooltip: l10n.composerRemoveFromQueue,
             icon: Icon(Icons.close_rounded, color: fox.textSecondary),
           ),
         ],
@@ -477,6 +480,7 @@ class _AttachmentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Container(
       constraints: const BoxConstraints(maxWidth: 240),
@@ -514,7 +518,7 @@ class _AttachmentChip extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Retirer ${attachment.name}',
+            tooltip: l10n.composerRemoveAttachment(attachment.name),
             onPressed: onRemove,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
@@ -661,13 +665,16 @@ class _DictationButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Semantics(
       button: true,
       label: 'Dicter',
-      hint: 'Maintenir pour dicter',
+      hint: l10n.composerHoldToDictate,
       child: Tooltip(
-        message: isDictating ? 'Dictée en cours' : 'Maintenir pour dicter',
+        message: isDictating
+            ? l10n.composerDictating
+            : l10n.composerHoldToDictate,
         child: GestureDetector(
           onTap: onTap,
           onLongPressStart: (_) => onStart(),
