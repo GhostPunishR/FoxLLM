@@ -12,8 +12,9 @@ avant qu'il déborde, et sait exporter son historique.
 ### Ajouts
 
 - **l'interface se traduit.** Elle suit la langue de l'appareil par défaut, et
-  se force depuis Paramètres → Apparence, à côté de la déclinaison. Le
-  français et l'anglais sont servis. Les documents légaux restent en français,
+  se force depuis Paramètres → Application → Langue, qui a son propre écran :
+  la langue de toute l'interface ne se cherche pas sous un choix de couleurs.
+  Le français et l'anglais sont servis. Les documents légaux restent en français,
   seule version faisant foi : traduire des conditions auxquelles des
   utilisateurs sont engagés est une décision juridique, pas une tâche de
   chaîne d'interface, et l'écran de langue le signale ;
@@ -35,6 +36,11 @@ avant qu'il déborde, et sait exporter son historique.
 
 ### Corrections
 
+- **l'API personnelle s'ouvrait sur OpenAI.** Le fournisseur proposé avant
+  tout choix est une recommandation, pas un détail de mise en forme : c'est
+  celui qu'essaiera qui n'en connaît aucun. C'est désormais Anthropic, aux
+  trois endroits qui le nommaient chacun de leur côté. Un choix déjà
+  enregistré n'est pas touché ;
 - **les menus du système s'affichaient en anglais.** Un appui long dans le
   champ de message ouvrait « Cut », « Copy » et « Paste » au milieu d'une
   application entièrement française. Ces mots viennent de Flutter, qui ne
@@ -66,7 +72,7 @@ avant qu'il déborde, et sait exporter son historique.
   action qui échoue ne bloque pas la file : sans cela, une seule erreur de
   synthèse rendrait la lecture à voix haute muette jusqu'au lancement suivant.
 
-La suite de tests passe de 533 à 588 cas.
+La suite de tests passe de 533 à 614 cas.
 
 ## [0.1.5] - 2026-09-19
 

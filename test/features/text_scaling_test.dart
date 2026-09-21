@@ -10,6 +10,7 @@ import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/features/settings/language_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
 import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
@@ -41,6 +42,11 @@ void main() {
 
     testWidgets('l’apparence tient à ×$scale', (tester) async {
       await _pump(tester, const AppearanceScreen(), scale);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la langue tient à ×$scale', (tester) async {
+      await _pump(tester, const LanguageScreen(), scale);
       expect(tester.takeException(), isNull);
     });
 

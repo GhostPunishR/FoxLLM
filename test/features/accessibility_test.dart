@@ -9,6 +9,7 @@ import 'package:foxllm/features/chat/conversations/chat_conversation.dart';
 import 'package:foxllm/features/chat/conversations/conversation_store.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/features/settings/language_screen.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
 import 'package:foxllm/llm/backend/local_backend_provider.dart';
 import 'package:foxllm/llm/backend/local_llm_backend.dart';
@@ -94,6 +95,17 @@ void main() {
     testWidgets('Apparence', (tester) async {
       final handle = tester.ensureSemantics();
       await _pumpScreen(tester, const AppearanceScreen());
+
+      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      await expectLater(tester, meetsGuideline(textContrastGuideline));
+
+      handle.dispose();
+    });
+
+    testWidgets('Langue', (tester) async {
+      final handle = tester.ensureSemantics();
+      await _pumpScreen(tester, const LanguageScreen());
 
       await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
       await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));

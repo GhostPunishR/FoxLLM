@@ -16,12 +16,12 @@
   "themeLightDescription": "Blanc crème et orange",
   "themeDarkLabel": "Sombre renard",
   "themeDarkDescription": "Noir chaud et orange",
-  "appearanceLanguageTitle": "Langue",
-  "@appearanceLanguageTitle": {
-    "description": "Titre de la section qui choisit la langue de l'interface."
+  "languageTitle": "Langue",
+  "@languageTitle": {
+    "description": "Titre de l'écran Paramètres, Langue."
   },
-  "appearanceLanguageIntro": "La langue de l'interface. Les documents légaux restent en français, seule version faisant foi.",
-  "@appearanceLanguageIntro": {
+  "languageIntro": "La langue de l'interface. Les documents légaux restent en français, seule version faisant foi.",
+  "@languageIntro": {
     "description": "Introduction au choix de langue, qui signale que les conditions et la politique restent françaises."
   },
   "languageSystemLabel": "Suivre l'appareil",
