@@ -70,6 +70,20 @@ android {
 
     buildTypes {
         release {
+            // R8 retire le code et les ressources inatteignables. Le gain est
+            // réel sur un APK Flutter, mais il se paie : ce qui n'est atteint
+            // que par réflexion ou par un canal de plateforme lui paraît mort.
+            // `proguard-rules.pro` énumère ce qu'il doit épargner.
+            //
+            // À vérifier sur un appareil avant toute publication : une règle
+            // manquante ne casse pas la compilation, elle casse l'application
+            // une fois installée.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Sans clé de distribution, l'APK sort non signé plutôt que signé
             // avec la clé de développement. Un APK signé en debug ne se
             // distribue pas : sa clé est publique, connue de tous, et une

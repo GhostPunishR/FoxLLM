@@ -17,6 +17,8 @@ import 'package:foxllm/llm/model/citation.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('barre d’actions', () {
     testWidgets('apparaît sous une réponse terminée, pas pendant', (
@@ -306,7 +308,7 @@ Future<void> _pumpChat(
         localLlmBackendProvider.overrideWithValue(backend),
         conversationStoreProvider.overrideWithValue(store ?? _RecordingStore()),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

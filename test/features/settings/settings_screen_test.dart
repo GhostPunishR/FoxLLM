@@ -9,6 +9,8 @@ import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/features/local_models/local_model_file.dart';
 import 'package:foxllm/features/settings/settings_screen.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('localModelDisplayName', () {
     test('retire le dossier et l’extension', () {
@@ -64,7 +66,7 @@ Future<void> _pumpSettings(WidgetTester tester, LastModelStore store) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [lastModelStoreProvider.overrideWithValue(store)],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         home: const SettingsScreen(),
       ),

@@ -13,6 +13,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   testWidgets('chaque conversation est rangée sous son âge réel', (
     tester,
@@ -171,7 +173,7 @@ Future<void> _pumpDrawer(
           _SeededStore(conversations),
         ),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

@@ -10,13 +10,12 @@ import 'package:foxllm/core/theme/fox_palette.dart';
 /// L'ordre est celui de l'écran Apparence : la déclinaison claire d'abord,
 /// puisque c'est celle appliquée par défaut.
 enum FoxTheme {
-  light('Clair renard', 'Blanc crème et orange'),
-  dark('Sombre renard', 'Noir chaud et orange');
+  light,
+  dark;
 
-  const FoxTheme(this.label, this.description);
-
-  final String label;
-  final String description;
+  // Le libellé et la description ne vivent plus ici : ils se traduisent, donc
+  // ils appartiennent aux fichiers ARB. `FoxThemeLabels` les rend, à partir
+  // des traductions de l'écran où ils s'affichent.
 
   FoxPalette get palette => switch (this) {
     FoxTheme.dark => FoxPalette.dark,

@@ -21,6 +21,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   group('ChatAttachment', () {
     test('distingue une image d’un fichier texte', () {
@@ -436,7 +438,7 @@ Future<void> _pumpChat(
         conversationStoreProvider.overrideWithValue(_EmptyStore()),
         localLlmBackendProvider.overrideWithValue(backend ?? _IdleBackend()),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

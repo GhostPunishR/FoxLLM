@@ -22,6 +22,8 @@ import 'package:foxllm/llm/personal_api/provider_config.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 import 'package:http/http.dart' as http;
 
+import '../../support/localized_app.dart';
+
 /// Le chemin complet, sans faux moteur : le flux SSE traverse le backend HTTP
 /// réel, l'adaptateur d'API personnelle réel, puis l'écran de chat. Seul le
 /// transport est simulé.
@@ -203,7 +205,7 @@ Future<void> _pumpChat(
         localLlmBackendProvider.overrideWithValue(local),
         conversationStoreProvider.overrideWithValue(store),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await _settle(tester);

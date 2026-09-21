@@ -16,6 +16,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   testWidgets('demande un modèle tant qu’aucun GGUF n’est chargé', (
     tester,
@@ -212,7 +214,7 @@ Future<void> _pumpChat(
         if (lastModel != null)
           lastModelStoreProvider.overrideWithValue(lastModel),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

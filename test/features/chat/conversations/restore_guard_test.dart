@@ -17,6 +17,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   testWidgets('l’arrière-plan pendant la relecture n’efface pas l’historique', (
     tester,
@@ -88,7 +90,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await _settle(tester);
 
-    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
     await _settle(tester);
 
     expect(store.saveCalls, isEmpty);
@@ -100,7 +102,7 @@ void main() {
     final store = _SlowStore(_oneConversation());
     await _pumpChat(tester, store);
 
-    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
     await tester.pump();
 
     store.completeLoad();
@@ -266,7 +268,7 @@ Future<void> _pumpChat(WidgetTester tester, _SlowStore store) async {
         localLlmBackendProvider.overrideWithValue(_ScriptedBackend()),
         conversationStoreProvider.overrideWithValue(store),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pump();

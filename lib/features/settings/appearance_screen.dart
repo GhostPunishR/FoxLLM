@@ -6,10 +6,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:foxllm/core/l10n/fox_language.dart';
+import 'package:foxllm/core/l10n/fox_language_labels.dart';
+import 'package:foxllm/core/l10n/language_provider.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/theme/fox_theme.dart';
+import 'package:foxllm/core/theme/fox_theme_labels.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
 import 'package:foxllm/core/ui/fox_mark.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 
 class AppearanceScreen extends ConsumerWidget {
   const AppearanceScreen({super.key});
@@ -17,12 +22,14 @@ class AppearanceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fox = context.fox;
+    final l10n = AppLocalizations.of(context);
     final selected = ref.watch(foxThemeProvider);
+    final language = ref.watch(foxLanguageProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Apparence',
+          l10n.appearanceTitle,
           style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
@@ -30,8 +37,7 @@ class AppearanceScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 36),
         children: <Widget>[
           Text(
-            'Deux déclinaisons aux couleurs du renard. Le choix est conservé '
-            'entre deux lancements.',
+            l10n.appearanceThemeIntro,
             style: TextStyle(
               color: fox.textSecondary,
               fontSize: 14,
@@ -40,11 +46,43 @@ class AppearanceScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           for (final theme in FoxTheme.values) ...<Widget>[
-            _ThemeOption(
-              theme: theme,
+            _Option(
+              label: theme.label(l10n),
+              description: theme.description(l10n),
               isSelected: theme == selected,
               onSelected: () =>
                   unawaited(ref.read(foxThemeProvider.notifier).select(theme)),
+              leading: _ThemePreview(palette: theme.palette),
+            ),
+            const SizedBox(height: 14),
+          ],
+          const SizedBox(height: 18),
+          Text(
+            l10n.appearanceLanguageTitle,
+            style: TextStyle(
+              color: fox.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.appearanceLanguageIntro,
+            style: TextStyle(
+              color: fox.textSecondary,
+              fontSize: 14,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 20),
+          for (final option in FoxLanguage.values) ...<Widget>[
+            _Option(
+              label: option.label(l10n),
+              description: option.description(l10n),
+              isSelected: option == language,
+              onSelected: () => unawaited(
+                ref.read(foxLanguageProvider.notifier).select(option),
+              ),
             ),
             const SizedBox(height: 14),
           ],
@@ -54,16 +92,25 @@ class AppearanceScreen extends ConsumerWidget {
   }
 }
 
-class _ThemeOption extends StatelessWidget {
-  const _ThemeOption({
-    required this.theme,
+/// Une rangée à cocher : déclinaison ou langue, même forme.
+///
+/// [leading] n'existe que pour les déclinaisons, qui montrent un aperçu. Une
+/// langue n'a rien à montrer d'elle-même, et une vignette vide à sa place
+/// déséquilibrerait la rangée.
+class _Option extends StatelessWidget {
+  const _Option({
+    required this.label,
+    required this.description,
     required this.isSelected,
     required this.onSelected,
+    this.leading,
   });
 
-  final FoxTheme theme;
+  final String label;
+  final String description;
   final bool isSelected;
   final VoidCallback onSelected;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +119,7 @@ class _ThemeOption extends StatelessWidget {
     return Semantics(
       selected: isSelected,
       button: true,
-      label: theme.label,
+      label: label,
       child: Material(
         color: fox.surfaceRaised,
         shape: RoundedRectangleBorder(
@@ -89,14 +136,16 @@ class _ThemeOption extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: <Widget>[
-                _ThemePreview(palette: theme.palette),
-                const SizedBox(width: 16),
+                if (leading != null) ...<Widget>[
+                  leading!,
+                  const SizedBox(width: 16),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text(
-                        theme.label,
+                        label,
                         style: TextStyle(
                           color: fox.textPrimary,
                           fontSize: 16,
@@ -105,7 +154,7 @@ class _ThemeOption extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        theme.description,
+                        description,
                         style: TextStyle(
                           color: fox.textSecondary,
                           fontSize: 13,

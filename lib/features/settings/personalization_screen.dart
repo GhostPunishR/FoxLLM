@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 
 /// Écran où l'utilisateur décrit comment son IA doit répondre.
@@ -57,14 +58,15 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
       return;
     }
     final saved = ref.read(personalizationProvider);
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
             saved.isEmpty
-                ? 'Instructions effacées.'
-                : 'Instructions enregistrées.',
+                ? l10n.personalizationCleared
+                : l10n.personalizationSaved,
           ),
         ),
       );
@@ -85,11 +87,12 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
   @override
   Widget build(BuildContext context) {
     final fox = context.fox;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Personnalisation',
+          l10n.settingsPersonalization,
           style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
@@ -97,9 +100,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 36),
         children: <Widget>[
           Text(
-            'Décris comment FoxLLM doit te répondre : ton, longueur, langue, '
-            'rôle à tenir. Ces consignes accompagnent chaque message, dans '
-            'toutes les conversations.',
+            l10n.personalizationIntro,
             style: TextStyle(
               color: fox.textSecondary,
               fontSize: 14,
@@ -140,9 +141,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
                       style: TextStyle(color: fox.textPrimary, fontSize: 16),
                       decoration: InputDecoration(
                         border: InputBorder.none,
-                        hintText:
-                            'Exemple : réponds en français, de façon concise, '
-                            'et donne toujours un exemple de code commenté.',
+                        hintText: l10n.personalizationHint,
                         hintStyle: TextStyle(
                           color: fox.textTertiary,
                           fontSize: 15,
@@ -162,7 +161,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
           ),
           const SizedBox(height: 18),
           Text(
-            'Pour démarrer',
+            l10n.personalizationStart,
             style: TextStyle(
               color: fox.textSecondary,
               fontSize: 14,
@@ -187,7 +186,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
               Expanded(
                 child: FilledButton(
                   onPressed: () => unawaited(_save()),
-                  child: const Text('Enregistrer'),
+                  child: Text(l10n.personalizationSave),
                 ),
               ),
               const SizedBox(width: 12),
@@ -211,9 +210,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Sur un modèle local, des consignes très longues réduisent '
-                  'la place disponible pour la conversation : quelques phrases '
-                  'précises valent mieux qu’un texte détaillé.',
+                  l10n.personalizationWarning,
                   style: TextStyle(
                     color: fox.textTertiary,
                     fontSize: 13,

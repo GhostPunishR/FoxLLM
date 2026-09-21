@@ -16,6 +16,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 /// Un remplacement qui tourne mal laisse deux versions du fil : celle qu'on
 /// vient d'obtenir, souvent partielle, et celle qu'elle a remplacée. Les deux
 /// doivent survivre au temps, à la navigation et au redémarrage.
@@ -583,7 +585,7 @@ Future<void> _pumpChat(
           _FakeLastModelStore('/models/memorise.gguf'),
         ),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await _settle(tester);

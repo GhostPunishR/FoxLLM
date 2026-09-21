@@ -146,7 +146,7 @@ int add(int a, int b) {
           expect(
             _contrast(color, p.surfaceInput),
             greaterThanOrEqualTo(4.5),
-            reason: '${theme.label} : contraste insuffisant pour $name',
+            reason: '${theme.name} : contraste insuffisant pour $name',
           );
         });
       }
@@ -163,11 +163,7 @@ int add(int a, int b) {
           p.codeCall,
           p.codePlain,
         };
-        expect(
-          colors,
-          hasLength(6),
-          reason: '${theme.label} : rôles confondus',
-        );
+        expect(colors, hasLength(6), reason: '${theme.name} : rôles confondus');
       }
     });
   });

@@ -46,6 +46,7 @@ class ChatMessage {
     this.outcome = GenerationOutcome.complete,
     this.outcomeReason,
     this.generationSpeed,
+    this.contextFill,
   });
 
   const ChatMessage.system(String content)
@@ -83,6 +84,13 @@ class ChatMessage {
   /// modèles, ou de voir l'effet d'un réglage, sans avoir à tout refaire.
   final double? generationSpeed;
 
+  /// Part du contexte du modèle occupée après cette réponse, entre 0 et 1.
+  ///
+  /// Relevée sur le cache KV du moteur, donc exacte : ni une estimation par
+  /// le nombre de caractères, ni une somme côté Dart. Nulle pour une réponse
+  /// venue d'une API personnelle, dont le contexte ne se mesure pas d'ici.
+  final double? contextFill;
+
   /// Avis local de l'utilisateur, conservé avec la conversation.
   final MessageRating rating;
 
@@ -108,6 +116,7 @@ class ChatMessage {
     GenerationOutcome? outcome,
     String? outcomeReason,
     double? generationSpeed,
+    double? contextFill,
   }) => ChatMessage(
     role: role,
     content: content ?? this.content,
@@ -118,6 +127,7 @@ class ChatMessage {
     outcome: outcome ?? this.outcome,
     outcomeReason: outcomeReason ?? this.outcomeReason,
     generationSpeed: generationSpeed ?? this.generationSpeed,
+    contextFill: contextFill ?? this.contextFill,
   );
 
   Map<String, Object> toApiJson() {

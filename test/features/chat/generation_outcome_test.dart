@@ -15,6 +15,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('l’issue d’une génération va jusqu’au fil', () {
     testWidgets('une réponse écourtée est annoncée et enregistrée', (
@@ -345,7 +347,7 @@ Future<void> _pumpChat(
         localLlmBackendProvider.overrideWithValue(backend),
         conversationStoreProvider.overrideWithValue(store),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await _settle(tester);

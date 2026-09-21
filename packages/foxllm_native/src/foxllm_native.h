@@ -28,6 +28,7 @@ FOXLLM_EXPORT int32_t foxllm_engine_is_model_loaded(void* engine);
 FOXLLM_EXPORT const char* foxllm_engine_model_description(void* engine);
 FOXLLM_EXPORT uint64_t foxllm_engine_model_size_bytes(void* engine);
 FOXLLM_EXPORT int32_t foxllm_engine_model_context_size(void* engine);
+FOXLLM_EXPORT int32_t foxllm_engine_context_used(void* engine);
 FOXLLM_EXPORT char* foxllm_engine_apply_chat_template(
     void* engine,
     const char* const* roles,

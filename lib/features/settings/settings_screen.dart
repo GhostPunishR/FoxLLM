@@ -5,13 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:foxllm/core/theme/fox_palette.dart';
+import 'package:foxllm/core/theme/fox_theme_labels.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
 import 'package:foxllm/features/local_models/current_local_model.dart';
 import 'package:foxllm/features/local_models/local_models_screen.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
+import 'package:foxllm/features/settings/history_screen.dart';
 import 'package:foxllm/features/settings/personal_api_screen.dart';
 import 'package:foxllm/features/settings/personalization_screen.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/model/personalization.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
 
@@ -21,6 +24,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final fox = context.fox;
+    final l10n = AppLocalizations.of(context);
 
     final instructions = ref.watch(personalizationProvider);
     // Le sous-titre nomme le modèle en place : « llama.cpp » désignait le
@@ -29,41 +33,41 @@ class SettingsScreen extends ConsumerWidget {
         .watch(currentLocalModelProvider)
         .when(
           data: (name) =>
-              name == null ? 'GGUF · aucun modèle chargé' : 'GGUF · $name',
-          loading: () => 'GGUF · lecture du modèle…',
-          error: (_, _) => 'GGUF · modèle indisponible',
+              name == null ? l10n.localModelNone : l10n.localModelNamed(name),
+          loading: () => l10n.localModelLoading,
+          error: (_, _) => l10n.localModelUnavailable,
         );
     final personalApiState = ref.watch(personalApiSettingsProvider);
     final personalApiSubtitle = personalApiState.when(
       data: (settings) {
         if (!settings.isConfigured) {
-          return 'BYOK · non configurée';
+          return l10n.personalApiNotConfigured;
         }
         return settings.useInChat
-            ? 'Active · ${settings.model}'
-            : 'Configurée · ${settings.model}';
+            ? l10n.personalApiActive(settings.model)
+            : l10n.personalApiConfigured(settings.model);
       },
-      loading: () => 'BYOK · chargement…',
-      error: (_, _) => 'BYOK · configuration indisponible',
+      loading: () => l10n.personalApiLoading,
+      error: (_, _) => l10n.personalApiUnavailable,
     );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Paramètres',
+          l10n.settingsTitle,
           style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
         children: <Widget>[
-          const _SettingsSectionTitle('Modèles et fournisseurs'),
+          _SettingsSectionTitle(l10n.settingsProvidersSection),
           const SizedBox(height: 8),
           _SettingsCard(
             children: <Widget>[
               _SettingsTile(
                 icon: Icons.memory_outlined,
-                title: 'Modèles locaux',
+                title: l10n.settingsLocalModels,
                 subtitle: localModelSubtitle,
                 onTap: () async {
                   await Navigator.of(context).push(
@@ -78,7 +82,7 @@ class SettingsScreen extends ConsumerWidget {
               Divider(height: 1, color: fox.border),
               _SettingsTile(
                 icon: Icons.cloud_outlined,
-                title: 'API personnelle',
+                title: l10n.settingsPersonalApi,
                 subtitle: personalApiSubtitle,
                 onTap: () {
                   Navigator.of(context).push(
@@ -91,14 +95,14 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const _SettingsSectionTitle('Application'),
+          _SettingsSectionTitle(l10n.settingsAppSection),
           const SizedBox(height: 8),
           _SettingsCard(
             children: <Widget>[
               _SettingsTile(
                 icon: Icons.palette_outlined,
-                title: 'Apparence',
-                subtitle: ref.watch(foxThemeProvider).label,
+                title: l10n.appearanceTitle,
+                subtitle: ref.watch(foxThemeProvider).label(l10n),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -109,11 +113,24 @@ class SettingsScreen extends ConsumerWidget {
               ),
               Divider(height: 1, color: fox.border),
               _SettingsTile(
+                icon: Icons.history_rounded,
+                title: l10n.historyTitle,
+                subtitle: l10n.historySubtitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const HistoryScreen(),
+                    ),
+                  );
+                },
+              ),
+              Divider(height: 1, color: fox.border),
+              _SettingsTile(
                 icon: Icons.tune_rounded,
-                title: 'Personnalisation',
+                title: l10n.settingsPersonalization,
                 subtitle: instructions.isEmpty
-                    ? 'Dicter le ton et le comportement de l’IA'
-                    : 'Instructions actives',
+                    ? l10n.settingsPersonalizationHint
+                    : l10n.settingsPersonalizationActive,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
@@ -131,8 +148,8 @@ class SettingsScreen extends ConsumerWidget {
             children: <Widget>[
               _SettingsTile(
                 icon: Icons.info_outline,
-                title: 'À propos',
-                subtitle: 'Conditions d’utilisation et confidentialité',
+                title: l10n.settingsAbout,
+                subtitle: l10n.settingsAboutHint,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(

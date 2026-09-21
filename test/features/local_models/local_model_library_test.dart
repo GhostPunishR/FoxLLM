@@ -3,6 +3,8 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/features/local_models/local_model_file.dart';
@@ -28,16 +30,13 @@ void main() {
   test('imports a GGUF and lists it from app storage', () async {
     final imported = await library.importModel(
       fileName: 'tiny.gguf',
-      bytes: Stream<List<int>>.fromIterable(<List<int>>[
-        <int>[1, 2],
-        <int>[3, 4],
-      ]),
-      expectedSizeBytes: 4,
+      bytes: Stream<List<int>>.value(_validGguf()),
+      expectedSizeBytes: _validGguf().length,
     );
 
     expect(imported.fileName, 'tiny.gguf');
-    expect(imported.sizeBytes, 4);
-    expect(await File(imported.path).readAsBytes(), <int>[1, 2, 3, 4]);
+    expect(imported.sizeBytes, _validGguf().length);
+    expect(await File(imported.path).readAsBytes(), _validGguf());
 
     final models = await library.listModels();
     expect(models, hasLength(1));
@@ -53,16 +52,16 @@ void main() {
       );
     }
 
-    await importOnce(<int>[1]);
-    await importOnce(<int>[2]);
+    await importOnce(<int>[..._validGguf(), 1]);
+    await importOnce(<int>[..._validGguf(), 2]);
 
     final models = await library.listModels();
     expect(models.map((model) => model.fileName), <String>[
       'model (2).gguf',
       'model.gguf',
     ]);
-    expect(await File(models[0].path).readAsBytes(), <int>[2]);
-    expect(await File(models[1].path).readAsBytes(), <int>[1]);
+    expect(await File(models[0].path).readAsBytes(), <int>[..._validGguf(), 2]);
+    expect(await File(models[1].path).readAsBytes(), <int>[..._validGguf(), 1]);
   });
 
   test(
@@ -75,13 +74,13 @@ void main() {
         <Future<LocalModelFile>>[
           library.importModel(
             fileName: 'model.gguf',
-            bytes: Stream<List<int>>.value(<int>[1]),
-            expectedSizeBytes: 1,
+            bytes: Stream<List<int>>.value(<int>[..._validGguf(), 1]),
+            expectedSizeBytes: _validGguf().length + 1,
           ),
           library.importModel(
             fileName: 'model.gguf',
-            bytes: Stream<List<int>>.value(<int>[2]),
-            expectedSizeBytes: 1,
+            bytes: Stream<List<int>>.value(<int>[..._validGguf(), 2]),
+            expectedSizeBytes: _validGguf().length + 1,
           ),
         ],
       );
@@ -94,11 +93,13 @@ void main() {
         'model.gguf',
       ]);
 
-      final contents = <int>[];
+      // Seul l'octet ajouté après l'en-tête distingue les deux copies : c'est
+      // lui qui prouve qu'aucune n'a écrasé l'autre.
+      final marks = <int>[];
       for (final model in models) {
-        contents.addAll(await File(model.path).readAsBytes());
+        marks.add((await File(model.path).readAsBytes()).last);
       }
-      expect(contents..sort(), <int>[1, 2]);
+      expect(marks..sort(), <int>[1, 2]);
     },
   );
 
@@ -107,7 +108,7 @@ void main() {
       library.importModel(
         fileName: 'retry.gguf',
         bytes: Stream<List<int>>.error(StateError('copy interrupted')),
-        expectedSizeBytes: 1,
+        expectedSizeBytes: _validGguf().length,
       ),
       throwsA(isA<StateError>()),
     );
@@ -115,8 +116,8 @@ void main() {
     // La destination échouée doit redevenir disponible, sans suffixe « (2) ».
     final retried = await library.importModel(
       fileName: 'retry.gguf',
-      bytes: Stream<List<int>>.value(<int>[5]),
-      expectedSizeBytes: 1,
+      bytes: Stream<List<int>>.value(_validGguf()),
+      expectedSizeBytes: _validGguf().length,
     );
     expect(retried.fileName, 'retry.gguf');
   });
@@ -125,8 +126,8 @@ void main() {
     await expectLater(
       library.importModel(
         fileName: 'notes.txt',
-        bytes: Stream<List<int>>.value(<int>[1]),
-        expectedSizeBytes: 1,
+        bytes: Stream<List<int>>.value(_validGguf()),
+        expectedSizeBytes: _validGguf().length,
       ),
       throwsA(isA<FormatException>()),
     );
@@ -173,7 +174,7 @@ void main() {
     final importFuture = library.importModel(
       fileName: 'active.gguf',
       bytes: controller.stream,
-      expectedSizeBytes: 1,
+      expectedSizeBytes: _validGguf().length,
       onProgress: (_, _) {
         if (!firstWrite.isCompleted) {
           firstWrite.complete();
@@ -181,7 +182,7 @@ void main() {
       },
     );
 
-    controller.add(<int>[9]);
+    controller.add(_validGguf());
     await firstWrite.future;
 
     expect(await library.listModels(), isEmpty);
@@ -198,14 +199,14 @@ void main() {
 
     await controller.close();
     final imported = await importFuture;
-    expect(await File(imported.path).readAsBytes(), <int>[9]);
+    expect(await File(imported.path).readAsBytes(), _validGguf());
   });
 
   test('deletes an imported managed model', () async {
     final model = await library.importModel(
       fileName: 'delete-me.gguf',
-      bytes: Stream<List<int>>.value(<int>[7, 8, 9]),
-      expectedSizeBytes: 3,
+      bytes: Stream<List<int>>.value(_validGguf()),
+      expectedSizeBytes: _validGguf().length,
     );
 
     await library.deleteModel(model);
@@ -213,4 +214,39 @@ void main() {
     expect(await File(model.path).exists(), isFalse);
     expect(await library.listModels(), isEmpty);
   });
+}
+
+/// Un GGUF minimal mais conforme.
+///
+/// Les bancs importaient jusqu'ici des octets quelconques, que la
+/// bibliothèque acceptait sans regarder. Depuis qu'elle examine l'en-tête,
+/// ils doivent ressembler à un modèle : c'est précisément le but du
+/// correctif, et ces bancs en sont la première preuve.
+Uint8List _validGguf() {
+  final out = BytesBuilder();
+  void u32(int value) => out.add(
+    (ByteData(4)..setUint32(0, value, Endian.little)).buffer.asUint8List(),
+  );
+  void u64(int value) => out.add(
+    (ByteData(8)..setUint64(0, value, Endian.little)).buffer.asUint8List(),
+  );
+  void str(String value) {
+    final bytes = utf8.encode(value);
+    u64(bytes.length);
+    out.add(bytes);
+  }
+
+  out.add(utf8.encode('GGUF'));
+  u32(3);
+  u64(1); // un tenseur
+  u64(1); // une métadonnée
+  str('general.architecture');
+  u32(8);
+  str('llama');
+  str('output_norm.weight');
+  u32(1);
+  u64(4);
+  u32(0); // f32
+  u64(0);
+  return out.toBytes();
 }

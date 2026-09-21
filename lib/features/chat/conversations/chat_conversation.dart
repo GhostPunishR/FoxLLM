@@ -89,6 +89,10 @@ class ChatConversation {
           // qu'elle soit mesurée.
           if (message.generationSpeed != null)
             'generationSpeed': message.generationSpeed,
+          // Absent pour la même raison que la vitesse : une réponse distante
+          // n'en a pas, et l'écrire à `null` grossirait le fichier sans rien
+          // dire de plus.
+          if (message.contextFill != null) 'contextFill': message.contextFill,
         },
       )
       .toList(growable: false);
@@ -221,6 +225,7 @@ class ChatConversation {
       );
       final outcomeReason = rawMessage['outcomeReason'];
       final generationSpeed = rawMessage['generationSpeed'];
+      final contextFill = rawMessage['contextFill'];
 
       messages.add(
         ChatMessage(
@@ -234,6 +239,7 @@ class ChatConversation {
           generationSpeed: generationSpeed is num
               ? generationSpeed.toDouble()
               : null,
+          contextFill: contextFill is num ? contextFill.toDouble() : null,
         ),
       );
     }

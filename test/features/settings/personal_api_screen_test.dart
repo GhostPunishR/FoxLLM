@@ -13,6 +13,8 @@ import 'package:foxllm/llm/personal_api/personal_api_settings.dart';
 import 'package:foxllm/llm/personal_api/personal_api_settings_provider.dart';
 import 'package:foxllm/llm/personal_api/provider_config.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   testWidgets('affiche les réglages enregistrés au premier rendu', (
     tester,
@@ -111,7 +113,7 @@ Widget _hostApp(_FakeSettingsStore store, GlobalKey<NavigatorState> navigator) {
       personalApiSettingsStoreProvider.overrideWithValue(store),
       apiKeyStoreProvider.overrideWithValue(_FakeApiKeyStore()),
     ],
-    child: MaterialApp(
+    child: localizedApp(
       navigatorKey: navigator,
       home: Scaffold(
         body: Builder(

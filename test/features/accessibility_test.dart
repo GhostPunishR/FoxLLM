@@ -18,6 +18,8 @@ import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../support/localized_app.dart';
+
 /// Contrôles d'accessibilité, sur les critères que Flutter sait vérifier.
 ///
 /// Rien de subjectif ici : ce sont les règles d'Android et d'iOS sur la taille
@@ -128,7 +130,7 @@ Future<void> _pumpChat(
           _SeededStore(conversations),
         ),
       ],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         home: const ChatScreen(),
       ),
@@ -144,7 +146,7 @@ Future<void> _pumpScreen(WidgetTester tester, Widget screen) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [localLlmBackendProvider.overrideWithValue(_FakeBackend())],
-      child: MaterialApp(theme: FoxTheme.light.themeData, home: screen),
+      child: localizedApp(theme: FoxTheme.light.themeData, home: screen),
     ),
   );
   await tester.pumpAndSettle();

@@ -6,9 +6,11 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:foxllm/core/storage/api_key_store.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/anthropic_backend.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
+import 'package:foxllm/llm/backend/local_engine_error.dart';
 import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
 import 'package:foxllm/llm/backend/openai_responses_backend.dart';
 import 'package:foxllm/llm/model/chat_message.dart';
@@ -271,11 +273,19 @@ Future<void> testPersonalApiConnection({
   }
 }
 
-String describePersonalApiError(Object error) {
+String describePersonalApiError(Object error, AppLocalizations l10n) {
   if (error is PersonalApiHttpException) {
     return _describeHttpError(error.statusCode, error.body);
   }
   if (error is StateError) {
+    // Le pont natif lève un `StateError` portant le message anglais du C++.
+    // Sans cette reconnaissance, « Prompt exceeds the model context window. »
+    // s'affichait tel quel dans le bandeau du chat, et c'est pourtant le refus
+    // le plus fréquent avec un modèle local.
+    final failure = LocalEngineFailure.match(error.message.toString());
+    if (failure != null) {
+      return failure.describe(l10n);
+    }
     return error.message.toString();
   }
   if (error is FormatException) {

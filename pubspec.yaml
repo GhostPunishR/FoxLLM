@@ -1,7 +1,7 @@
 name: foxllm
 description: Client LLM Android hybride local et BYOK.
 publish_to: none
-version: 0.1.5+6
+version: 0.1.6+7
 
 environment:
   sdk: ">=3.10.0 <4.0.0"
@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
   flutter_riverpod: ^3.4.3
   flutter_secure_storage: ^11.1.1
   file_picker: ^12.3.0
@@ -33,6 +36,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  generate: true
   assets:
     - assets/images/
     # Le fichier de licence de la racine est embarqué tel quel et affiché dans

@@ -20,6 +20,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../../support/localized_app.dart';
+
 void main() {
   group('envoi pendant la restauration du modèle', () {
     testWidgets('un nouveau chat annule l’envoi resté en attente', (
@@ -236,7 +238,7 @@ void main() {
       // La copie est en cours d'écriture quand l'écran est remplacé.
       expect(store.files, isEmpty);
 
-      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
       await tester.pumpAndSettle();
 
       store.release();
@@ -263,7 +265,7 @@ void main() {
       await _pumpChat(tester, attachmentStore: store, picker: picker);
 
       await _attach(tester);
-      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
       await tester.pumpAndSettle();
 
       store.release();
@@ -280,7 +282,7 @@ void main() {
       await _pumpChat(tester, picker: picker);
 
       await _attach(tester);
-      await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+      await tester.pumpWidget(localizedApp(home: SizedBox.shrink()));
       await tester.pumpAndSettle();
 
       picker.failWith(const AttachmentException('sélecteur indisponible'));
@@ -500,7 +502,7 @@ Future<void> _pumpChat(
             _FakeLastModelStore('/models/memorise.gguf'),
           ),
       ],
-      child: const MaterialApp(home: ChatScreen()),
+      child: localizedApp(home: ChatScreen()),
     ),
   );
   await tester.pumpAndSettle();

@@ -17,6 +17,8 @@ import 'package:foxllm/llm/model/chat_message.dart';
 import 'package:foxllm/llm/model/generation_settings.dart';
 import 'package:foxllm_native/foxllm_native.dart';
 
+import '../support/localized_app.dart';
+
 /// Android laisse agrandir le texte jusqu'à deux fois sa taille, et beaucoup
 /// de gens s'en servent. Une mise en page qui déborde alors affiche la bande
 /// rayée de Flutter par-dessus le contenu : l'écran devient inutilisable pour
@@ -82,7 +84,7 @@ Future<void> _pump(
           ),
         ),
       ],
-      child: MaterialApp(
+      child: localizedApp(
         theme: FoxTheme.light.themeData,
         builder: (context, child) => MediaQuery.withClampedTextScaling(
           minScaleFactor: scale,

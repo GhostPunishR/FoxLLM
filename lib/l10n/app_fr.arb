@@ -1,0 +1,273 @@
+{
+  "@@locale": "fr",
+  "appTitle": "FoxLLM",
+  "@appTitle": {
+    "description": "Nom de l'application, jamais traduit."
+  },
+  "appearanceTitle": "Apparence",
+  "@appearanceTitle": {
+    "description": "Titre de l'écran Paramètres, Apparence."
+  },
+  "appearanceThemeIntro": "Deux déclinaisons aux couleurs du renard. Le choix est conservé entre deux lancements.",
+  "@appearanceThemeIntro": {
+    "description": "Phrase d'introduction au choix de déclinaison."
+  },
+  "themeLightLabel": "Clair renard",
+  "themeLightDescription": "Blanc crème et orange",
+  "themeDarkLabel": "Sombre renard",
+  "themeDarkDescription": "Noir chaud et orange",
+  "appearanceLanguageTitle": "Langue",
+  "@appearanceLanguageTitle": {
+    "description": "Titre de la section qui choisit la langue de l'interface."
+  },
+  "appearanceLanguageIntro": "La langue de l'interface. Les documents légaux restent en français, seule version faisant foi.",
+  "@appearanceLanguageIntro": {
+    "description": "Introduction au choix de langue, qui signale que les conditions et la politique restent françaises."
+  },
+  "languageSystemLabel": "Suivre l'appareil",
+  "languageSystemDescription": "La langue du téléphone, ou le français si elle n'est pas servie",
+  "languageFrenchDescription": "Toujours en français",
+  "languageEnglishDescription": "Toujours en anglais",
+  "localEngineContextFull": "La conversation dépasse la fenêtre de contexte du modèle. Commencez-en une nouvelle, ou choisissez un modèle au contexte plus large.",
+  "@localEngineContextFull": {
+    "description": "Erreur du moteur local. Message d'origine : Prompt exceeds the model context window."
+  },
+  "localEngineContextExhausted": "Le modèle n'a plus de place pour lire la conversation.",
+  "@localEngineContextExhausted": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp ran out of context while reading the prompt."
+  },
+  "localEngineModelUnreadable": "Ce fichier GGUF n'a pas pu être chargé. Il est peut-être abîmé, ou dans un format que llama.cpp ne reconnaît pas.",
+  "@localEngineModelUnreadable": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp could not load the GGUF model."
+  },
+  "localEngineOutOfMemory": "Mémoire insuffisante pour préparer ce modèle sur cet appareil.",
+  "@localEngineOutOfMemory": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp could not create an inference context."
+  },
+  "localEngineDecodeFailed": "Le modèle s'est interrompu pendant la génération.",
+  "@localEngineDecodeFailed": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp failed while decoding."
+  },
+  "localEngineEncodeFailed": "Le modèle n'a pas pu lire la conversation.",
+  "@localEngineEncodeFailed": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp failed to encode the prompt."
+  },
+  "localEngineSamplerFailed": "Le modèle n'a pas pu être préparé pour répondre.",
+  "@localEngineSamplerFailed": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp could not create a sampler."
+  },
+  "localEngineTokenizeFailed": "Ce modèle n'a pas su découper la conversation en jetons.",
+  "@localEngineTokenizeFailed": {
+    "description": "Erreur du moteur local. Message d'origine : Unable to tokenize the prompt."
+  },
+  "localEngineNoModelLoaded": "Aucun modèle local n'est chargé.",
+  "@localEngineNoModelLoaded": {
+    "description": "Erreur du moteur local. Message d'origine : No GGUF model is loaded."
+  },
+  "localEngineNoModel": "Aucun modèle local n'est chargé.",
+  "@localEngineNoModel": {
+    "description": "Erreur du moteur local. Message d'origine : No model is loaded."
+  },
+  "localEngineModelPathEmpty": "Aucun fichier de modèle n'a été indiqué.",
+  "@localEngineModelPathEmpty": {
+    "description": "Erreur du moteur local. Message d'origine : Model path is empty."
+  },
+  "localEngineUnsupportedPlatform": "L'exécution locale n'est disponible que sur Android arm64.",
+  "@localEngineUnsupportedPlatform": {
+    "description": "Erreur du moteur local. Message d'origine : llama.cpp local inference is currently available only on Android arm64."
+  },
+  "localEngineEmptyPrompt": "Le message est vide.",
+  "@localEngineEmptyPrompt": {
+    "description": "Erreur du moteur local. Message d'origine : Prompt is empty."
+  },
+  "localEngineNothingToFormat": "Aucun message à mettre en forme.",
+  "@localEngineNothingToFormat": {
+    "description": "Erreur du moteur local. Message d'origine : No message to format."
+  },
+  "localEngineMissingCallback": "Le moteur local a été appelé sans destinataire pour sa réponse.",
+  "@localEngineMissingCallback": {
+    "description": "Erreur du moteur local. Message d'origine : Token callback is null."
+  },
+  "localEngineBadTemperature": "La température doit être positive ou nulle.",
+  "@localEngineBadTemperature": {
+    "description": "Erreur du moteur local. Message d'origine : Temperature must be greater than or equal to zero."
+  },
+  "localEngineBadTopP": "Le top-p doit être supérieur à zéro et au plus égal à un.",
+  "@localEngineBadTopP": {
+    "description": "Erreur du moteur local. Message d'origine : Top-p must be in the interval (0, 1]."
+  },
+  "localEngineBadMaxTokens": "Le nombre maximal de jetons doit être supérieur à zéro.",
+  "@localEngineBadMaxTokens": {
+    "description": "Erreur du moteur local. Message d'origine : Max tokens must be greater than zero."
+  },
+  "ggufNotGguf": "Ce fichier n'est pas un modèle GGUF : ses premiers octets ne portent pas la signature du format.",
+  "ggufTruncated": "Ce fichier GGUF est tronqué ou abîmé : son en-tête s'interrompt avant la fin.",
+  "ggufNoTensors": "Ce fichier GGUF ne contient aucun tenseur : il n'y a pas de modèle dedans.",
+  "ggufNoArchitecture": "Ce fichier GGUF ne déclare pas son architecture : rien n'indique comment l'exécuter.",
+  "ggufUnsupportedVersion": "Ce fichier GGUF est en version {version}, que llama.cpp ne lit pas.",
+  "@ggufUnsupportedVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "ggufNarrowTensor": "Ce fichier GGUF est mal formé : le tenseur « {tensor} » n'a qu'une dimension sans être en f32. llama.cpp le chargerait sans rien dire, puis s'arrêterait net au premier message.",
+  "@ggufNarrowTensor": {
+    "placeholders": {
+      "tensor": {
+        "type": "String"
+      }
+    }
+  },
+  "modelImportFailed": "Import impossible : {reason}",
+  "@modelImportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "generationSpeed": "{speed} jetons/s",
+  "@generationSpeed": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "contextFill": "contexte {percent} %",
+  "@contextFill": {
+    "description": "Part du contexte du modèle déjà occupée.",
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "contextNearlyFull": "contexte {percent} %, bientôt plein",
+  "@contextNearlyFull": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTitle": "Historique",
+  "historySubtitle": "Exporter ou réimporter vos conversations",
+  "historyIntro": "FoxLLM refuse la sauvegarde d'Android vers Google Drive : rien ne quitte l'appareil tout seul. La contrepartie est qu'un changement de téléphone emporte tout. Cet export est là pour ça.",
+  "historyExport": "Exporter l'historique",
+  "historyExportHint": "Un seul fichier, pièces jointes comprises.",
+  "historyImport": "Importer une archive",
+  "historyImportHint": "Les conversations importées s'ajoutent aux vôtres.",
+  "historyEmpty": "Aucune conversation à exporter.",
+  "historyArchiveUnreadable": "Ce fichier n'est pas lisible : ce n'est pas du JSON.",
+  "historyArchiveNotAnArchive": "Ce fichier n'est pas une archive FoxLLM.",
+  "historyArchiveEmpty": "Cette archive ne contient aucune conversation lisible.",
+  "historyArchiveTooRecent": "Cette archive a été écrite par une version plus récente de FoxLLM (format {version}).",
+  "@historyArchiveTooRecent": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "historyImported": "{conversations} conversations et {attachments} pièces jointes rétablies.",
+  "@historyImported": {
+    "placeholders": {
+      "conversations": {
+        "type": "int"
+      },
+      "attachments": {
+        "type": "int"
+      }
+    }
+  },
+  "historyImportPartial": "{skipped} entrées illisibles ont été écartées, et {missing} pièces jointes manquaient.",
+  "@historyImportPartial": {
+    "placeholders": {
+      "skipped": {
+        "type": "int"
+      },
+      "missing": {
+        "type": "int"
+      }
+    }
+  },
+  "historyExportFailed": "Export impossible : {reason}",
+  "@historyExportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "historyImportFailed": "Import impossible : {reason}",
+  "@historyImportFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTitle": "Paramètres",
+  "settingsProvidersSection": "Modèles et fournisseurs",
+  "settingsAppSection": "Application",
+  "settingsLocalModels": "Modèles locaux",
+  "settingsPersonalApi": "API personnelle",
+  "settingsPersonalization": "Personnalisation",
+  "settingsPersonalizationHint": "Dicter le ton et le comportement de l’IA",
+  "settingsPersonalizationActive": "Instructions actives",
+  "settingsAbout": "À propos",
+  "settingsAboutHint": "Conditions d’utilisation et confidentialité",
+  "localModelNone": "GGUF · aucun modèle chargé",
+  "localModelLoading": "GGUF · lecture du modèle…",
+  "localModelUnavailable": "GGUF · modèle indisponible",
+  "personalApiNotConfigured": "BYOK · non configurée",
+  "personalApiLoading": "BYOK · chargement…",
+  "personalApiUnavailable": "BYOK · configuration indisponible",
+  "aboutTerms": "Ce que tu acceptes en utilisant FoxLLM",
+  "aboutPrivacy": "Ce que deviennent tes données",
+  "aboutSource": "Code source",
+  "aboutLicenses": "Licences tierces",
+  "aboutLicensesHint": "Bibliothèques utilisées par FoxLLM",
+  "personalizationCleared": "Instructions effacées.",
+  "personalizationSaved": "Instructions enregistrées.",
+  "personalizationIntro": "Décris comment FoxLLM doit te répondre : ton, longueur, langue, rôle à tenir. Ces consignes accompagnent chaque message, dans toutes les conversations.",
+  "personalizationHint": "Exemple : réponds en français, de façon concise, et donne toujours un exemple de code commenté.",
+  "personalizationStart": "Pour démarrer",
+  "personalizationSave": "Enregistrer",
+  "personalizationWarning": "Sur un modèle local, des consignes très longues réduisent la place disponible pour la conversation : quelques phrases précises valent mieux qu’un texte détaillé.",
+  "localModelNamed": "GGUF · {name}",
+  "@localModelNamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "personalApiActive": "Active · {model}",
+  "@personalApiActive": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "personalApiConfigured": "Configurée · {model}",
+  "@personalApiConfigured": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutVersion": "Version {version}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  }
+}

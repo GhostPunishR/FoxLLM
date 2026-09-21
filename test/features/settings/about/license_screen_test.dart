@@ -11,6 +11,8 @@ import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/about/license_screen.dart';
 
+import '../../../support/localized_app.dart';
+
 void main() {
   group('fichier LICENSE', () {
     test('porte bien le texte officiel de l’AGPL v3', () {
@@ -53,7 +55,7 @@ void main() {
 
       final license = File('LICENSE').readAsStringSync();
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
           theme: FoxTheme.light.themeData,
           home: LicenseScreen(loader: () async => license),
         ),
@@ -94,7 +96,7 @@ void main() {
 
       final license = File('LICENSE').readAsStringSync();
       await tester.pumpWidget(
-        MaterialApp(
+        localizedApp(
           theme: FoxTheme.light.themeData,
           home: LicenseScreen(loader: () async => license),
         ),
@@ -113,7 +115,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: AboutScreen())),
+        ProviderScope(child: localizedApp(home: AboutScreen())),
       );
       await tester.pumpAndSettle();
 
@@ -128,7 +130,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: AboutScreen())),
+        ProviderScope(child: localizedApp(home: AboutScreen())),
       );
       await tester.pumpAndSettle();
 
@@ -142,7 +144,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await tester.pumpWidget(
-        const ProviderScope(child: MaterialApp(home: AboutScreen())),
+        ProviderScope(child: localizedApp(home: AboutScreen())),
       );
       await tester.pumpAndSettle();
 
