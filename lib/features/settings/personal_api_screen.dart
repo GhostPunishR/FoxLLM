@@ -23,7 +23,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   final _modelController = TextEditingController();
   final _apiKeyController = TextEditingController();
 
-  String _providerId = openAiPersonalApiProvider.id;
+  String _providerId = defaultPersonalApiProvider.id;
   String _selectedModel = '';
   List<String> _models = const <String>[];
   ApiKeyPersistence _persistence = ApiKeyPersistence.device;

@@ -25,7 +25,7 @@ const personalApiProviderId = 'personal-api';
 
 class PersonalApiSettings {
   const PersonalApiSettings({
-    this.providerId = 'openai',
+    this.providerId = defaultPersonalApiProviderId,
     this.baseUrl = '',
     this.model = '',
     this.apiKeyPersistence = ApiKeyPersistence.device,
@@ -126,7 +126,7 @@ class PersonalApiSettingsStore {
     final storedBaseUrl = values[1] ?? '';
     final provider = values[0] == null
         ? (storedBaseUrl.isEmpty
-              ? openAiPersonalApiProvider
+              ? defaultPersonalApiProvider
               : inferPersonalApiProvider(storedBaseUrl))
         : personalApiProviderById(values[0]!);
     final apiKey = await keyStore.read(
