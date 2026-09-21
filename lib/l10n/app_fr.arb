@@ -16,12 +16,12 @@
   "themeLightDescription": "Blanc crème et orange",
   "themeDarkLabel": "Sombre renard",
   "themeDarkDescription": "Noir chaud et orange",
-  "appearanceLanguageTitle": "Langue",
-  "@appearanceLanguageTitle": {
-    "description": "Titre de la section qui choisit la langue de l'interface."
+  "languageTitle": "Langue",
+  "@languageTitle": {
+    "description": "Titre de l'écran Paramètres, Langue."
   },
-  "appearanceLanguageIntro": "La langue de l'interface. Les documents légaux restent en français, seule version faisant foi.",
-  "@appearanceLanguageIntro": {
+  "languageIntro": "La langue de l'interface. Les documents légaux restent en français, seule version faisant foi.",
+  "@languageIntro": {
     "description": "Introduction au choix de langue, qui signale que les conditions et la politique restent françaises."
   },
   "languageSystemLabel": "Suivre l'appareil",
@@ -269,5 +269,462 @@
         "type": "String"
       }
     }
-  }
+  },
+  "drawerSearch": "Rechercher dans les chats",
+  "drawerNewChat": "Nouveau chat",
+  "drawerNoConversation": "Aucune conversation",
+  "drawerConversationActions": "Actions de la conversation",
+  "drawerDelete": "Supprimer",
+  "drawerDeleteTitle": "Supprimer la conversation ?",
+  "drawerRename": "Renommer la conversation",
+  "drawerRenameField": "Nom de la conversation",
+  "composerListening": "Parle, je t’écoute…",
+  "composerQueueHint": "Mettre un message en attente…",
+  "composerAsk": "Demander à FoxLLM",
+  "composerThinking": "Réflexion",
+  "composerSearch": "Rechercher",
+  "composerQueue": "Mettre en attente",
+  "composerPreviousKept": "Version précédente conservée",
+  "composerPreviousKeptAfter": "Version précédente conservée, reprise après la réponse",
+  "composerRestore": "Rétablir",
+  "composerForgetPrevious": "Oublier la version précédente",
+  "composerRetry": "Réessayer",
+  "composerRemoveFromQueue": "Retirer de la file",
+  "composerHoldToDictate": "Maintenir pour dicter",
+  "composerDictating": "Dictée en cours",
+  "drawerDeleteBody": "« {title} » sera définitivement supprimée de l’appareil.",
+  "@drawerDeleteBody": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "composerRemoveAttachment": "Retirer {name}",
+  "@composerRemoveAttachment": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatLoadingModel": "Chargement du modèle local…",
+  "messageSelectText": "Sélectionner le texte",
+  "messageEdit": "Modifier le message",
+  "messageGoodAnswer": "Bonne réponse",
+  "messageBadAnswer": "Mauvaise réponse",
+  "messageStopReading": "Arrêter la lecture",
+  "messageReadAloud": "Lire à voix haute",
+  "messageRegenerate": "Régénérer la réponse",
+  "outcomeCancelled": "Réponse arrêtée.",
+  "outcomeFailed": "Réponse interrompue par une erreur.",
+  "outcomeNothingReceived": "Aucun texte reçu, la réponse s’est arrêtée avant de commencer.",
+  "outcomeShortened": "Réponse écourtée.",
+  "reasonLengthLimit": "la limite de longueur a été atteinte",
+  "reasonContentFilter": "le fournisseur a filtré la suite",
+  "modelsPickTitle": "Choisir un modèle GGUF",
+  "modelsUnloadFirst": "Décharge le modèle avant de le supprimer.",
+  "modelsDeleteTitle": "Supprimer le modèle ?",
+  "modelsDelete": "Supprimer",
+  "modelsCancel": "Annuler",
+  "modelsUnload": "Décharger",
+  "modelsImport": "Importer un GGUF",
+  "modelsLibrary": "Bibliothèque locale",
+  "modelsLibraryIntro": "Les fichiers sélectionnés sont copiés dans le stockage privé de FoxLLM. Le modèle chargé reste disponible hors connexion.",
+  "modelsImporting": "Import du modèle…",
+  "modelsEmpty": "Aucun modèle GGUF importé. Utilise « Importer un GGUF » pour ajouter ton premier modèle.",
+  "outcomeNothingReceivedBecause": "Aucun texte reçu : {reason}.",
+  "@outcomeNothingReceivedBecause": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "outcomeShortenedBecause": "Réponse écourtée : {reason}.",
+  "@outcomeShortenedBecause": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "outcomeShortenedRaw": "Réponse écourtée ({reason}).",
+  "@outcomeShortenedRaw": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentGone": "« {name} » n’est plus sur l’appareil.",
+  "@attachmentGone": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsLibraryFailed": "Impossible de lire la bibliothèque de modèles : {reason}",
+  "@modelsLibraryFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsLoadFailed": "Chargement impossible : {reason}",
+  "@modelsLoadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsUnloadFailed": "Déchargement impossible : {reason}",
+  "@modelsUnloadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsDeleteFailed": "Suppression impossible : {reason}",
+  "@modelsDeleteFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsDeleteBody": "{name}\n\nLe fichier GGUF importé dans FoxLLM sera supprimé du téléphone.",
+  "@modelsDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelsImportProgress": "Import {percent} %",
+  "@modelsImportProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "chatHistoryUnreadable": "Lecture de l’historique impossible. Les conversations de cette session ne seront pas enregistrées.",
+  "chatAnswerCopied": "Réponse copiée.",
+  "chatShareUnavailable": "Partage impossible depuis cet appareil.",
+  "chatWaitForAnswer": "Attends la fin de la réponse en cours.",
+  "chatSourceUnopenable": "Impossible d’ouvrir cette source.",
+  "chatWebSearchNeedsProvider": "La recherche web demande une API personnelle Anthropic, Google ou OpenAI. Désactive-la ou change de fournisseur.",
+  "chatLoadModelFirst": "Charge un modèle GGUF avant de discuter.",
+  "chatThinkingOn": "Réflexion activée : le modèle exposera son raisonnement.",
+  "chatThinkingOff": "Réflexion désactivée.",
+  "chatWebSearchOff": "Recherche web désactivée.",
+  "chatWebSearchOn": "Recherche web activée : le modèle pourra consulter le web.",
+  "chatWebSearchOnUnsupported": "Recherche web activée, mais le moteur en place ne sait pas consulter le web. Configure une API personnelle Anthropic, Google ou OpenAI.",
+  "chatDictationDenied": "La dictée a besoin du micro. Autorise-le dans les réglages Android de FoxLLM.",
+  "chatDictationUnavailable": "Aucune reconnaissance vocale disponible sur cet appareil.",
+  "chatHoldMicrophone": "Maintiens le bouton du micro pour dicter.",
+  "chatAttachFile": "Joindre un fichier",
+  "chatAttachFileHint": "Document ou code de l’appareil",
+  "chatAttachGallery": "Choisir une image de la galerie",
+  "chatAttachPhoto": "Prendre une photo",
+  "chatAttachmentUnreadable": "Impossible de lire cette pièce jointe.",
+  "chatAttachmentUnsaved": "Impossible d’enregistrer cette pièce jointe.",
+  "chatPreviousAnswerKept": "Réponse précédente conservée.",
+  "chatPreviousVersionKept": "Version précédente conservée.",
+  "chatConversationUnsaved": "Conversation non enregistrée : {reason}",
+  "@chatConversationUnsaved": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGenerationFailed": "Génération impossible : {reason}",
+  "@chatGenerationFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGenerationFailedKept": "Génération impossible : {reason}. Réponse précédente conservée.",
+  "@chatGenerationFailedKept": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGenerationInterruptedKept": "Génération interrompue : {reason}. Version précédente conservée.",
+  "@chatGenerationInterruptedKept": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatModelLoadFailed": "Chargement du modèle impossible : {reason}",
+  "@chatModelLoadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "chatOpenModels": "Modèles",
+  "chatAttachPhotos": "Photos",
+  "chatAttachCamera": "Caméra",
+  "apiBaseUrlRequired": "Indique une Base URL.",
+  "apiHttpsRequired": "Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.",
+  "apiKeyRequired": "Entre la clé API du fournisseur.",
+  "apiPickModel": "Choisis un modèle, ou saisis son identifiant manuellement.",
+  "apiKeyDeleted": "Clé API supprimée.",
+  "apiSubtitle": "Ton fournisseur, ta clé, ton modèle",
+  "apiIntro": "FoxLLM contacte directement le fournisseur depuis ton téléphone. Pour les fournisseurs connus, la Base URL est configurée automatiquement et les modèles accessibles sont récupérés avec ta clé.",
+  "apiProvider": "Fournisseur",
+  "apiKeyAlreadySaved": "Clé déjà enregistrée · laisse vide pour la conserver",
+  "apiFetchModels": "Récupérer les modèles disponibles",
+  "apiFetchFirst": "Récupère d’abord les modèles",
+  "apiChooseModel": "Choisis un modèle",
+  "apiBackToList": "Revenir à la liste des modèles",
+  "apiTypeIdentifier": "Saisir un identifiant manuellement",
+  "apiRemember": "Mémoriser sur cet appareil",
+  "apiRememberHint": "Désactivé = clé gardée seulement pendant cette session.",
+  "apiUseInChat": "Utiliser dans le chat",
+  "apiSave": "Enregistrer",
+  "apiTest": "Tester la connexion",
+  "apiTestHint": "Le test envoie une très courte requête au modèle sélectionné et peut consommer quelques tokens.",
+  "apiDeleteKey": "Supprimer la clé API",
+  "markdownLinkFailed": "Lien impossible à ouvrir.",
+  "apiSettingsLoadFailed": "Impossible de charger les réglages API : {reason}",
+  "@apiSettingsLoadFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiModelsFetchFailed": "Impossible de récupérer les modèles : {reason}",
+  "@apiModelsFetchFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiSaveFailed": "Enregistrement impossible : {reason}",
+  "@apiSaveFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiConnected": "Connexion réussie à {provider} avec {model}.",
+  "@apiConnected": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "apiConnectionFailed": "Échec de connexion : {reason}",
+  "@apiConnectionFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiDeleteFailed": "Suppression impossible : {reason}",
+  "@apiDeleteFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "apiKeyFor": "Clé API {provider}",
+  "@apiKeyFor": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "apiUseInChatHint": "Quand activé, le chat utilise {provider} au lieu du modèle GGUF local.",
+  "@apiUseInChatHint": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "presetShortLabel": "Réponses courtes",
+  "presetShortInstructions": "Réponds de façon brève et directe. Va à l’essentiel, sans introduction ni conclusion superflue.",
+  "presetTeacherLabel": "Pédagogue",
+  "presetTeacherInstructions": "Explique comme à un débutant : vocabulaire simple, un exemple concret par notion, et termine par une question pour vérifier que j’ai compris.",
+  "presetExpertLabel": "Expert technique",
+  "presetExpertInstructions": "Réponds comme un ingénieur expérimenté : sois précis, signale les pièges et les cas limites, et donne du code complet quand c’est utile.",
+  "presetFriendlyLabel": "Ton amical",
+  "presetFriendlyInstructions": "Adopte un ton chaleureux et encourageant, tutoie-moi, et garde des réponses vivantes.",
+  "httpNoCredit": "Aucun crédit API disponible pour le compte lié à cette clé.",
+  "httpInvalidKey": "La clé API est invalide ou a été révoquée.",
+  "httpKeyRefused": "Clé API refusée par le fournisseur.",
+  "httpRateLimited": "Limite ou quota du fournisseur atteint.",
+  "providerCustom": "Personnalisé",
+  "httpRateLimitedWith": "Limite ou quota du fournisseur atteint : {message}",
+  "@httpRateLimitedWith": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "httpStatusWith": "HTTP {status} : {message}",
+  "@httpStatusWith": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "httpStatusOnly": "Le fournisseur a répondu avec l’erreur HTTP {status}.",
+  "@httpStatusOnly": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "backendConfigureProvider": "Configure le fournisseur, le modèle et la clé API.",
+  "backendProviderNoTextContent": "Le fournisseur a répondu sans contenu texte.",
+  "backendKeyBeforeModels": "Entre une clé API avant de récupérer les modèles.",
+  "backendConfigureCustomBaseUrl": "Configure la base URL du fournisseur personnalisé.",
+  "backendInvalidModelsResponse": "Réponse de modèles invalide.",
+  "backendMissingModelsList": "Liste de modèles absente de la réponse.",
+  "backendNoChatModels": "Aucun modèle de chat disponible avec cette clé API.",
+  "backendProviderInterrupted": "Le fournisseur a interrompu la réponse.",
+  "backendProviderReportedError": "Le fournisseur a signalé une erreur.",
+  "backendResponseFailed": "La réponse a échoué.",
+  "backendNotAGgufFile": "Le fichier sélectionné doit être un modèle .gguf.",
+  "backendEmptyGgufFile": "Le modèle GGUF sélectionné est vide.",
+  "backendRefuseDeleteOutside": "Refus de supprimer un fichier hors de la bibliothèque FoxLLM.",
+  "backendMissingApiKey": "Aucune clé API configurée pour {provider}.",
+  "@backendMissingApiKey": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "backendHttpsRequired": "Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.",
+  "apiTestPrompt": "Réponds uniquement par OK.",
+  "apiSavedFor": "{provider} · {model} enregistré.",
+  "@apiSavedFor": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "backendStreamStalled": "La réponse de {provider} s’est interrompue : plus rien depuis {minutes} minutes.",
+  "@backendStreamStalled": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "backendNoResponse": "{provider} n’a pas répondu dans les {seconds} secondes.",
+  "@backendNoResponse": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      },
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "ageToday": "Aujourd’hui",
+  "ageYesterday": "Hier",
+  "ageWeek": "7 derniers jours",
+  "ageMonth": "30 derniers jours",
+  "ageOlder": "Plus tôt",
+  "historyUnreadable": "Le fichier d’historique est illisible.",
+  "historyMalformed": "Le fichier d’historique n’a pas la forme attendue.",
+  "historyPartial": "Une partie de l’historique est inexploitable.",
+  "reasoningInstruction": "Réfléchis étape par étape avant de répondre : décompose le problème, examine les cas limites, puis énonce ta conclusion.",
+  "historySessionUnsaved": "{reason} Les conversations de cette session ne seront pas enregistrées.",
+  "@historySessionUnsaved": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentTooLarge": "Pièce jointe trop volumineuse ({limit} Mo maximum).",
+  "@attachmentTooLarge": {
+    "placeholders": {
+      "limit": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentNoImages": "Le moteur choisi ne lit pas les images. Configure une API personnelle avec un modèle multimodal pour envoyer « {name} ».",
+  "@attachmentNoImages": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentNotText": "« {name} » n’est pas un fichier texte : aucun moteur ne sait le lire aujourd’hui.",
+  "@attachmentNotText": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "attachmentPrefix": "Fichier joint : {name}",
+  "@attachmentPrefix": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "modelImportIncomplete": "Import GGUF incomplet : {copied} octets copiés sur {expected} attendus.",
+  "@modelImportIncomplete": {
+    "placeholders": {
+      "copied": {
+        "type": "String"
+      },
+      "expected": {
+        "type": "String"
+      }
+    }
+  },
+  "invalidGgufName": "Nom de fichier GGUF invalide.",
+  "licenseUnreadable": "Le texte de la licence n’a pas pu être lu. Il reste consultable dans le fichier LICENSE du dépôt FoxLLM.",
+  "licenseNotice": "FoxLLM est distribué sous licence GNU Affero General Public License, version 3, à l’exclusion de toute version ultérieure. Le texte officiel ci-dessous fait foi."
 }

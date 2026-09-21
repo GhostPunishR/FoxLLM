@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/model/chat_attachment.dart';
 
 /// Fichier choisi, avant d'être rangé dans l'espace privé.
@@ -24,9 +25,18 @@ class PickedAttachment {
 
 /// Refus explicite et lisible : le fichier choisi ne peut pas être joint.
 class AttachmentException implements Exception {
-  const AttachmentException(this.message);
+  const AttachmentException(this.message, {this.sizeLimitMegabytes});
 
+  /// Le message en français, gardé pour la trace et comme dernier recours.
   final String message;
+
+  /// Plafond dépassé, quand c'en est la cause.
+  final String? sizeLimitMegabytes;
+
+  String describe(AppLocalizations l10n) {
+    final limit = sizeLimitMegabytes;
+    return limit == null ? message : l10n.attachmentTooLarge(limit);
+  }
 
   @override
   String toString() => message;
@@ -52,16 +62,21 @@ class AttachmentPicker {
   final ImagePicker _imagePicker;
 
   /// Renvoie `null` si l'utilisateur annule.
-  Future<PickedAttachment?> pick(AttachmentSource source) async {
+  Future<PickedAttachment?> pick(
+    AttachmentSource source, {
+    required String dialogTitle,
+  }) async {
     return switch (source) {
-      AttachmentSource.file => _pickFile(),
+      AttachmentSource.file => _pickFile(dialogTitle),
       AttachmentSource.gallery => _pickImage(ImageSource.gallery),
       AttachmentSource.camera => _pickImage(ImageSource.camera),
     };
   }
 
-  Future<PickedAttachment?> _pickFile() async {
-    final picked = await FilePicker.pickFile(dialogTitle: 'Joindre un fichier');
+  /// [dialogTitle] vient de l'écran : le sélecteur est celui du système, et
+  /// son titre doit suivre la langue de l'interface comme le reste.
+  Future<PickedAttachment?> _pickFile(String dialogTitle) async {
+    final picked = await FilePicker.pickFile(dialogTitle: dialogTitle);
     if (picked == null) {
       return null;
     }
@@ -100,6 +115,7 @@ class AttachmentPicker {
       throw AttachmentException(
         'Pièce jointe trop volumineuse '
         '(${maxAttachmentBytes ~/ (1024 * 1024)} Mo maximum).',
+        sizeLimitMegabytes: '${maxAttachmentBytes ~/ (1024 * 1024)}',
       );
     }
   }

@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:foxllm/core/l10n/fox_language_labels.dart';
+import 'package:foxllm/core/l10n/language_provider.dart';
 import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/theme/fox_theme_labels.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
@@ -12,6 +14,7 @@ import 'package:foxllm/features/local_models/local_models_screen.dart';
 import 'package:foxllm/features/settings/about/about_screen.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
 import 'package:foxllm/features/settings/history_screen.dart';
+import 'package:foxllm/features/settings/language_screen.dart';
 import 'package:foxllm/features/settings/personal_api_screen.dart';
 import 'package:foxllm/features/settings/personalization_screen.dart';
 import 'package:foxllm/l10n/app_localizations.dart';
@@ -107,6 +110,19 @@ class SettingsScreen extends ConsumerWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (context) => const AppearanceScreen(),
+                    ),
+                  );
+                },
+              ),
+              Divider(height: 1, color: fox.border),
+              _SettingsTile(
+                icon: Icons.translate_rounded,
+                title: l10n.languageTitle,
+                subtitle: ref.watch(foxLanguageProvider).label(l10n),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const LanguageScreen(),
                     ),
                   );
                 },

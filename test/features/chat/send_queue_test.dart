@@ -471,7 +471,10 @@ class _ScriptedPicker implements AttachmentPicker {
   int _index = 0;
 
   @override
-  Future<PickedAttachment?> pick(AttachmentSource source) async {
+  Future<PickedAttachment?> pick(
+    AttachmentSource source, {
+    String dialogTitle = '',
+  }) async {
     if (_index >= _names.length) {
       return null;
     }

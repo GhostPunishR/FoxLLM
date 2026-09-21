@@ -8,18 +8,27 @@
 /// « Hier » dès qu'il est minuit, pas le lendemain à la même heure.
 library;
 
+import 'package:foxllm/l10n/app_localizations.dart';
+
 /// Tranche d'ancienneté sous laquelle une conversation est rangée.
 enum ConversationAge {
-  today('Aujourd’hui'),
-  yesterday('Hier'),
-  week('7 derniers jours'),
-  month('30 derniers jours'),
-  older('Plus tôt');
-
-  const ConversationAge(this.label);
+  today,
+  yesterday,
+  week,
+  month,
+  older;
 
   /// Intitulé de la section, tel qu'il s'affiche.
-  final String label;
+  ///
+  /// Hors de l'énumération : celle-ci décrit un ordre d'ancienneté, qui ne
+  /// change pas d'une langue à l'autre, tandis que son intitulé se traduit.
+  String label(AppLocalizations l10n) => switch (this) {
+    ConversationAge.today => l10n.ageToday,
+    ConversationAge.yesterday => l10n.ageYesterday,
+    ConversationAge.week => l10n.ageWeek,
+    ConversationAge.month => l10n.ageMonth,
+    ConversationAge.older => l10n.ageOlder,
+  };
 }
 
 /// Tranche à laquelle appartient une conversation mise à jour le [updatedAt].

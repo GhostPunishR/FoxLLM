@@ -1,8 +1,14 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/features/chat/conversations/conversation_date.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
+
+/// Les intitulés se traduisent : ils se lisent dans les traductions, comme le
+/// tiroir les lit.
+final _l10n = lookupAppLocalizations(const Locale('fr'));
 
 void main() {
   group('tranches', () {
@@ -32,7 +38,7 @@ void main() {
         // dans une seule section, intitulée « 7 jours ».
         final age = conversationAge(DateTime(2026, 9, 14, 23, 50), now);
         expect(age, ConversationAge.yesterday);
-        expect(age.label, 'Hier');
+        expect(age.label(_l10n), 'Hier');
       },
     );
 
@@ -52,7 +58,7 @@ void main() {
         expect(
           conversationAge(updatedAt, now),
           expected,
-          reason: '$days jour(s) devrait tomber dans ${expected.label}',
+          reason: '$days jour(s) devrait tomber dans ${expected.name}',
         );
       });
     });
@@ -65,7 +71,7 @@ void main() {
     });
 
     test('les intitulés disent la durée réelle', () {
-      expect(ConversationAge.values.map((age) => age.label), <String>[
+      expect(ConversationAge.values.map((age) => age.label(_l10n)), <String>[
         'Aujourd’hui',
         'Hier',
         '7 derniers jours',

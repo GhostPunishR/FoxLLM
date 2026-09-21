@@ -173,7 +173,7 @@ class _PersonalizationScreenState extends ConsumerState<PersonalizationScreen> {
             spacing: 8,
             runSpacing: 8,
             children: <Widget>[
-              for (final preset in personalizationPresets)
+              for (final preset in personalizationPresets(l10n))
                 ActionChip(
                   label: Text(preset.label),
                   onPressed: () => _applyPreset(preset),

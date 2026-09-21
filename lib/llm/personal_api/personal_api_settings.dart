@@ -8,8 +8,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/llm/backend/anthropic_backend.dart';
+import 'package:foxllm/llm/backend/backend_failure.dart';
 import 'package:foxllm/llm/backend/gemini_backend.dart';
 import 'package:foxllm/llm/backend/llm_backend.dart';
+import 'package:foxllm/llm/backend/llm_http.dart'
+    show PersonalApiTimeoutException, PersonalApiTimeoutKind;
 import 'package:foxllm/llm/backend/local_engine_error.dart';
 import 'package:foxllm/llm/backend/openai_compatible_backend.dart';
 import 'package:foxllm/llm/backend/openai_responses_backend.dart';
@@ -22,7 +25,7 @@ const personalApiProviderId = 'personal-api';
 
 class PersonalApiSettings {
   const PersonalApiSettings({
-    this.providerId = 'openai',
+    this.providerId = defaultPersonalApiProviderId,
     this.baseUrl = '',
     this.model = '',
     this.apiKeyPersistence = ApiKeyPersistence.device,
@@ -123,7 +126,7 @@ class PersonalApiSettingsStore {
     final storedBaseUrl = values[1] ?? '';
     final provider = values[0] == null
         ? (storedBaseUrl.isEmpty
-              ? openAiPersonalApiProvider
+              ? defaultPersonalApiProvider
               : inferPersonalApiProvider(storedBaseUrl))
         : personalApiProviderById(values[0]!);
     final apiKey = await keyStore.read(
@@ -240,6 +243,7 @@ bool _isPrivateOrLoopbackHost(String host) {
 Future<void> testPersonalApiConnection({
   required PersonalApiSettings settings,
   required ApiKeyStore keyStore,
+  AppLocalizations? l10n,
 }) async {
   if (!settings.isConfigured) {
     throw StateError('Configure le fournisseur, le modèle et la clé API.');
@@ -253,8 +257,12 @@ Future<void> testPersonalApiConnection({
   try {
     var receivedContent = false;
     await for (final chunk in backend.generate(
-      messages: const <ChatMessage>[
-        ChatMessage.user('Réponds uniquement par OK.'),
+      messages: <ChatMessage>[
+        // L'invite part au modèle : elle suit la langue de l'interface, sinon
+        // un utilisateur anglophone verrait son fournisseur répondre à une
+        // consigne française. Nulle quand l'appelant n'a pas de contexte, ce
+        // qui n'arrive qu'aux bancs.
+        ChatMessage.user(l10n?.apiTestPrompt ?? 'Réponds uniquement par OK.'),
       ],
       settings: const GenerationSettings(temperature: 0, topP: 1, maxTokens: 8),
     )) {
@@ -275,26 +283,57 @@ Future<void> testPersonalApiConnection({
 
 String describePersonalApiError(Object error, AppLocalizations l10n) {
   if (error is PersonalApiHttpException) {
-    return _describeHttpError(error.statusCode, error.body);
+    return _describeHttpError(error.statusCode, error.body, l10n);
+  }
+  if (error is PersonalApiTimeoutException) {
+    // Les exceptions construites ailleurs n'ont pas ces champs : leur message
+    // français reste alors le seul texte disponible.
+    final kind = error.kind;
+    final provider = error.provider;
+    final amount = error.amount;
+    if (kind != null && provider != null && amount != null) {
+      return switch (kind) {
+        PersonalApiTimeoutKind.noResponse => l10n.backendNoResponse(
+          provider,
+          amount,
+        ),
+        PersonalApiTimeoutKind.streamStalled => l10n.backendStreamStalled(
+          provider,
+          amount,
+        ),
+      };
+    }
+    return error.message;
   }
   if (error is StateError) {
     // Le pont natif lève un `StateError` portant le message anglais du C++.
     // Sans cette reconnaissance, « Prompt exceeds the model context window. »
     // s'affichait tel quel dans le bandeau du chat, et c'est pourtant le refus
     // le plus fréquent avec un modèle local.
-    final failure = LocalEngineFailure.match(error.message.toString());
-    if (failure != null) {
-      return failure.describe(l10n);
+    final message = error.message.toString();
+    final engine = LocalEngineFailure.match(message);
+    if (engine != null) {
+      return engine.describe(l10n);
     }
-    return error.message.toString();
+    // Même principe côté fournisseurs : ces refus naissent hors de tout
+    // widget, donc sans traductions à portée.
+    final backend = BackendFailure.match(message);
+    if (backend != null) {
+      return backend.describe(l10n);
+    }
+    final missingKey = missingApiKeyProvider(message);
+    if (missingKey != null) {
+      return l10n.backendMissingApiKey(missingKey);
+    }
+    return message;
   }
   if (error is FormatException) {
-    return error.message;
+    return BackendFailure.match(error.message)?.describe(l10n) ?? error.message;
   }
   return error.toString();
 }
 
-String _describeHttpError(int statusCode, String body) {
+String _describeHttpError(int statusCode, String body, AppLocalizations l10n) {
   String? code;
   String? message;
   try {
@@ -315,24 +354,24 @@ String _describeHttpError(int statusCode, String body) {
   switch (code) {
     case 'credit_balance_exhausted':
     case 'insufficient_quota':
-      return 'Aucun crédit API disponible pour le compte lié à cette clé.';
+      return l10n.httpNoCredit;
     case 'invalid_api_key':
-      return 'La clé API est invalide ou a été révoquée.';
+      return l10n.httpInvalidKey;
   }
 
   if (statusCode == 401 || statusCode == 403) {
-    return 'Clé API refusée par le fournisseur.';
+    return l10n.httpKeyRefused;
   }
   if (statusCode == 429) {
     return message?.isNotEmpty == true
-        ? 'Limite ou quota du fournisseur atteint : $message'
-        : 'Limite ou quota du fournisseur atteint.';
+        ? l10n.httpRateLimitedWith(message!)
+        : l10n.httpRateLimited;
   }
   if (message?.isNotEmpty == true) {
-    return 'HTTP $statusCode : $message';
+    return l10n.httpStatusWith('$statusCode', message!);
   }
   if (body.trim().isNotEmpty && body.length <= 240) {
-    return 'HTTP $statusCode : ${body.trim()}';
+    return l10n.httpStatusWith('$statusCode', body.trim());
   }
-  return 'Le fournisseur a répondu avec l’erreur HTTP $statusCode.';
+  return l10n.httpStatusOnly('$statusCode');
 }

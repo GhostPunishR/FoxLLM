@@ -1,6 +1,7 @@
 // Copyright © 2026 GhostPunishR
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -46,33 +47,28 @@ class PersonalizationPreset {
   final String instructions;
 }
 
-const List<PersonalizationPreset> personalizationPresets =
+/// Les modèles proposés dans « Pour démarrer ».
+///
+/// Une fonction plutôt qu'une constante : ces textes s'affichent, mais ils
+/// partent aussi au modèle comme consigne. Les laisser en français dans une
+/// interface anglaise ferait répondre en français à qui a choisi l'anglais.
+List<PersonalizationPreset> personalizationPresets(AppLocalizations l10n) =>
     <PersonalizationPreset>[
       PersonalizationPreset(
-        label: 'Réponses courtes',
-        instructions:
-            'Réponds de façon brève et directe. Va à l’essentiel, sans '
-            'introduction ni conclusion superflue.',
+        label: l10n.presetShortLabel,
+        instructions: l10n.presetShortInstructions,
       ),
       PersonalizationPreset(
-        label: 'Pédagogue',
-        instructions:
-            'Explique comme à un débutant : vocabulaire simple, un exemple '
-            'concret par notion, et termine par une question pour vérifier '
-            'que j’ai compris.',
+        label: l10n.presetTeacherLabel,
+        instructions: l10n.presetTeacherInstructions,
       ),
       PersonalizationPreset(
-        label: 'Expert technique',
-        instructions:
-            'Réponds comme un ingénieur expérimenté : sois précis, signale '
-            'les pièges et les cas limites, et donne du code complet quand '
-            'c’est utile.',
+        label: l10n.presetExpertLabel,
+        instructions: l10n.presetExpertInstructions,
       ),
       PersonalizationPreset(
-        label: 'Ton amical',
-        instructions:
-            'Adopte un ton chaleureux et encourageant, tutoie-moi, et garde '
-            'des réponses vivantes.',
+        label: l10n.presetFriendlyLabel,
+        instructions: l10n.presetFriendlyInstructions,
       ),
     ];
 

@@ -9,8 +9,8 @@ import 'package:flutter/services.dart';
 
 import 'package:foxllm/core/theme/fox_palette.dart';
 import 'package:foxllm/core/ui/external_link.dart';
-
 import 'package:foxllm/features/chat/markdown/code_highlighter.dart';
+import 'package:foxllm/l10n/app_localizations.dart';
 
 /// Morceau d'un message de chat.
 ///
@@ -571,7 +571,9 @@ class _MessageMarkdownState extends State<MessageMarkdown> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(content: Text('Lien impossible à ouvrir.')),
+        SnackBar(
+          content: Text(AppLocalizations.of(context).markdownLinkFailed),
+        ),
       );
   }
 

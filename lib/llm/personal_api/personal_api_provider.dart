@@ -139,6 +139,21 @@ const customPersonalApiProvider = PersonalApiProvider(
   custom: true,
 );
 
+/// Fournisseur proposé tant qu'aucun choix n'a été enregistré.
+///
+/// Un écran de configuration doit bien s'ouvrir sur quelque chose, et ce
+/// quelque chose est une recommandation, pas un détail : c'est le fournisseur
+/// qu'essaiera qui n'en connaît aucun.
+const defaultPersonalApiProvider = anthropicPersonalApiProvider;
+
+/// Son identifiant, redit ici en toutes lettres.
+///
+/// Une valeur de paramètre par défaut doit être une constante, et Dart refuse
+/// d'y lire le champ d'un objet constant : `defaultPersonalApiProvider.id` n'y
+/// est pas accepté. `defaultProviderMatchesItsId` veille à ce que les deux ne
+/// se séparent jamais.
+const defaultPersonalApiProviderId = 'anthropic';
+
 /// Par ordre alphabétique : c'est l'ordre du menu, et le seul qui reste
 /// prévisible quand la liste s'allonge.
 ///

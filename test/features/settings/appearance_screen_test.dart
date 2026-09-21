@@ -11,7 +11,6 @@ import 'package:foxllm/core/theme/fox_theme.dart';
 import 'package:foxllm/core/theme/system_appearance.dart';
 import 'package:foxllm/core/theme/theme_provider.dart';
 import 'package:foxllm/features/settings/appearance_screen.dart';
-import 'package:foxllm/core/l10n/fox_language.dart';
 import 'package:foxllm/core/theme/fox_theme_labels.dart';
 import 'package:foxllm/l10n/app_localizations.dart';
 import 'package:foxllm/main.dart';
@@ -224,17 +223,19 @@ void main() {
     for (final theme in FoxTheme.values) {
       expect(find.text(theme.label(l10n)), findsOneWidget);
     }
-    // L'écran porte désormais deux sections : la déclinaison et la langue.
-    // Chacune a exactement une rangée cochée, et le reste ne l'est pas.
-    final rows = FoxTheme.values.length + FoxLanguage.values.length;
-    expect(find.byIcon(Icons.radio_button_checked), findsNWidgets(2));
-    expect(find.byIcon(Icons.radio_button_unchecked), findsNWidgets(rows - 2));
+    // L'écran ne porte plus que les déclinaisons : la langue a le sien.
+    // Une seule rangée est cochée, et le reste ne l'est pas.
+    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+    expect(
+      find.byIcon(Icons.radio_button_unchecked),
+      findsNWidgets(FoxTheme.values.length - 1),
+    );
 
     await tester.tap(find.text(l10n.themeDarkLabel));
     await tester.pumpAndSettle();
 
-    // Toujours deux coches : la déclinaison a changé, la langue n'a pas bougé.
-    expect(find.byIcon(Icons.radio_button_checked), findsNWidgets(2));
+    // Toujours une seule coche : la déclinaison a changé, pas leur nombre.
+    expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

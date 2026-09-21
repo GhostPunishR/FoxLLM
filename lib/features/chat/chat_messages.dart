@@ -12,6 +12,7 @@ class _RestoringModelBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
@@ -24,7 +25,7 @@ class _RestoringModelBanner extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            'Chargement du modèle local…',
+            l10n.chatLoadingModel,
             style: TextStyle(color: fox.textSecondary, fontSize: 13),
           ),
         ],
@@ -261,6 +262,7 @@ class _MessageList extends StatelessWidget {
 
   /// Menu d'un message envoyé : appui long, sans horodatage.
   void _showUserMenu(BuildContext context, int index, ChatMessage message) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     showModalBottomSheet<void>(
       context: context,
@@ -283,7 +285,7 @@ class _MessageList extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.notes_rounded, color: fox.textSecondary),
               title: Text(
-                'Sélectionner le texte',
+                l10n.messageSelectText,
                 style: TextStyle(color: fox.textPrimary),
               ),
               onTap: () {
@@ -294,7 +296,7 @@ class _MessageList extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.edit_outlined, color: fox.textSecondary),
               title: Text(
-                'Modifier le message',
+                l10n.messageEdit,
                 style: TextStyle(color: fox.textPrimary),
               ),
               onTap: () {
@@ -469,6 +471,7 @@ class _AssistantActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Padding(
       padding: const EdgeInsets.only(left: 2, top: 2),
@@ -491,7 +494,7 @@ class _AssistantActions extends StatelessWidget {
                   icon: message.rating == MessageRating.up
                       ? Icons.thumb_up
                       : Icons.thumb_up_outlined,
-                  tooltip: 'Bonne réponse',
+                  tooltip: l10n.messageGoodAnswer,
                   active: message.rating == MessageRating.up,
                   onPressed: () => actions.onRate(index, MessageRating.up),
                 ),
@@ -499,7 +502,7 @@ class _AssistantActions extends StatelessWidget {
                   icon: message.rating == MessageRating.down
                       ? Icons.thumb_down
                       : Icons.thumb_down_outlined,
-                  tooltip: 'Mauvaise réponse',
+                  tooltip: l10n.messageBadAnswer,
                   active: message.rating == MessageRating.down,
                   onPressed: () => actions.onRate(index, MessageRating.down),
                 ),
@@ -508,8 +511,8 @@ class _AssistantActions extends StatelessWidget {
                       ? Icons.stop_rounded
                       : Icons.volume_up_outlined,
                   tooltip: isSpeaking
-                      ? 'Arrêter la lecture'
-                      : 'Lire à voix haute',
+                      ? l10n.messageStopReading
+                      : l10n.messageReadAloud,
                   active: isSpeaking,
                   onPressed: () => actions.onSpeak(message),
                 ),
@@ -547,6 +550,7 @@ class _AssistantActions extends StatelessWidget {
   }
 
   void _showMore(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     showModalBottomSheet<void>(
       context: context,
@@ -561,7 +565,7 @@ class _AssistantActions extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.refresh_rounded, color: fox.textSecondary),
               title: Text(
-                'Régénérer la réponse',
+                l10n.messageRegenerate,
                 style: TextStyle(color: fox.textPrimary),
               ),
               onTap: () {
@@ -572,7 +576,7 @@ class _AssistantActions extends StatelessWidget {
             ListTile(
               leading: Icon(Icons.notes_rounded, color: fox.textSecondary),
               title: Text(
-                'Sélectionner le texte',
+                l10n.messageSelectText,
                 style: TextStyle(color: fox.textPrimary),
               ),
               onTap: () {
@@ -718,12 +722,13 @@ class _MissingAttachment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     return Container(
       padding: const EdgeInsets.all(12),
       color: fox.surfaceInput,
       child: Text(
-        '« ${attachment.name} » n’est plus sur l’appareil.',
+        l10n.attachmentGone(attachment.name),
         style: TextStyle(color: fox.textSecondary, fontSize: 13),
       ),
     );
@@ -741,20 +746,24 @@ class _OutcomeNote extends StatelessWidget {
   final ChatMessage message;
 
   /// Motifs que les fournisseurs nomment le plus souvent, dits en clair.
-  static const Map<String, String> _reasons = <String, String>{
-    'max_output_tokens': 'la limite de longueur a été atteinte',
-    'max_tokens': 'la limite de longueur a été atteinte',
-    'content_filter': 'le fournisseur a filtré la suite',
-    'length': 'la limite de longueur a été atteinte',
+  /// Motifs d'arrêt qu'un fournisseur nomme, traduits pour l'affichage.
+  ///
+  /// Les clés viennent des API et ne se traduisent pas ; seules leurs
+  /// explications s'affichent, donc seules elles passent par les traductions.
+  static String? _reason(String key, AppLocalizations l10n) => switch (key) {
+    'max_output_tokens' || 'max_tokens' || 'length' => l10n.reasonLengthLimit,
+    'content_filter' => l10n.reasonContentFilter,
+    _ => null,
   };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     final label = switch (message.outcome) {
-      GenerationOutcome.incomplete => _incompleteLabel(),
-      GenerationOutcome.cancelled => 'Réponse arrêtée.',
-      GenerationOutcome.failed => 'Réponse interrompue par une erreur.',
+      GenerationOutcome.incomplete => _incompleteLabel(l10n),
+      GenerationOutcome.cancelled => l10n.outcomeCancelled,
+      GenerationOutcome.failed => l10n.outcomeFailed,
       GenerationOutcome.complete => '',
     };
     return Padding(
@@ -775,21 +784,21 @@ class _OutcomeNote extends StatelessWidget {
     );
   }
 
-  String _incompleteLabel() {
+  String _incompleteLabel(AppLocalizations l10n) {
+    final reason = message.outcomeReason;
+    final said = reason == null ? null : _reason(reason, l10n);
     if (message.content.isEmpty) {
-      final reason = message.outcomeReason;
-      final said = reason == null ? null : _reasons[reason];
       // Rien n'est arrivé : le dire, plutôt que laisser une bulle vide.
       return said == null
-          ? 'Aucun texte reçu, la réponse s’est arrêtée avant de commencer.'
-          : 'Aucun texte reçu : $said.';
+          ? l10n.outcomeNothingReceived
+          : l10n.outcomeNothingReceivedBecause(said);
     }
-    final reason = message.outcomeReason;
-    final said = reason == null ? null : _reasons[reason];
     if (said != null) {
-      return 'Réponse écourtée : $said.';
+      return l10n.outcomeShortenedBecause(said);
     }
     // Motif inconnu : on le rapporte tel quel plutôt que d'en inventer un.
-    return reason == null ? 'Réponse écourtée.' : 'Réponse écourtée ($reason).';
+    return reason == null
+        ? l10n.outcomeShortened
+        : l10n.outcomeShortenedRaw(reason);
   }
 }

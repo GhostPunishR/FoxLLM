@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:foxllm/core/storage/api_key_store.dart';
 import 'package:foxllm/l10n/app_localizations.dart';
@@ -83,6 +84,52 @@ void main() {
       expect(backendFor('deepseek'), isA<OpenAiCompatibleBackend>());
       expect(backendFor('openai'), isA<OpenAiResponsesBackend>());
       expect(backendFor('gemini'), isA<GeminiBackend>());
+    });
+  });
+
+  group('fournisseur par défaut', () {
+    setUp(() => TestWidgetsFlutterBinding.ensureInitialized());
+
+    test('l’identifiant nommé à part désigne bien le même fournisseur', () {
+      // Dart refuse de lire le champ d'un objet constant dans une valeur de
+      // paramètre par défaut : l'identifiant est donc réécrit en toutes
+      // lettres à côté. Les deux doivent rester d'accord.
+      expect(defaultPersonalApiProviderId, defaultPersonalApiProvider.id);
+      expect(
+        personalApiProviderById(defaultPersonalApiProviderId),
+        defaultPersonalApiProvider,
+      );
+    });
+
+    test('des réglages neufs partent sur Anthropic', () {
+      expect(const PersonalApiSettings().providerId, 'anthropic');
+      expect(const PersonalApiSettings().provider.displayName, 'Anthropic');
+    });
+
+    test('un stockage vierge ouvre sur le fournisseur par défaut', () async {
+      // Premier lancement : rien n'a jamais été enregistré, et le choix
+      // proposé est une recommandation, pas un reliquat.
+      FlutterSecureStorage.setMockInitialValues(<String, String>{});
+
+      final loaded = await PersonalApiSettingsStore().load(
+        keyStore: ApiKeyStore(),
+      );
+
+      expect(loaded.providerId, defaultPersonalApiProviderId);
+      expect(loaded.baseUrl, isEmpty);
+      expect(loaded.effectiveBaseUrl, 'https://api.anthropic.com/v1');
+    });
+
+    test('un choix déjà enregistré l’emporte sur le défaut', () async {
+      FlutterSecureStorage.setMockInitialValues(<String, String>{
+        'foxllm.personal_api.provider': 'openai',
+      });
+
+      final loaded = await PersonalApiSettingsStore().load(
+        keyStore: ApiKeyStore(),
+      );
+
+      expect(loaded.providerId, 'openai');
     });
   });
 

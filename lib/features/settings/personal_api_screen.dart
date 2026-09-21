@@ -23,7 +23,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   final _modelController = TextEditingController();
   final _apiKeyController = TextEditingController();
 
-  String _providerId = openAiPersonalApiProvider.id;
+  String _providerId = defaultPersonalApiProvider.id;
   String _selectedModel = '';
   List<String> _models = const <String>[];
   ApiKeyPersistence _persistence = ApiKeyPersistence.device;
@@ -46,6 +46,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   }
 
   Future<void> _loadInitialState() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final settings = await ref.read(personalApiSettingsProvider.future);
       if (!mounted) {
@@ -68,8 +69,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       if (mounted) {
         setState(() => _initialized = true);
         _showSnack(
-          'Impossible de charger les réglages API : '
-          '${describePersonalApiError(error, AppLocalizations.of(context))}',
+          l10n.apiSettingsLoadFailed(
+            describePersonalApiError(error, AppLocalizations.of(context)),
+          ),
         );
       }
     }
@@ -115,20 +117,22 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   }
 
   String? _validateCustomBaseUrl() {
+    final l10n = AppLocalizations.of(context);
     if (!_provider.custom) {
       return null;
     }
     final value = _baseUrlController.text.trim();
     if (value.isEmpty) {
-      return 'Indique une Base URL.';
+      return l10n.apiBaseUrlRequired;
     }
     if (!isAllowedPersonalApiBaseUrl(value)) {
-      return 'Utilise HTTPS, ou HTTP uniquement sur localhost/réseau privé.';
+      return l10n.apiHttpsRequired;
     }
     return null;
   }
 
   Future<void> _loadModels() async {
+    final l10n = AppLocalizations.of(context);
     final baseUrlError = _validateCustomBaseUrl();
     if (baseUrlError != null) {
       _showSnack(baseUrlError);
@@ -136,7 +140,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     }
     if (_apiKeyController.text.trim().isEmpty &&
         !_hasStoredKeyForCurrentDestination()) {
-      _showSnack('Entre la clé API du fournisseur.');
+      _showSnack(l10n.apiKeyRequired);
       return;
     }
 
@@ -163,8 +167,9 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     } catch (error) {
       if (mounted) {
         _showSnack(
-          'Impossible de récupérer les modèles : '
-          '${describePersonalApiError(error, AppLocalizations.of(context))}',
+          l10n.apiModelsFetchFailed(
+            describePersonalApiError(error, AppLocalizations.of(context)),
+          ),
         );
       }
     } finally {
@@ -175,6 +180,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   }
 
   Future<PersonalApiSettings?> _save({bool showSuccess = true}) async {
+    final l10n = AppLocalizations.of(context);
     final baseUrlError = _validateCustomBaseUrl();
     if (baseUrlError != null) {
       _showSnack(baseUrlError);
@@ -183,12 +189,12 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
     final model = _currentModel();
     if (model.isEmpty) {
-      _showSnack('Choisis un modèle, ou saisis son identifiant manuellement.');
+      _showSnack(l10n.apiPickModel);
       return null;
     }
     if (_apiKeyController.text.trim().isEmpty &&
         !_hasStoredKeyForCurrentDestination()) {
-      _showSnack('Entre la clé API du fournisseur.');
+      _showSnack(l10n.apiKeyRequired);
       return null;
     }
 
@@ -219,14 +225,16 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       });
       if (showSuccess) {
         _showSnack(
-          '${settings.provider.displayName} · ${settings.model} enregistré.',
+          l10n.apiSavedFor(settings.provider.displayName, settings.model),
         );
       }
       return settings;
     } catch (error) {
       if (mounted) {
         _showSnack(
-          'Enregistrement impossible : ${describePersonalApiError(error, AppLocalizations.of(context))}',
+          l10n.apiSaveFailed(
+            describePersonalApiError(error, AppLocalizations.of(context)),
+          ),
         );
       }
       return null;
@@ -238,6 +246,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   }
 
   Future<void> _testConnection() async {
+    final l10n = AppLocalizations.of(context);
     final saved = await _save(showSuccess: false);
     // `_save` rend les réglages même si l'écran a été quitté entre-temps :
     // sans ce garde, le `setState` suivant s'exécute après `dispose()`.
@@ -247,16 +256,18 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
     setState(() => _testing = true);
     try {
-      await ref.read(personalApiSettingsProvider.notifier).testConnection();
+      await ref
+          .read(personalApiSettingsProvider.notifier)
+          .testConnection(l10n: l10n);
       if (mounted) {
-        _showSnack(
-          'Connexion réussie à ${saved.provider.displayName} avec ${saved.model}.',
-        );
+        _showSnack(l10n.apiConnected(saved.provider.displayName, saved.model));
       }
     } catch (error) {
       if (mounted) {
         _showSnack(
-          'Échec de connexion : ${describePersonalApiError(error, AppLocalizations.of(context))}',
+          l10n.apiConnectionFailed(
+            describePersonalApiError(error, AppLocalizations.of(context)),
+          ),
         );
       }
     } finally {
@@ -267,6 +278,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
   }
 
   Future<void> _deleteApiKey() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final settings = await ref
           .read(personalApiSettingsProvider.notifier)
@@ -276,11 +288,13 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
       }
       _apiKeyController.clear();
       setState(() => _useInChat = settings.useInChat);
-      _showSnack('Clé API supprimée.');
+      _showSnack(l10n.apiKeyDeleted);
     } catch (error) {
       if (mounted) {
         _showSnack(
-          'Suppression impossible : ${describePersonalApiError(error, AppLocalizations.of(context))}',
+          l10n.apiDeleteFailed(
+            describePersonalApiError(error, AppLocalizations.of(context)),
+          ),
         );
       }
     }
@@ -310,6 +324,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final fox = context.fox;
     final state = ref.watch(personalApiSettingsProvider);
     final hasStoredKey = _matchesStoredKeyDestination(state.value);
@@ -317,7 +332,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'API personnelle',
+          l10n.settingsPersonalApi,
           style: TextStyle(color: fox.textPrimary, fontWeight: FontWeight.w700),
         ),
       ),
@@ -327,7 +342,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 36),
               children: <Widget>[
                 Text(
-                  'Ton fournisseur, ta clé, ton modèle',
+                  l10n.apiSubtitle,
                   style: TextStyle(
                     color: fox.textPrimary,
                     fontSize: 20,
@@ -336,9 +351,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'FoxLLM contacte directement le fournisseur depuis ton téléphone. '
-                  'Pour les fournisseurs connus, la Base URL est configurée automatiquement '
-                  'et les modèles accessibles sont récupérés avec ta clé.',
+                  l10n.apiIntro,
                   style: TextStyle(
                     color: fox.textSecondary,
                     fontSize: 14,
@@ -350,18 +363,24 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      const _FieldLabel('Fournisseur'),
+                      _FieldLabel(l10n.apiProvider),
                       DropdownButtonFormField<String>(
                         key: ValueKey<String>('provider-$_providerId'),
                         initialValue: _providerId,
                         dropdownColor: fox.surfaceInput,
                         style: TextStyle(color: fox.textPrimary),
-                        decoration: _inputDecoration('Fournisseur'),
+                        decoration: _inputDecoration(l10n.apiProvider),
                         items: personalApiProviders
                             .map(
                               (provider) => DropdownMenuItem<String>(
                                 value: provider.id,
-                                child: Text(provider.displayName),
+                                child: Text(
+                                  // Seul « Personnalisé » se traduit : les
+                                  // autres sont des noms propres.
+                                  provider.id == customPersonalApiProvider.id
+                                      ? l10n.providerCustom
+                                      : provider.displayName,
+                                ),
                               ),
                             )
                             .toList(growable: false),
@@ -394,8 +413,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                         decoration:
                             _inputDecoration(
                               hasStoredKey
-                                  ? 'Clé déjà enregistrée · laisse vide pour la conserver'
-                                  : 'Clé API ${_provider.displayName}',
+                                  ? l10n.apiKeyAlreadySaved
+                                  : l10n.apiKeyFor(_provider.displayName),
                             ).copyWith(
                               suffixIcon: IconButton(
                                 tooltip: _obscureApiKey
@@ -428,9 +447,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.cloud_download_outlined),
-                            label: const Text(
-                              'Récupérer les modèles disponibles',
-                            ),
+                            label: Text(l10n.apiFetchModels),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: fox.textPrimary,
                               minimumSize: const Size.fromHeight(48),
@@ -463,8 +480,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                           style: TextStyle(color: fox.textPrimary),
                           decoration: _inputDecoration(
                             _models.isEmpty
-                                ? 'Récupère d’abord les modèles'
-                                : 'Choisis un modèle',
+                                ? l10n.apiFetchFirst
+                                : l10n.apiChooseModel,
                           ),
                           items: _models
                               .map(
@@ -504,8 +521,8 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                                   },
                             child: Text(
                               _manualModel
-                                  ? 'Revenir à la liste des modèles'
-                                  : 'Saisir un identifiant manuellement',
+                                  ? l10n.apiBackToList
+                                  : l10n.apiTypeIdentifier,
                             ),
                           ),
                         ),
@@ -522,14 +539,14 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                         value: _persistence == ApiKeyPersistence.device,
                         activeThumbColor: fox.accent,
                         title: Text(
-                          'Mémoriser sur cet appareil',
+                          l10n.apiRemember,
                           style: TextStyle(
                             color: fox.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         subtitle: Text(
-                          'Désactivé = clé gardée seulement pendant cette session.',
+                          l10n.apiRememberHint,
                           style: TextStyle(
                             color: fox.textSecondary,
                             fontSize: 13,
@@ -551,15 +568,14 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                         value: _useInChat,
                         activeThumbColor: fox.accent,
                         title: Text(
-                          'Utiliser dans le chat',
+                          l10n.apiUseInChat,
                           style: TextStyle(
                             color: fox.textPrimary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         subtitle: Text(
-                          'Quand activé, le chat utilise ${_provider.displayName} '
-                          'au lieu du modèle GGUF local.',
+                          l10n.apiUseInChatHint(_provider.displayName),
                           style: TextStyle(
                             color: fox.textSecondary,
                             fontSize: 13,
@@ -581,7 +597,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: const Text('Enregistrer'),
+                  label: Text(l10n.apiSave),
                   style: FilledButton.styleFrom(
                     backgroundColor: fox.accent,
                     foregroundColor: fox.onAccent,
@@ -597,7 +613,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.wifi_tethering_outlined),
-                  label: const Text('Tester la connexion'),
+                  label: Text(l10n.apiTest),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: fox.textPrimary,
                     minimumSize: const Size.fromHeight(50),
@@ -605,8 +621,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Le test envoie une très courte requête au modèle sélectionné '
-                  'et peut consommer quelques tokens.',
+                  l10n.apiTestHint,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: fox.textSecondary,
@@ -619,7 +634,7 @@ class _PersonalApiScreenState extends ConsumerState<PersonalApiScreen> {
                   TextButton.icon(
                     onPressed: _busy ? null : _deleteApiKey,
                     icon: const Icon(Icons.delete_outline),
-                    label: const Text('Supprimer la clé API'),
+                    label: Text(l10n.apiDeleteKey),
                     style: TextButton.styleFrom(
                       foregroundColor: Colors.redAccent,
                     ),
